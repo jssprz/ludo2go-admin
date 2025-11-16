@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "vercel-build": "prisma generate && if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy; else echo \"Skipping migrations in $VERCEL_ENV\"; fi && next build",
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "@adminjs/express": "^6.1.1",
+    "@jssprz/ludo2go-database": "^0.1.1",
+    "adminjs": "^7.8.17",
+    "connect-pg-simple": "^10.0.0"
+  }
+}
