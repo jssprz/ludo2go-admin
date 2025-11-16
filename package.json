@@ -11,9 +11,9 @@
     "vercel-build": "npm ci --omit=optional"
   },
   "dependencies": {
-    "@adminjs/express": "^6.1.1",
+    "@adminjs/express": "^5.1.0",
     "@jssprz/ludo2go-database": "0.1.1",
-    "adminjs": "^7.8.17",
+    "adminjs": "^6.8.7",
     "express": "^4.21.0",
     "express-formidable": "^1.2.0",
     "express-session": "^1.18.0"
