@@ -11,7 +11,7 @@ app.use((err, req, res, next) => {
 });
 
 const admin = new AdminJS({
-  rootPath: '/admin',
+  rootPath: '',
   // resources: [...]
 });
 
