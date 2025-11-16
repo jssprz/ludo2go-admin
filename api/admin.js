@@ -1,7 +1,6 @@
-const app = require('../app');
+import app from '../app.js';
 
 // Vercel Node function handler
-module.exports = (req, res) => {
-  // Express app is a function (req, res, next), so this works:
-  app(req, res);
-};
+export default function handler(req, res) {
+  return app(req, res);
+}

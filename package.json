@@ -3,19 +3,20 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node app.js",
-    "start": "node app.js",
+    "dev": "NODE_ENV=development node app.js",
+    "start": "NODE_ENV=production node app.js",
     "build": "echo 'No build step required'",
     "clean": "rm -rf node_modules package-lock.json",
-    "reinstall": "npm run clean && npm install"
+    "reinstall": "npm run clean && npm install",
+    "vercel-build": "npm ci --omit=optional"
   },
   "dependencies": {
-    "adminjs": "^7.8.17",
     "@adminjs/express": "^6.1.1",
+    "@jssprz/ludo2go-database": "0.1.1",
+    "adminjs": "^7.8.17",
     "express": "^4.21.0",
     "express-formidable": "^1.2.0",
-    "express-session": "^1.18.0",
-    "@jssprz/ludo2go-database": "0.1.1"
+    "express-session": "^1.18.0"
   },
   "description": "A modern AdmingJS web application for managin the e-commerce data.",
   "repository": {
@@ -28,5 +29,8 @@
   "bugs": {
     "url": "https://github.com/jssprz/ludo2go-admin/issues"
   },
-  "homepage": "https://github.com/jssprz/ludo2go-admin#readme"
+  "homepage": "https://github.com/jssprz/ludo2go-admin#readme",
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.53.2"
+  }
 }
