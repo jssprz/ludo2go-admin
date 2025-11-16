@@ -1,7 +1,8 @@
 {
+  "type": "module",
   "scripts": {
     "vercel-build": "prisma generate && if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy; else echo \"Skipping migrations in $VERCEL_ENV\"; fi && next build",
-    "start": "node src/app.js"
+    "dev": "node app.js"
   },
   "dependencies": {
     "@adminjs/express": "^6.1.1",
