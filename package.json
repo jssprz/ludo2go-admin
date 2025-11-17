@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "NODE_ENV=development node app.js",
     "start": "NODE_ENV=production node app.js",
-    "build": "echo 'No build step required'",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
     "clean": "rm -rf node_modules package-lock.json",
     "reinstall": "npm run clean && npm install",
-    "vercel-build": "echo 'No build step required'"
+    "vercel-build": "prisma generate"
   },
   "prisma": {
     "schema": "node_modules/@jssprz/ludo2go-database/prisma/schema.prisma"
@@ -20,10 +21,10 @@
     "@jssprz/ludo2go-database": "^0.1.1",
     "adminjs": "^7.8.17",
     "express": "^4.21.0",
-    "express-session": "^1.18.2"
+    "express-session": "^1.18.2",
+    "prisma": "^6.19.0"
   },
   "devDependencies": {
-    "prisma": "^6.19.0"
   },
   "overrides": {
     "rollup": "npm:@rollup/wasm-node"
