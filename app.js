@@ -7,6 +7,16 @@ import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import fs from 'fs';
 
+// 👇 On Vercel, use /tmp as working directory so `.adminjs` is writable
+if (process.env.VERCEL) {
+  try {
+    process.chdir('/tmp');
+    console.log('Changed cwd to /tmp for AdminJS bundler on Vercel');
+  } catch (err) {
+    console.error('Failed to chdir to /tmp', err);
+  }
+}
+
 const prisma = new PrismaClient(); // uses DATABASE_URL from env
 
 // Register Prisma adapter
@@ -26,17 +36,8 @@ const authenticate = async (email, password) => {
 
 const app = express();
 
-// Create .adminjs directory in writable location
-const adminJsDir = (process.env.VERCEL || process.env.NODE_ENV === 'production')
-  ? '/tmp/.adminjs'  // Use /tmp in Vercel (writable)
-  : path.join(process.cwd(), '.adminjs');  // Use project dir locally
 
-if (!fs.existsSync(adminJsDir)) {
-  fs.mkdirSync(adminJsDir, { recursive: true });
-}
 
-// Override AdminJS bundle path
-process.env.ADMIN_JS_BUNDLE_PATH = adminJsDir;
 
 const admin = new AdminJS({
   rootPath: '/admin',
