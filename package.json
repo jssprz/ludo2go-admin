@@ -17,14 +17,16 @@
   "dependencies": {
     "@adminjs/express": "^6.1.1",
     "@adminjs/prisma": "^5.0.4",
-    "@prisma/client": "^6.19.0",
     "@jssprz/ludo2go-database": "^0.1.1",
+    "@prisma/client": "^6.19.0",
     "adminjs": "^7.8.17",
     "express": "^4.21.0",
     "express-session": "^1.18.2",
     "prisma": "^6.19.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.5",
+    "@babel/plugin-syntax-import-assertions": "^7.27.1"
   },
   "overrides": {
     "rollup": "npm:@rollup/wasm-node"
