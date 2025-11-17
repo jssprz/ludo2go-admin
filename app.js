@@ -26,17 +26,18 @@ const authenticate = async (email, password) => {
 
 const app = express();
 
-// Create .adminjs directory for Vercel (serverless environments need this pre-created)
-const adminJsDir = path.join(process.cwd(), '.adminjs');
+// Create .adminjs directory in writable location
+const adminJsDir = (process.env.VERCEL || process.env.NODE_ENV === 'production')
+  ? '/tmp/.adminjs'  // Use /tmp in Vercel (writable)
+  : path.join(process.cwd(), '.adminjs');  // Use project dir locally
+
 if (!fs.existsSync(adminJsDir)) {
-  try {
-    fs.mkdirSync(adminJsDir, { recursive: true });
-  } catch (error) {
-    console.log('Could not create .adminjs directory (may be read-only):', error.message);
-  }
+  fs.mkdirSync(adminJsDir, { recursive: true });
 }
 
-// AdminJS setup  
+// Override AdminJS bundle path
+process.env.ADMIN_JS_BUNDLE_PATH = adminJsDir;
+
 const admin = new AdminJS({
   rootPath: '/admin',
   resources: [
