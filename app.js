@@ -87,6 +87,16 @@ const sessionOptions = {
 // This adds express-session middleware
 app.use(session(sessionOptions));
 
+// Serve AdminJS static assets
+app.use('/admin/frontend', express.static(path.join(__dirname, 'node_modules/adminjs/lib/frontend'), {
+  maxAge: '1y',
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js') || path.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
+
 const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
   admin,
   {
