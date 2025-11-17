@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "functions": {
+    "api/admin.js": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "routes": [
+    {
+      "src": "/admin/frontend/(.*)",
+      "dest": "/api/admin.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/admin.js"
+    }
+  ],
+  "buildCommand": "prisma generate"
+}
