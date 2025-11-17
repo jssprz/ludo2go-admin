@@ -29,12 +29,41 @@ const admin = new AdminJS({
   rootPath: '/admin',
   resources: [
     {
-      // Use Prisma adapter helper to get model metadata
       resource: { model: getModelByName('Product'), client: prisma },
       options: {
         navigation: 'Products',
       },
     },
+    {
+      resource: { model: getModelByName('GameDetails'), client: prisma },
+      options: {
+        navigation: 'Games',
+      },
+    },
+    {
+      resource: { model: getModelByName('AccessoryDetails'), client: prisma },
+      options: {
+        navigation: 'Accessories',
+      },
+    },
+    {
+      resource: { model: getModelByName('GameTimeline'), client: prisma },
+      options: {
+        navigation: 'Timelines',
+      },
+    },
+    {
+      resource: { model: getModelByName('Publisher'), client: prisma },
+      options: {
+        navigation: 'Publishers',
+      },
+    },
+    {
+      resource: { model: getModelByName('GameplayComplexityTier'), client: prisma },
+      options: {
+        navigation: 'Game Complexity tiers',
+      },
+    }
   ],
 });
 
