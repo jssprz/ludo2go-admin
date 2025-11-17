@@ -26,7 +26,7 @@ const app = express();
 
 // AdminJS setup
 const admin = new AdminJS({
-  rootPath: '/admin',
+  rootPath: '',
   resources: [
     {
       resource: { model: getModelByName('Product'), client: prisma },
