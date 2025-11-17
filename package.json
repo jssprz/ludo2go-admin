@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "NODE_ENV=development node app.js",
     "start": "NODE_ENV=production node app.js",
-    "build": "prisma generate",
-    "postinstall": "prisma generate",
+    "build": "mkdir -p .adminjs && prisma generate",
+    "postinstall": "mkdir -p .adminjs && prisma generate",
     "clean": "rm -rf node_modules package-lock.json",
     "reinstall": "npm run clean && npm install",
-    "vercel-build": "prisma generate"
+    "vercel-build": "mkdir -p .adminjs && prisma generate"
   },
   "prisma": {
     "schema": "node_modules/@jssprz/ludo2go-database/prisma/schema.prisma"
