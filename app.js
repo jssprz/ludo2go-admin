@@ -4,6 +4,8 @@ import AdminJSExpress from '@adminjs/express';
 import session from 'express-session';
 import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
 
 const prisma = new PrismaClient(); // uses DATABASE_URL from env
 
