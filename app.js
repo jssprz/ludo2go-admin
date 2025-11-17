@@ -4,6 +4,11 @@ import AdminJSExpress from '@adminjs/express';
 import session from 'express-session';
 import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient(); // uses DATABASE_URL from env
 
@@ -11,8 +16,8 @@ const prisma = new PrismaClient(); // uses DATABASE_URL from env
 AdminJS.registerAdapter({ Database, Resource });
 
 const DEFAULT_ADMIN = {
-  email: 'admin@example.com',
-  password: 'password',
+  email: 'admin',
+  password: '123',
 };
 
 const authenticate = async (email, password) => {
@@ -24,9 +29,9 @@ const authenticate = async (email, password) => {
 
 const app = express();
 
-// AdminJS setup
+// AdminJS setup  
 const admin = new AdminJS({
-  rootPath: '',
+  rootPath: '/admin',
   resources: [
     {
       resource: { model: getModelByName('Product'), client: prisma },
