@@ -6,6 +6,7 @@ import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,11 +88,48 @@ const sessionOptions = {
 // This adds express-session middleware
 app.use(session(sessionOptions));
 
-// Serve AdminJS static assets
-app.use('/admin/frontend', express.static(path.join(__dirname, 'node_modules/adminjs/lib/frontend'), {
+// Handle AdminJS static assets explicitly for serverless environment
+app.get('/admin/frontend/assets/*', (req, res) => {
+  try {
+    const assetPath = req.path.replace('/admin/frontend/assets/', '');
+    
+    // Map AdminJS asset requests to actual bundle files
+    let fullPath;
+    if (assetPath.includes('components.bundle.js') || assetPath.includes('app.bundle.js')) {
+      fullPath = path.join(process.cwd(), 'node_modules/adminjs/bundle/app-bundle.production.js');
+    } else if (assetPath.includes('design-system.bundle.js') || assetPath.includes('global.bundle.js')) {
+      fullPath = path.join(process.cwd(), 'node_modules/adminjs/bundle/global-bundle.production.js');
+    } else {
+      // Fallback to lib/frontend for other assets
+      fullPath = path.join(process.cwd(), 'node_modules/adminjs/lib/frontend', assetPath);
+    }
+    
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      console.error('AdminJS asset not found:', req.path, '-> File:', fullPath);
+      return res.status(404).send('Asset not found');
+    }
+    
+    // Set appropriate content type
+    if (fullPath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    } else if (fullPath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    }
+    
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.sendFile(fullPath);
+  } catch (error) {
+    console.error('Error serving AdminJS asset:', error);
+    res.status(500).send('Error serving asset: ' + error.message);
+  }
+});
+
+// Fallback for other AdminJS frontend files
+app.use('/admin/frontend', express.static(path.join(process.cwd(), 'node_modules/adminjs/lib/frontend'), {
   maxAge: '1y',
-  setHeaders: (res, path) => {
-    if (path.endsWith('.js') || path.endsWith('.css')) {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
   }
