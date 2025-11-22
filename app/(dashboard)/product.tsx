@@ -10,8 +10,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { SelectProduct } from '@/lib/db';
 import { deleteProduct } from './actions';
+
+interface SelectProduct {
+  id: string, name: string, shortDescription: string | null,
+  description: string | null, tags: string[], brand: string | null,
+  mediaLinks: { media: { url: string } }[]
+}
 
 export function Product({ product }: { product: SelectProduct }) {
   return (
@@ -21,21 +26,21 @@ export function Product({ product }: { product: SelectProduct }) {
           alt="Product image"
           className="aspect-square rounded-md object-cover"
           height="64"
-          src={product.imageUrl}
+          src={product.mediaLinks[0].media.url}
           width="64"
         />
       </TableCell>
       <TableCell className="font-medium">{product.name}</TableCell>
-      <TableCell>
+      {/* <TableCell>
         <Badge variant="outline" className="capitalize">
           {product.status}
         </Badge>
-      </TableCell>
-      <TableCell className="hidden md:table-cell">{`$${product.price}`}</TableCell>
-      <TableCell className="hidden md:table-cell">{product.stock}</TableCell>
-      <TableCell className="hidden md:table-cell">
+      </TableCell> */}
+      {/* <TableCell className="hidden md:table-cell">{`$${product.price}`}</TableCell> */}
+      {/* <TableCell className="hidden md:table-cell">{product.stock}</TableCell> */}
+      {/* <TableCell className="hidden md:table-cell">
         {product.availableAt.toLocaleDateString("en-US")}
-      </TableCell>
+      </TableCell> */}
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

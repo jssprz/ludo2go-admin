@@ -16,10 +16,16 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Product } from './product';
-import { SelectProduct } from '@/lib/db';
+import { GameCategory, ProductionQualityTier, GameTimelineEventType } from '@prisma/client'
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+interface SelectProduct {
+  id: string, name: string, shortDescription: string | null,
+  description: string | null, tags: string[], brand: string | null,
+  mediaLinks: { media: { url: string } }[]
+}
 
 export function ProductsTable({
   products,
