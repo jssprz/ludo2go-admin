@@ -14,6 +14,7 @@ import {
 import { count, eq, ilike } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
 import { prisma } from '@jssprz/ludo2go-database';
+import { ProductStatus } from '@prisma/client';
 
 export const db = drizzle(neon(process.env.POSTGRES_URL!));
 
@@ -32,11 +33,27 @@ export const statusEnum = pgEnum('status', ['active', 'inactive', 'archived']);
 // export type SelectProduct = typeof products.$inferSelect;
 // export const insertProductSchema = createInsertSchema(products);
 
+
 export async function getProducts(
   search: string,
-  offset: number
+  offset: number,
+  status: ProductStatus | undefined
 ) {
   // Always search the full table, not per page
+
+  const where: any = {};
+
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { slug: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  if (status) {
+    where.status = status;
+  }
+
   if (search) {
     return {
       products: await prisma.product.findMany({
@@ -47,12 +64,9 @@ export async function getProducts(
             }
           }
         },
-        where: {
-          name: {
-            contains: search
-          }
-        },
-        take: 1000
+        where,
+        take: 1000,
+        orderBy: { createdAt: 'desc' },
       }), newOffset: null,
       totalProducts: 0
     }
@@ -62,7 +76,7 @@ export async function getProducts(
     return { products: [], newOffset: null, totalProducts: 0 };
   }
 
-  let totalProducts = await prisma.product.count();
+  let totalProducts = await prisma.product.count({ where });
   let moreProducts = await prisma.product.findMany({
     include: {
       mediaLinks: {
@@ -76,7 +90,7 @@ export async function getProducts(
 
   return {
     products: moreProducts,
-    newOffset,
+    newOffset: newOffset,
     totalProducts: totalProducts
   };
 }

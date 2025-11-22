@@ -44,7 +44,7 @@ export function ProductsTable({
   }
 
   function nextPage() {
-    router.push(`/?offset=${offset}`, { scroll: false });
+    router.push(`products/?offset=${offset}`, { scroll: false });
   }
 
   return (
