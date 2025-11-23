@@ -15,13 +15,13 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
-import { Product } from './product';
+import { ProductRow } from './product-row';
 import { GameCategory, ProductionQualityTier, GameTimelineEventType } from '@prisma/client'
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductStatus } from '@prisma/client';
-import { SelectProduct } from './product';
+import { SelectProduct } from './product-row';
 
 export function ProductsTable({
   products,
@@ -78,7 +78,7 @@ export function ProductsTable({
           </TableHeader>
           <TableBody>
             {products.map((product) => (
-              <Product key={product.id} product={product} />
+              <ProductRow key={product.id} product={product} />
             ))}
           </TableBody>
         </Table>

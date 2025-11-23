@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { deleteProduct } from '../actions';
+import { deleteProduct } from './actions';
 import { ProductStatus } from '@prisma/client';
+import Link from 'next/link';
 
 export interface SelectProduct {
   id: string, name: string, status: ProductStatus, shortDescription: string | null,
@@ -20,7 +21,7 @@ export interface SelectProduct {
   variants: any[]
 }
 
-export function Product({ product }: { product: SelectProduct }) {
+export function ProductRow({ product }: { product: SelectProduct }) {
   return (
     <TableRow>
       <TableCell className="hidden sm:table-cell">
@@ -55,7 +56,12 @@ export function Product({ product }: { product: SelectProduct }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem>
+              <Link href={`/products/${product.id}/edit`}>
+                Edit
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem>Duplicate</DropdownMenuItem>
             <DropdownMenuItem>
               <form action={deleteProduct}>
                 <button type="submit">Delete</button>
