@@ -61,7 +61,8 @@ export async function getProducts(
         include: {
           media: true
         }
-      }
+      },
+      variants: true
     }, 
     where, 
     take: 5, 

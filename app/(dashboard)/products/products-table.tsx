@@ -20,12 +20,8 @@ import { GameCategory, ProductionQualityTier, GameTimelineEventType } from '@pri
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface SelectProduct {
-  id: string, name: string, shortDescription: string | null,
-  description: string | null, tags: string[], brand: string | null,
-  mediaLinks: { media: { url: string } }[]
-}
+import { ProductStatus } from '@prisma/client';
+import { SelectProduct } from './product';
 
 export function ProductsTable({
   products,
@@ -68,10 +64,12 @@ export function ProductsTable({
               </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell">Price</TableHead>
+              {/* <TableHead className="hidden md:table-cell">Price</TableHead> */}
+              <TableHead className="hidden md:table-cell">Variants</TableHead>
               <TableHead className="hidden md:table-cell">
                 Total Sales
               </TableHead>
+              <TableHead className="hidden md:table-cell">Stock</TableHead>
               <TableHead className="hidden md:table-cell">Created at</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
