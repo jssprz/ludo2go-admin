@@ -105,6 +105,8 @@ export default async function ProductsPage(
           products={products}
           offset={newOffset ?? 0}
           totalProducts={totalProducts}
+          q={search}
+          status={searchParams.status}
         />
       </TabsContent>
     </Tabs>

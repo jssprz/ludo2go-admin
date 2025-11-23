@@ -30,11 +30,15 @@ interface SelectProduct {
 export function ProductsTable({
   products,
   offset,
-  totalProducts
+  totalProducts,
+  q,
+  status
 }: {
   products: SelectProduct[];
   offset: number;
   totalProducts: number;
+  q: string,
+  status?: string
 }) {
   let router = useRouter();
   let productsPerPage = 5;
@@ -44,7 +48,7 @@ export function ProductsTable({
   }
 
   function nextPage() {
-    router.push(`products/?offset=${offset}`, { scroll: false });
+    router.push(`products/?q=${q}&status=${status}&offset=${offset}`, { scroll: false });
   }
 
   return (
@@ -86,7 +90,7 @@ export function ProductsTable({
           <div className="text-xs text-muted-foreground">
             Showing{' '}
             <strong>
-              {Math.max(0, Math.min(offset - productsPerPage, totalProducts) + 1)}-{offset}
+              {offset - products.length + 1} - {offset}
             </strong>{' '}
             of <strong>{totalProducts}</strong> products
           </div>
@@ -106,7 +110,7 @@ export function ProductsTable({
               variant="ghost"
               size="sm"
               type="submit"
-              disabled={offset + productsPerPage > totalProducts}
+              disabled={offset >= totalProducts}
             >
               Next
               <ChevronRight className="ml-2 h-4 w-4" />

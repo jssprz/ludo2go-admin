@@ -54,28 +54,6 @@ export async function getProducts(
     where.status = status;
   }
 
-  if (search) {
-    return {
-      products: await prisma.product.findMany({
-        include: {
-          mediaLinks: {
-            include: {
-              media: true
-            }
-          }
-        },
-        where,
-        take: 1000,
-        orderBy: { createdAt: 'desc' },
-      }), newOffset: null,
-      totalProducts: 0
-    }
-  }
-
-  if (offset === null) {
-    return { products: [], newOffset: null, totalProducts: 0 };
-  }
-
   let totalProducts = await prisma.product.count({ where });
   let moreProducts = await prisma.product.findMany({
     include: {
@@ -84,9 +62,13 @@ export async function getProducts(
           media: true
         }
       }
-    }, take: 5, skip: offset
+    }, 
+    where, 
+    take: 5, 
+    skip: offset,
+    orderBy: { createdAt: 'desc' }
   });
-  let newOffset = moreProducts.length >= 5 ? offset + 5 : null;
+  let newOffset = moreProducts.length + offset;
 
   return {
     products: moreProducts,

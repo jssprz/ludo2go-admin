@@ -2,8 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Package, ShoppingCart, Users, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
+import { prisma } from '@jssprz/ludo2go-database';
 
-export default function AdminHomePage() {
+export default async function AdminHomePage() {
+  // get totals
+  let totalProducts = await prisma.product.count();
+  
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -32,7 +36,7 @@ export default function AdminHomePage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
+            <div className="text-2xl font-bold">{totalProducts}</div>
             <p className="text-xs text-muted-foreground">
               Total products in catalog
             </p>
