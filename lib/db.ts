@@ -14,6 +14,7 @@ import {
 import { count, eq, ilike } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
 import { prisma } from '@jssprz/ludo2go-database';
+import { ProductStatus } from '@prisma/client';
 
 export const db = drizzle(neon(process.env.POSTGRES_URL!));
 
@@ -32,37 +33,28 @@ export const statusEnum = pgEnum('status', ['active', 'inactive', 'archived']);
 // export type SelectProduct = typeof products.$inferSelect;
 // export const insertProductSchema = createInsertSchema(products);
 
+
 export async function getProducts(
   search: string,
-  offset: number
+  offset: number,
+  status: ProductStatus | undefined
 ) {
   // Always search the full table, not per page
+
+  const where: any = {};
+
   if (search) {
-    return {
-      products: await prisma.product.findMany({
-        include: {
-          mediaLinks: {
-            include: {
-              media: true
-            }
-          }
-        },
-        where: {
-          name: {
-            contains: search
-          }
-        },
-        take: 1000
-      }), newOffset: null,
-      totalProducts: 0
-    }
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { slug: { contains: search, mode: 'insensitive' } },
+    ];
   }
 
-  if (offset === null) {
-    return { products: [], newOffset: null, totalProducts: 0 };
+  if (status) {
+    where.status = status;
   }
 
-  let totalProducts = await prisma.product.count();
+  let totalProducts = await prisma.product.count({ where });
   let moreProducts = await prisma.product.findMany({
     include: {
       mediaLinks: {
@@ -70,13 +62,17 @@ export async function getProducts(
           media: true
         }
       }
-    }, take: 5, skip: offset
+    }, 
+    where, 
+    take: 5, 
+    skip: offset,
+    orderBy: { createdAt: 'desc' }
   });
-  let newOffset = moreProducts.length >= 5 ? offset + 5 : null;
+  let newOffset = moreProducts.length + offset;
 
   return {
     products: moreProducts,
-    newOffset,
+    newOffset: newOffset,
     totalProducts: totalProducts
   };
 }
