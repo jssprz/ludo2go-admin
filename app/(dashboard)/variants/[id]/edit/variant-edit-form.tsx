@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type VariantStatus = ProductVariant['status'];
 type Condition = ProductVariant['condition'];
@@ -249,12 +256,20 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
-          <Input
-            id="status"
+          <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value as VariantStatus)}
-          />
-          {/* Puedes cambiar esto a un <Select> con 'draft' | 'active' | 'archived' */}
+            onValueChange={(val) => setStatus(val as VariantStatus)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select kind" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Ajusta según el enum ProductKind que tengas */}
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
