@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, FormEvent } from 'react';
 import type {
   Product,
@@ -7,6 +8,7 @@ import type {
   AccessoryDetails,
   BundleDetails,
   BGGDetails,
+  ProductVariant
 } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 
@@ -27,6 +29,7 @@ type ProductWithDetails = Product & {
   accessory: AccessoryDetails | null;
   bundle: BundleDetails | null;
   bgg: BGGDetails | null;
+  variants: ProductVariant[];
 };
 
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
@@ -206,6 +209,46 @@ export function ProductEditForm({ product }: Props) {
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
         />
+      </div>
+
+      <div className="space-y-3 border rounded-md p-4">
+        <h2 className="text-sm font-medium">Variants / SKUs</h2>
+        {product.variants.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            This product has no variants yet.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {product.variants.map((v) => (
+              <div
+                key={v.id}
+                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2"
+              >
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium">
+                    {v.sku}{' '}
+                    {v.edition && (
+                      <span className="text-xs text-muted-foreground">
+                        ({v.edition})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {v.language ? `${v.language} · ` : ''}
+                    {v.status} · {v.condition}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/variants/${v.id}/edit`}>
+                      Edit variant
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {errorMsg && (

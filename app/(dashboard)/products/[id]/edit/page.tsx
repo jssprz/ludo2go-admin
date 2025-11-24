@@ -3,13 +3,11 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { ProductEditForm } from './product-edit-form';
 
 type PageProps = {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string; }>;
 };
 
 export default async function EditProductPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   const product = await prisma.product.findUnique({
     where: { id: id },
@@ -18,6 +16,7 @@ export default async function EditProductPage({ params }: PageProps) {
       accessory: true,
       bundle: true,
       bgg: true,
+      variants: true,
     },
   });
 
