@@ -3,9 +3,9 @@ import { bgg } from '@/lib/bgg/client'; // ajusta ruta si es distinta
 
 export async function GET(
   _req: Request,
-  { params }: { params: { bggId: string } }
+  { params }: { params: Promise<{ bggId: string }> }
 ) {
-  const { bggId } = params;
+  const { bggId } = await params;
 
   if (!bggId) {
     return NextResponse.json(
