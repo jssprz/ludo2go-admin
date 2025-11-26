@@ -16,24 +16,6 @@ import { createInsertSchema } from 'drizzle-zod';
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductStatus } from '@prisma/client';
 
-export const db = drizzle(neon(process.env.POSTGRES_URL!));
-
-export const statusEnum = pgEnum('status', ['active', 'inactive', 'archived']);
-
-// export const products = pgTable('products', {
-//   id: serial('id').primaryKey(),
-//   imageUrl: text('image_url').notNull(),
-//   name: text('name').notNull(),
-//   status: statusEnum('status').notNull(),
-//   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
-//   stock: integer('stock').notNull(),
-//   availableAt: timestamp('available_at').notNull()
-// });
-
-// export type SelectProduct = typeof products.$inferSelect;
-// export const insertProductSchema = createInsertSchema(products);
-
-
 export async function getProducts(
   search: string,
   offset: number,
@@ -61,7 +43,8 @@ export async function getProducts(
         include: {
           media: true
         }
-      }
+      },
+      variants: true
     }, 
     where, 
     take: 5, 
@@ -79,4 +62,11 @@ export async function getProducts(
 
 export async function deleteProductById(id: string) {
   await prisma.product.deleteMany({ where: { id: { equals: id } } })
+}
+
+export async function updateProduct(product: any){
+  return await prisma.product.update({
+    where: {id: product.id},
+    data: product
+  })
 }

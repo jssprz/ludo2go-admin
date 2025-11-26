@@ -11,14 +11,17 @@ import {
 import { MoreHorizontal } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { deleteProduct } from './actions';
+import { ProductStatus } from '@prisma/client';
+import Link from 'next/link';
 
-interface SelectProduct {
-  id: string, name: string, shortDescription: string | null,
-  description: string | null, tags: string[], brand: string | null,
-  mediaLinks: { media: { url: string } }[]
+export interface SelectProduct {
+  id: string, name: string, status: ProductStatus, shortDescription: string | null,
+  description: string | null, tags: string[], brand: string | null, createdAt: Date,
+  mediaLinks: { media: { url: string } }[],
+  variants: any[]
 }
 
-export function Product({ product }: { product: SelectProduct }) {
+export function ProductRow({ product }: { product: SelectProduct }) {
   return (
     <TableRow>
       <TableCell className="hidden sm:table-cell">
@@ -31,16 +34,18 @@ export function Product({ product }: { product: SelectProduct }) {
         />
       </TableCell>
       <TableCell className="font-medium">{product.name}</TableCell>
-      {/* <TableCell>
+      <TableCell>
         <Badge variant="outline" className="capitalize">
           {product.status}
         </Badge>
-      </TableCell> */}
+      </TableCell>
       {/* <TableCell className="hidden md:table-cell">{`$${product.price}`}</TableCell> */}
-      {/* <TableCell className="hidden md:table-cell">{product.stock}</TableCell> */}
-      {/* <TableCell className="hidden md:table-cell">
-        {product.availableAt.toLocaleDateString("en-US")}
-      </TableCell> */}
+      <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
+      <TableCell className="hidden md:table-cell">0</TableCell>
+      <TableCell className="hidden md:table-cell">0</TableCell>
+      <TableCell className="hidden md:table-cell">
+        {product.createdAt.toLocaleDateString("en-US")}
+      </TableCell>
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -51,7 +56,12 @@ export function Product({ product }: { product: SelectProduct }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem>Edit</DropdownMenuItem>
+            <DropdownMenuItem>
+              <Link href={`/products/${product.id}/edit`}>
+                Edit
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem>Duplicate</DropdownMenuItem>
             <DropdownMenuItem>
               <form action={deleteProduct}>
                 <button type="submit">Delete</button>
