@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Package, ShoppingCart, Users, PlusCircle, LineChart, Workflow } from 'lucide-react';
 import Link from 'next/link';
 import { prisma } from '@jssprz/ludo2go-database';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, EventType, DeviceType } from '@prisma/client';
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('es-CL', {
@@ -30,7 +30,7 @@ export default async function AdminHomePage() {
   let totalCancelledOrders = (await prisma.order.findMany({ where: { status: OrderStatus.cancelled } })).length
 
   // get averages
-  let variants = (await prisma.productVariant.findMany({ include: { prices: true }, where: {prices: {some: {}}} }))
+  let variants = (await prisma.productVariant.findMany({ include: { prices: true }, where: { prices: { some: {} } } }))
   let avgVariantPrice = variants.length ? variants.map((v) => v.prices[0].amount).reduce((sum, value) => sum + value, 0) / variants.length : 0
 
   let orders = (await prisma.order.findMany({ include: { items: true } }))
@@ -40,6 +40,25 @@ export default async function AdminHomePage() {
   let avgOrderTotal = orders.length ? orders.map((o) => o.total).reduce((sum, value) => sum + value, 0) / orders.length : 0
   let avgCustomerSpent = totalCustomers ? orders.map((o) => o.total).reduce((sum, value) => sum + value, 0) / totalCustomers : 0
 
+  // events
+  let avgCustomerVisits = totalCustomers ? (await prisma.event.groupBy({ by: ['sessionId'], where: { customerId: { not: null }, }, _count: { _all: true, }, })).map((g) => g._count._all).reduce((sum, value) => sum + value, 0) / totalCustomers : 0
+  let totalDesktopVisits = (await prisma.event.groupBy({ by: ["sessionId"], where: { deviceType: DeviceType.desktop } })).length
+  let totalMobileVisits = (await prisma.event.groupBy({ by: ["sessionId"], where: { deviceType: DeviceType.mobile } })).length
+  let desktopPurchases = (await prisma.event.findMany({ where: { deviceType: DeviceType.desktop, eventType: EventType.purchase } })).length
+  let mobilePurchases = (await prisma.event.findMany({ where: { deviceType: DeviceType.mobile, eventType: EventType.purchase } })).length
+  let desktopAtoC = (await prisma.event.findMany({ where: { deviceType: DeviceType.desktop, eventType: EventType.add_to_cart } })).length
+  let mobileAtoC = (await prisma.event.findMany({ where: { deviceType: DeviceType.mobile, eventType: EventType.add_to_cart } })).length
+  let desktopSearches = (await prisma.event.findMany({ where: { deviceType: DeviceType.desktop, eventType: EventType.search_performed } })).length
+  let mobileSearches = (await prisma.event.findMany({ where: { deviceType: DeviceType.mobile, eventType: EventType.search_performed } })).length
+  let desktopProductImprs = (await prisma.event.findMany({ where: { deviceType: DeviceType.desktop, eventType: EventType.product_impression } })).length
+  let mobileProductImprs = (await prisma.event.findMany({ where: { deviceType: DeviceType.mobile, eventType: EventType.product_impression } })).length
+  let desktopConversion = totalDesktopVisits ? desktopPurchases / totalDesktopVisits : 0
+  let mobileConversion = totalMobileVisits ? mobilePurchases / totalMobileVisits : 0
+  let desktopAtoCsRate = totalDesktopVisits ? desktopAtoC / totalDesktopVisits : 0
+  let mobileAtoCsRate = totalMobileVisits ? mobileAtoC / totalMobileVisits : 0
+  let avgDesktopProductImprs = totalVairants ? desktopProductImprs / totalVairants : 0
+  let avgMobileProductImprs = totalVairants ? mobileProductImprs / totalVairants : 0
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -47,7 +66,7 @@ export default async function AdminHomePage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Manage products, orders, and customers for your board game store.
+            Manage catalog, stock, orders, shipping, and customers of the store.
           </p>
         </div>
         <div className="flex gap-2">
@@ -197,7 +216,7 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{Math.round(avgCustomerVisits * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Visits
                 </p>
@@ -233,37 +252,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-6'>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{totalMobileVisits}</div>
                 <p className="text-xs text-muted-foreground">
                   Visits
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{Math.round(mobileConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Conversion
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{Math.round(mobileAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   AtoC
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{mobileSearches}</div>
                 <p className="text-xs text-muted-foreground">
                   Searches
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{mobileProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Item Imprs
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{avgMobileProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Item Imprs
                 </p>
@@ -272,7 +291,7 @@ export default async function AdminHomePage() {
           </CardContent>
         </Card>
 
-        {/* Web Traffic & Rates */}
+        {/* Desktop Traffic & Rates */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Desktop Traffic & Rates</CardTitle>
@@ -281,37 +300,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-6'>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{totalDesktopVisits}</div>
                 <p className="text-xs text-muted-foreground">
                   Visits
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Conversion
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   AtoC
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{desktopSearches}</div>
                 <p className="text-xs text-muted-foreground">
                   Searches
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{desktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Item Imprs
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">{avgDesktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Item Imprs
                 </p>
