@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
+import { Trash2, Plus, Check } from 'lucide-react';
 
 type VariantStatus = ProductVariant['status'];
 type Condition = ProductVariant['condition'];
@@ -34,6 +35,16 @@ type StoreLink = {
 };
 
 type StoreLinkState = StoreLink & { fullUrl: string };
+
+type VariantPrice = {
+  id: string; // temporary ID for UI, or real DB ID if exists
+  amount: number;
+  currency: string;
+  type: 'list' | 'sale' | 'cost';
+  isActive: boolean;
+  startDate: string | null;
+  endDate: string | null;
+};
 
 type Props = {
   variant: VariantWithRelations;
@@ -78,6 +89,12 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
     }))
   );
 
+  // Initialize prices - you may need to adjust based on your actual variant schema
+  const [prices, setPrices] = useState<VariantPrice[]>([
+    // Example: if variant has listPrice, salePrice fields, map them here
+    // For now, starting with an empty array or you can add default values
+  ]);
+
   const [isSaving, setIsSaving] = useState(false);
   const [scrapingStoreId, setScrapingStoreId] = useState<string | null>(null);
   const [isScrapingAll, setIsScrapingAll] = useState(false);
@@ -88,6 +105,44 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
     setStoresState((prev) =>
       prev.map((s) =>
         s.storeId === storeId ? { ...s, fullUrl: value } : s
+      )
+    );
+  }
+
+  // Price management functions
+  function handleAddPrice() {
+    const newPrice: VariantPrice = {
+      id: `temp-${Date.now()}`,
+      amount: 0,
+      currency: 'CLP',
+      type: 'list',
+      isActive: true,
+      startDate: null,
+      endDate: null,
+    };
+    setPrices((prev) => [...prev, newPrice]);
+  }
+
+  function handlePriceChange(
+    id: string,
+    field: keyof VariantPrice,
+    value: any
+  ) {
+    setPrices((prev) =>
+      prev.map((price) =>
+        price.id === id ? { ...price, [field]: value } : price
+      )
+    );
+  }
+
+  function handleRemovePrice(id: string) {
+    setPrices((prev) => prev.filter((price) => price.id !== id));
+  }
+
+  function handleToggleActivePrice(id: string) {
+    setPrices((prev) =>
+      prev.map((price) =>
+        price.id === id ? { ...price, isActive: !price.isActive } : price
       )
     );
   }
@@ -206,6 +261,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
           status,
           condition,
           storeUrls: storeUrlsPayload,
+          prices: prices,
         }),
       });
 
@@ -224,7 +280,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
+    <form onSubmit={handleSubmit} className="space-y-8">
       {/* Variant core fields (simplified) */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -282,78 +338,244 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
         </div>
       </div>
 
-      {/* Store URLs section */}
-      <div className="space-y-3 border rounded-md p-4">
+      {/* Two-column layout: Store URLs (left) and Variant Prices (right) */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Store URLs section */}
+        <div className="space-y-3 border rounded-md p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">Store links for this variant</h2>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isScrapingAll || storesState.every((s) => !s.fullUrl.trim())}
+              onClick={handleScrapeAll}
+            >
+              {isScrapingAll ? 'Scraping all…' : 'Scrape All'}
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Paste the full URL of this variant in each store. We&apos;ll store only the
+            path for scraping.
+          </p>
+
+          <div className="space-y-2">
+            {storesState.map((store) => (
+              <div key={store.storeId} className="space-y-1">
+                <Label htmlFor={`store-${store.storeId}`}>
+                  {store.storeName}{' '}
+                  <span className="text-xs text-muted-foreground">
+                    (<Link href={store.storeBaseUrl} target='__blank'>{store.storeBaseUrl}</Link>)
+                  </span>
+                </Label>
+
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={`store-${store.storeId}`}
+                    placeholder={`${store.storeBaseUrl}/...`}
+                    value={store.fullUrl}
+                    onChange={(e) =>
+                      handleStoreUrlChange(store.storeId, e.target.value)
+                    }
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      !store.fullUrl.trim() ||
+                      scrapingStoreId === store.storeId
+                    }
+                    onClick={() => handleScrape(store.storeId)}
+                  >
+                    {scrapingStoreId === store.storeId ? 'Scraping…' : 'Scrape'}
+                  </Button>
+                </div>
+
+                {(store.observedPrice != null || store.observedAt) && (
+                  <p className="text-xs text-muted-foreground">
+                    Current:{' '}
+                    {store.observedPrice != null
+                      ? `${store.observedPrice.toLocaleString('es-CL')} ${
+                          store.currency || 'CLP'
+                        }`
+                      : '—'}{' '}
+                    {store.observedAt && (
+                      <>
+                        · {formatObservedAt(store.observedAt)}
+                      </>
+                    )}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Variant Prices Section */}
+        <div className="space-y-3 border rounded-md p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">Store links for this variant</h2>
+          <h2 className="text-sm font-medium">Variant Prices</h2>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            disabled={isScrapingAll || storesState.every((s) => !s.fullUrl.trim())}
-            onClick={handleScrapeAll}
+            onClick={handleAddPrice}
           >
-            {isScrapingAll ? 'Scraping all…' : 'Scrape All'}
+            <Plus className="h-4 w-4 mr-1" />
+            Add Price
           </Button>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Paste the full URL of this variant in each store. We&apos;ll store only the
-          path for scraping.
+          Manage the pricing for this variant. Mark a price as active to use it.
         </p>
 
-        <div className="space-y-2">
-          {storesState.map((store) => (
-            <div key={store.storeId} className="space-y-1">
-              <Label htmlFor={`store-${store.storeId}`}>
-                {store.storeName}{' '}
-                <span className="text-xs text-muted-foreground">
-                  (<Link href={store.storeBaseUrl} target='__blank'>{store.storeBaseUrl}</Link>)
-                </span>
-              </Label>
+        {prices.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No prices added yet. Click &quot;Add Price&quot; to create one.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {prices.map((price) => (
+              <div
+                key={price.id}
+                className={`border rounded-md p-3 space-y-3 ${
+                  price.isActive ? 'bg-green-50 border-green-200' : 'bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={price.isActive ? 'default' : 'outline'}
+                      onClick={() => handleToggleActivePrice(price.id)}
+                      className="h-8"
+                    >
+                      {price.isActive && <Check className="h-3 w-3 mr-1" />}
+                      {price.isActive ? 'Active' : 'Inactive'}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleRemovePrice(price.id)}
+                    className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <Input
-                  id={`store-${store.storeId}`}
-                  placeholder={`${store.storeBaseUrl}/...`}
-                  value={store.fullUrl}
-                  onChange={(e) =>
-                    handleStoreUrlChange(store.storeId, e.target.value)
-                  }
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    !store.fullUrl.trim() ||
-                    scrapingStoreId === store.storeId
-                  }
-                  onClick={() => handleScrape(store.storeId)}
-                >
-                  {scrapingStoreId === store.storeId ? 'Scraping…' : 'Scrape'}
-                </Button>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`price-amount-${price.id}`}>Amount</Label>
+                    <Input
+                      id={`price-amount-${price.id}`}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={price.amount}
+                      onChange={(e) =>
+                        handlePriceChange(
+                          price.id,
+                          'amount',
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor={`price-currency-${price.id}`}>Currency</Label>
+                    <Select
+                      value={price.currency}
+                      onValueChange={(val) =>
+                        handlePriceChange(price.id, 'currency', val)
+                      }
+                    >
+                      <SelectTrigger id={`price-currency-${price.id}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CLP">CLP</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="ARS">ARS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor={`price-type-${price.id}`}>Price Type</Label>
+                    <Select
+                      value={price.type}
+                      onValueChange={(val) =>
+                        handlePriceChange(price.id, 'type', val)
+                      }
+                    >
+                      <SelectTrigger id={`price-type-${price.id}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="list">List Price</SelectItem>
+                        <SelectItem value="sale">Sale Price</SelectItem>
+                        <SelectItem value="cost">Cost</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor={`price-start-${price.id}`}>
+                      Start Date (optional)
+                    </Label>
+                    <Input
+                      id={`price-start-${price.id}`}
+                      type="date"
+                      value={price.startDate || ''}
+                      onChange={(e) =>
+                        handlePriceChange(
+                          price.id,
+                          'startDate',
+                          e.target.value || null
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor={`price-end-${price.id}`}>
+                      End Date (optional)
+                    </Label>
+                    <Input
+                      id={`price-end-${price.id}`}
+                      type="date"
+                      value={price.endDate || ''}
+                      onChange={(e) =>
+                        handlePriceChange(
+                          price.id,
+                          'endDate',
+                          e.target.value || null
+                        )
+                      }
+                    />
+                  </div>
+                </div>
               </div>
-
-              {(store.observedPrice != null || store.observedAt) && (
-                <p className="text-xs text-muted-foreground">
-                  Current:{' '}
-                  {store.observedPrice != null
-                    ? `${store.observedPrice.toLocaleString('es-CL')} ${
-                        store.currency || 'CLP'
-                      }`
-                    : '—'}{' '}
-                  {store.observedAt && (
-                    <>
-                      · {formatObservedAt(store.observedAt)}
-                    </>
-                  )}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
+      </div>
+
 
       {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
       {successMsg && (
