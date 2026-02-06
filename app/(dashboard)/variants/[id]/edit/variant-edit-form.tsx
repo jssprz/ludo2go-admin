@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import Link from 'next/link';
 
 type VariantStatus = ProductVariant['status'];
 type Condition = ProductVariant['condition'];
@@ -299,7 +300,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
               <Label htmlFor={`store-${store.storeId}`}>
                 {store.storeName}{' '}
                 <span className="text-xs text-muted-foreground">
-                  ({store.storeBaseUrl})
+                  (<Link href={store.storeBaseUrl} target='__blank'>{store.storeBaseUrl}</Link>)
                 </span>
               </Label>
 
