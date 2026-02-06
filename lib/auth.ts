@@ -69,23 +69,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: '/login',
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname.startsWith('/');
-      const isOnLogin = nextUrl.pathname.startsWith('/login');
-
-      // Redirect to login if accessing dashboard without auth
-      if (isOnDashboard && !isOnLogin && !isLoggedIn) {
-        return false; // Trigger redirect to sign-in page
-      }
-
-      // Redirect to dashboard if on login page while logged in
-      if (isOnLogin && isLoggedIn) {
-        return Response.redirect(new URL('/', nextUrl));
-      }
-
-      return true;
-    },
     async signIn({ user, account }) {
       // For OAuth providers (Google, GitHub)
       if (account?.provider === 'google' || account?.provider === 'github') {
