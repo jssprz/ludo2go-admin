@@ -13,6 +13,9 @@ export default async function EditVariantPage({ params }: PageProps) {
     where: { id: id },
     include: {
       product: true,
+      prices: {
+        orderBy: [{ amount: 'asc' }]
+      },
       externalPrices: {
         orderBy: [{ observedAt: 'desc' }]
       }

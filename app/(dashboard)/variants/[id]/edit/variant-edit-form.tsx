@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import type { ProductVariant, ItemPriceInStore, Product } from '@prisma/client';
+import { ProductVariant, ItemPriceInStore, Product, Price, PriceType } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ type Condition = ProductVariant['condition'];
 
 type VariantWithRelations = ProductVariant & {
   product: Product;
+  prices: Price[];
   externalPrices: ItemPriceInStore[];
 };
 
@@ -35,16 +36,6 @@ type StoreLink = {
 };
 
 type StoreLinkState = StoreLink & { fullUrl: string };
-
-type VariantPrice = {
-  id: string; // temporary ID for UI, or real DB ID if exists
-  amount: number;
-  currency: string;
-  type: 'list' | 'sale' | 'cost';
-  isActive: boolean;
-  startDate: string | null;
-  endDate: string | null;
-};
 
 type Props = {
   variant: VariantWithRelations;
@@ -90,10 +81,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
   );
 
   // Initialize prices - you may need to adjust based on your actual variant schema
-  const [prices, setPrices] = useState<VariantPrice[]>([
-    // Example: if variant has listPrice, salePrice fields, map them here
-    // For now, starting with an empty array or you can add default values
-  ]);
+  const [prices, setPrices] = useState<Price[]>(variant.prices);
 
   const [isSaving, setIsSaving] = useState(false);
   const [scrapingStoreId, setScrapingStoreId] = useState<string | null>(null);
@@ -111,21 +99,28 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
 
   // Price management functions
   function handleAddPrice() {
-    const newPrice: VariantPrice = {
+    const newPrice: Price = {
       id: `temp-${Date.now()}`,
       amount: 0,
       currency: 'CLP',
-      type: 'list',
-      isActive: true,
-      startDate: null,
-      endDate: null,
+      type: PriceType.retail,
+      active: true,
+      startsAt: null,
+      endsAt: null,
+      variantId: variant.id,
+      taxIncluded: false,
+      region: null,
+      channelId: null, // Adjust if you have channels
+      priceBookId: null, // Adjust if you have price books
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     setPrices((prev) => [...prev, newPrice]);
   }
 
   function handlePriceChange(
     id: string,
-    field: keyof VariantPrice,
+    field: keyof Price,
     value: any
   ) {
     setPrices((prev) =>
@@ -142,7 +137,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
   function handleToggleActivePrice(id: string) {
     setPrices((prev) =>
       prev.map((price) =>
-        price.id === id ? { ...price, isActive: !price.isActive } : price
+        price.id === id ? { ...price, isActive: !price.active } : price
       )
     );
   }
@@ -442,7 +437,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
               <div
                 key={price.id}
                 className={`border rounded-md p-3 space-y-3 ${
-                  price.isActive ? 'bg-green-50 border-green-200' : 'bg-gray-50'
+                  price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -450,12 +445,12 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
                     <Button
                       type="button"
                       size="sm"
-                      variant={price.isActive ? 'default' : 'outline'}
+                      variant={price.active ? 'default' : 'outline'}
                       onClick={() => handleToggleActivePrice(price.id)}
                       className="h-8"
                     >
-                      {price.isActive && <Check className="h-3 w-3 mr-1" />}
-                      {price.isActive ? 'Active' : 'Inactive'}
+                      {price.active && <Check className="h-3 w-3 mr-1" />}
+                      {price.active ? 'Active' : 'Inactive'}
                     </Button>
                     <span className="text-xs text-muted-foreground">
                       {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
@@ -540,11 +535,11 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
                     <Input
                       id={`price-start-${price.id}`}
                       type="date"
-                      value={price.startDate || ''}
+                      value={price.startsAt?.toISOString().split('T')[0] || ''}
                       onChange={(e) =>
                         handlePriceChange(
                           price.id,
-                          'startDate',
+                          'startsAt',
                           e.target.value || null
                         )
                       }
@@ -558,11 +553,11 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
                     <Input
                       id={`price-end-${price.id}`}
                       type="date"
-                      value={price.endDate || ''}
+                      value={price.endsAt?.toISOString().split('T')[0] || ''}
                       onChange={(e) =>
                         handlePriceChange(
                           price.id,
-                          'endDate',
+                          'endsAt',
                           e.target.value || null
                         )
                       }
