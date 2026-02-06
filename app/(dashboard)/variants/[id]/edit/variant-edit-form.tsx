@@ -16,8 +16,10 @@ import {
 import Link from 'next/link';
 import { Trash2, Plus, Check } from 'lucide-react';
 
+type Language = ProductVariant['language'];
 type VariantStatus = ProductVariant['status'];
 type Condition = ProductVariant['condition'];
+type PackagingType = ProductVariant['packageType'];
 
 type VariantWithRelations = ProductVariant & {
   product: Product;
@@ -69,9 +71,14 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
 
   const [sku, setSku] = useState(variant.sku);
   const [edition, setEdition] = useState(variant.edition ?? '');
-  const [language, setLanguage] = useState(variant.language ?? '');
+  const [language, setLanguage] = useState<Language>(variant.language);
   const [status, setStatus] = useState<VariantStatus>(variant.status);
   const [condition, setCondition] = useState<Condition>(variant.condition);
+  const [packageType, setPackageType] = useState<PackagingType>(variant.packageType);
+  const [weightGrams, setWeightGrams] = useState<number | null>(variant.weightGrams);
+  const [widthMm, setWidthMm] = useState<number | null>(variant.widthMm);
+  const [heightMm, setHeightMm] = useState<number | null>(variant.heightMm);
+  const [depthMm, setDepthMm] = useState<number | null>(variant.depthMm);
 
   const [storesState, setStoresState] = useState<StoreLinkState[]>(
     storeLinks.map((s) => ({
@@ -181,13 +188,13 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
           prev.map((s) =>
             s.storeId === storeId
               ? {
-                  ...s,
-                  observedPrice: result.price!,
-                  currency: result.currency ?? s.currency ?? 'CLP',
-                  observedAt:
-                    result.observedAt ??
-                    new Date().toISOString(),
-                }
+                ...s,
+                observedPrice: result.price!,
+                currency: result.currency ?? s.currency ?? 'CLP',
+                observedAt:
+                  result.observedAt ??
+                  new Date().toISOString(),
+              }
               : s,
           ),
         );
@@ -246,7 +253,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
       }));
 
     try {
-      const res = await fetch(`/api/admin/variants/${variant.id}`, {
+      const res = await fetch(`/api/variants/${variant.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -277,7 +284,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Variant core fields (simplified) */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-5">
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
           <Input
@@ -315,6 +322,23 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="condition">Condition</Label>
+          <Select
+            value={condition}
+            onValueChange={(val) => setCondition(val as Condition)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select condition" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="new">New</SelectItem>
+              <SelectItem value="used">Used</SelectItem>
+              <SelectItem value="refurbished">Refurbished</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select
             value={status}
@@ -328,6 +352,72 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Physical Attrs */}
+
+        <div className="space-y-2">
+          <Label htmlFor="weightGrams">Weight (grams)</Label>
+          <Input
+            id="weightGrams"
+            type="number"
+            step="10"
+            value={weightGrams ? weightGrams : ''}
+            onChange={(e) => setWeightGrams(Number(e.target.value))}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="widthMm">Width (mm)</Label>
+          <Input
+            id="widthMm"
+            type="number"
+            step="1"
+            value={widthMm ? widthMm : ''}
+            onChange={(e) => setWidthMm(Number(e.target.value))}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="heightMm">Height (mm)</Label>
+          <Input
+            id="heightMm"
+            type="number"
+            step="1"
+            value={heightMm ? heightMm : ''}
+            onChange={(e) => setHeightMm(Number(e.target.value))}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="depthMm">Depth (mm)</Label>
+          <Input
+            id="depthMm"
+            type="number"
+            step="1"
+            value={depthMm ? depthMm : ''}
+            onChange={(e) => setDepthMm(Number(e.target.value))}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="packageType">Packaging Type</Label>
+          <Select
+            value={packageType ? packageType : ''}
+            onValueChange={(val) => setPackageType(val as typeof packageType)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select packaging type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="box">Box</SelectItem>
+              <SelectItem value="bag">Bag</SelectItem>
+              <SelectItem value="tube">Tube</SelectItem>
+              <SelectItem value="envelope">Envelope</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="none">None</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -392,9 +482,8 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
                   <p className="text-xs text-muted-foreground">
                     Current:{' '}
                     {store.observedPrice != null
-                      ? `${store.observedPrice.toLocaleString('es-CL')} ${
-                          store.currency || 'CLP'
-                        }`
+                      ? `${store.observedPrice.toLocaleString('es-CL')} ${store.currency || 'CLP'
+                      }`
                       : '—'}{' '}
                     {store.observedAt && (
                       <>
@@ -410,165 +499,164 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
 
         {/* Variant Prices Section */}
         <div className="space-y-3 border rounded-md p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">Variant Prices</h2>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={handleAddPrice}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Price
-          </Button>
-        </div>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">Variant Prices</h2>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleAddPrice}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Price
+            </Button>
+          </div>
 
-        <p className="text-xs text-muted-foreground">
-          Manage the pricing for this variant. Mark a price as active to use it.
-        </p>
-
-        {prices.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No prices added yet. Click &quot;Add Price&quot; to create one.
+          <p className="text-xs text-muted-foreground">
+            Manage the pricing for this variant. Mark a price as active to use it.
           </p>
-        ) : (
-          <div className="space-y-3">
-            {prices.map((price) => (
-              <div
-                key={price.id}
-                className={`border rounded-md p-3 space-y-3 ${
-                  price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+
+          {prices.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No prices added yet. Click &quot;Add Price&quot; to create one.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {prices.map((price) => (
+                <div
+                  key={price.id}
+                  className={`border rounded-md p-3 space-y-3 ${price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
+                    }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={price.active ? 'default' : 'outline'}
+                        onClick={() => handleToggleActivePrice(price.id)}
+                        className="h-8"
+                      >
+                        {price.active && <Check className="h-3 w-3 mr-1" />}
+                        {price.active ? 'Active' : 'Inactive'}
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
+                      </span>
+                    </div>
                     <Button
                       type="button"
                       size="sm"
-                      variant={price.active ? 'default' : 'outline'}
-                      onClick={() => handleToggleActivePrice(price.id)}
-                      className="h-8"
+                      variant="ghost"
+                      onClick={() => handleRemovePrice(price.id)}
+                      className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      {price.active && <Check className="h-3 w-3 mr-1" />}
-                      {price.active ? 'Active' : 'Inactive'}
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemovePrice(price.id)}
-                    className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <Label htmlFor={`price-amount-${price.id}`}>Amount</Label>
-                    <Input
-                      id={`price-amount-${price.id}`}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={price.amount}
-                      onChange={(e) =>
-                        handlePriceChange(
-                          price.id,
-                          'amount',
-                          parseFloat(e.target.value) || 0
-                        )
-                      }
-                      required
-                    />
                   </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor={`price-currency-${price.id}`}>Currency</Label>
-                    <Select
-                      value={price.currency}
-                      onValueChange={(val) =>
-                        handlePriceChange(price.id, 'currency', val)
-                      }
-                    >
-                      <SelectTrigger id={`price-currency-${price.id}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CLP">CLP</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="ARS">ARS</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label htmlFor={`price-amount-${price.id}`}>Amount</Label>
+                      <Input
+                        id={`price-amount-${price.id}`}
+                        type="number"
+                        step="10"
+                        min="0"
+                        value={price.amount}
+                        onChange={(e) =>
+                          handlePriceChange(
+                            price.id,
+                            'amount',
+                            parseFloat(e.target.value) || 0
+                          )
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor={`price-currency-${price.id}`}>Currency</Label>
+                      <Select
+                        value={price.currency}
+                        onValueChange={(val) =>
+                          handlePriceChange(price.id, 'currency', val)
+                        }
+                      >
+                        <SelectTrigger id={`price-currency-${price.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CLP">CLP</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="ARS">ARS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor={`price-type-${price.id}`}>Price Type</Label>
+                      <Select
+                        value={price.type}
+                        onValueChange={(val) =>
+                          handlePriceChange(price.id, 'type', val)
+                        }
+                      >
+                        <SelectTrigger id={`price-type-${price.id}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="list">List Price</SelectItem>
+                          <SelectItem value="sale">Sale Price</SelectItem>
+                          <SelectItem value="cost">Cost</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor={`price-type-${price.id}`}>Price Type</Label>
-                    <Select
-                      value={price.type}
-                      onValueChange={(val) =>
-                        handlePriceChange(price.id, 'type', val)
-                      }
-                    >
-                      <SelectTrigger id={`price-type-${price.id}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="list">List Price</SelectItem>
-                        <SelectItem value="sale">Sale Price</SelectItem>
-                        <SelectItem value="cost">Cost</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label htmlFor={`price-start-${price.id}`}>
+                        Start Date (optional)
+                      </Label>
+                      <Input
+                        id={`price-start-${price.id}`}
+                        type="date"
+                        value={price.startsAt?.toISOString().split('T')[0] || ''}
+                        onChange={(e) =>
+                          handlePriceChange(
+                            price.id,
+                            'startsAt',
+                            e.target.value || null
+                          )
+                        }
+                      />
+                    </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor={`price-start-${price.id}`}>
-                      Start Date (optional)
-                    </Label>
-                    <Input
-                      id={`price-start-${price.id}`}
-                      type="date"
-                      value={price.startsAt?.toISOString().split('T')[0] || ''}
-                      onChange={(e) =>
-                        handlePriceChange(
-                          price.id,
-                          'startsAt',
-                          e.target.value || null
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor={`price-end-${price.id}`}>
-                      End Date (optional)
-                    </Label>
-                    <Input
-                      id={`price-end-${price.id}`}
-                      type="date"
-                      value={price.endsAt?.toISOString().split('T')[0] || ''}
-                      onChange={(e) =>
-                        handlePriceChange(
-                          price.id,
-                          'endsAt',
-                          e.target.value || null
-                        )
-                      }
-                    />
+                    <div className="space-y-1">
+                      <Label htmlFor={`price-end-${price.id}`}>
+                        End Date (optional)
+                      </Label>
+                      <Input
+                        id={`price-end-${price.id}`}
+                        type="date"
+                        value={price.endsAt?.toISOString().split('T')[0] || ''}
+                        onChange={(e) =>
+                          handlePriceChange(
+                            price.id,
+                            'endsAt',
+                            e.target.value || null
+                          )
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
 

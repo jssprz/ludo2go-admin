@@ -91,37 +91,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-3'>
               <div>
-                <div className="text-2xl font-bold">{totalProducts}</div>
+                <div className="text-xl font-bold">{totalProducts}</div>
                 <p className="text-xs text-muted-foreground">
                   Products
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalVairants}</div>
+                <div className="text-xl font-bold">{totalVairants}</div>
                 <p className="text-xs text-muted-foreground">
                   Variants
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{formatPrice(avgVariantPrice)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgVariantPrice)}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Price
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalGames}</div>
+                <div className="text-xl font-bold">{totalGames}</div>
                 <p className="text-xs text-muted-foreground">
                   Games
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalAccessories}</div>
+                <div className="text-xl font-bold">{totalAccessories}</div>
                 <p className="text-xs text-muted-foreground">
                   Accesories
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalBundles}</div>
+                <div className="text-xl font-bold">{totalBundles}</div>
                 <p className="text-xs text-muted-foreground">
                   Bundles
                 </p>
@@ -139,61 +139,61 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-5'>
               <div>
-                <div className="text-2xl font-bold">{totalOrders}</div>
+                <div className="text-xl font-bold">{totalOrders}</div>
                 <p className="text-xs text-muted-foreground">
                   Total
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(avgOrderSize * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(avgOrderSize * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Size
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{formatPrice(avgOrderSubtotal)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgOrderSubtotal)}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Subtotal
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{formatPrice(avgOrderShipping)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgOrderShipping)}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Shipping
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{formatPrice(avgOrderTotal)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgOrderTotal)}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Total
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalPendingOrders}</div>
+                <div className="text-xl font-bold">{totalPendingOrders}</div>
                 <p className="text-xs text-muted-foreground">
                   Pending
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalProcessingOrders}</div>
+                <div className="text-xl font-bold">{totalProcessingOrders}</div>
                 <p className="text-xs text-muted-foreground">
                   Proceess
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalShippedOrders}</div>
+                <div className="text-xl font-bold">{totalShippedOrders}</div>
                 <p className="text-xs text-muted-foreground">
                   Shipped
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalDeliveredOrders}</div>
+                <div className="text-xl font-bold">{totalDeliveredOrders}</div>
                 <p className="text-xs text-muted-foreground">
                   Delivered
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalCancelledOrders}</div>
+                <div className="text-xl font-bold">{totalCancelledOrders}</div>
                 <p className="text-xs text-muted-foreground">
                   Cancelled
                 </p>
@@ -211,31 +211,31 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-3'>
               <div>
-                <div className="text-2xl font-bold">{totalCustomers}</div>
+                <div className="text-xl font-bold">{totalCustomers}</div>
                 <p className="text-xs text-muted-foreground">
                   Total
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(avgCustomerVisits * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(avgCustomerVisits * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Visits
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(totalOrders / totalCustomers * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(totalOrders / totalCustomers * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Orders
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{formatPrice(avgCustomerSpent)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgCustomerSpent)}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Spent
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{totalAddresses}</div>
+                <div className="text-xl font-bold">{totalAddresses}</div>
                 <p className="text-xs text-muted-foreground">
                   Addresses
                 </p>
@@ -253,37 +253,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-6'>
               <div>
-                <div className="text-2xl font-bold">{totalMobileVisits}</div>
+                <div className="text-xl font-bold">{totalMobileVisits}</div>
                 <p className="text-xs text-muted-foreground">
                   Visits
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(mobileConversion * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(mobileConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Conversion
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(mobileAtoCsRate * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(mobileAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   AtoC
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{mobileSearches}</div>
+                <div className="text-xl font-bold">{mobileSearches}</div>
                 <p className="text-xs text-muted-foreground">
                   Searches
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{mobileProductImprs}</div>
+                <div className="text-xl font-bold">{mobileProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Item Imprs
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{avgMobileProductImprs}</div>
+                <div className="text-xl font-bold">{avgMobileProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Item Imprs
                 </p>
@@ -301,37 +301,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-6'>
               <div>
-                <div className="text-2xl font-bold">{totalDesktopVisits}</div>
+                <div className="text-xl font-bold">{totalDesktopVisits}</div>
                 <p className="text-xs text-muted-foreground">
                   Visits
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Conversion
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   AtoC
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{desktopSearches}</div>
+                <div className="text-xl font-bold">{desktopSearches}</div>
                 <p className="text-xs text-muted-foreground">
                   Searches
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{desktopProductImprs}</div>
+                <div className="text-xl font-bold">{desktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Item Imprs
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{avgDesktopProductImprs}</div>
+                <div className="text-xl font-bold">{avgDesktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Item Imprs
                 </p>
@@ -349,37 +349,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-6'>
               <div>
-                <div className="text-2xl font-bold">{totalOtherVisits}</div>
+                <div className="text-xl font-bold">{totalOtherVisits}</div>
                 <p className="text-xs text-muted-foreground">
                   Visits
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   Conversion
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
+                <div className="text-xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
                   AtoC
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{desktopSearches}</div>
+                <div className="text-xl font-bold">{desktopSearches}</div>
                 <p className="text-xs text-muted-foreground">
                   Searches
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{desktopProductImprs}</div>
+                <div className="text-xl font-bold">{desktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Item Imprs
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">{avgDesktopProductImprs}</div>
+                <div className="text-xl font-bold">{avgDesktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
                   Avg Item Imprs
                 </p>
@@ -397,37 +397,37 @@ export default async function AdminHomePage() {
           <CardContent>
             <div className='grid gap-4 md:grid-cols-6'>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
                   UTM1
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
                   UTM2
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
                   UTM3
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
                   UTM4
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
                   UTM5
                 </p>
               </div>
               <div>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
                   UTM6
                 </p>
