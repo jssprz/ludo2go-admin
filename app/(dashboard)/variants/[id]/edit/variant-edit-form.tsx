@@ -248,11 +248,19 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
 
         <div className="space-y-2">
           <Label htmlFor="language">Language</Label>
-          <Input
-            id="language"
+          <Select
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-          />
+            onValueChange={(val) => setLanguage(val as typeof language)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="fr">French</SelectItem>
+              <SelectItem value="es">Spanish</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
