@@ -137,7 +137,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
   function handleToggleActivePrice(id: string) {
     setPrices((prev) =>
       prev.map((price) =>
-        price.id === id ? { ...price, isActive: !price.active } : price
+        price.id === id ? { ...price, active: !price.active } : price
       )
     );
   }
