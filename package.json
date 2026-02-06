@@ -10,7 +10,7 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
-    "@jssprz/ludo2go-database": "^0.1.8",
+    "@jssprz/ludo2go-database": "^0.1.9",
     "@neondatabase/serverless": "^0.9.5",
     "@prisma/client": "^6.19.0",
     "@radix-ui/react-dialog": "^1.1.4",
@@ -20,11 +20,13 @@
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.6",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "20.17.6",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
     "@vercel/analytics": "^1.4.1",
     "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.22.8",

@@ -7,7 +7,8 @@ import {
   PanelLeft,
   Settings,
   ShoppingCart,
-  Users2
+  Users2,
+  UserCog
 } from 'lucide-react';
 
 import {
@@ -91,6 +92,10 @@ function DesktopNav() {
         </NavItem>
       </nav>
       <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+        <NavItem href="/admin-users" label="Admin Users">
+          <UserCog className="h-5 w-5" />
+        </NavItem>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
@@ -153,6 +158,13 @@ function MobileNav() {
           >
             <Users2 className="h-5 w-5" />
             Customers
+          </Link>
+          <Link
+            href="/admin-users"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <UserCog className="h-5 w-5" />
+            Admin Users
           </Link>
           <Link
             href="#"
