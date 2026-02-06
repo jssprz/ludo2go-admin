@@ -10,7 +10,7 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
-    "@jssprz/ludo2go-database": "^0.1.5",
+    "@jssprz/ludo2go-database": "^0.1.8",
     "@neondatabase/serverless": "^0.9.5",
     "@prisma/client": "^6.19.0",
     "@radix-ui/react-dialog": "^1.1.4",
