@@ -2,20 +2,24 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 
-type Params = {
-  params: { id: string };
+type RouteContext = {
+  params: Promise<{
+    timelineId: string;
+  }>;
 };
 
 // GET single timeline
-export async function GET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { timelineId } = await params;
+
     const timeline = await prisma.gameTimeline.findUnique({
-      where: { id: params.id },
+      where: { id: timelineId },
       include: {
         events: {
           orderBy: [{ year: 'desc' }, { month: 'desc' }],
@@ -50,7 +54,7 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 // PUT update timeline
-export async function PUT(request: Request, { params }: Params) {
+export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
@@ -67,16 +71,18 @@ export async function PUT(request: Request, { params }: Params) {
       );
     }
 
+    const { timelineId } = await params;
+
     // Delete existing events and create new ones in a transaction
     const timeline = await prisma.$transaction(async (tx) => {
       // Delete all existing events
       await tx.gameTimelineEvent.deleteMany({
-        where: { timelineId: params.id },
+        where: { timelineId: timelineId },
       });
 
       // Create new events
       const updatedTimeline = await tx.gameTimeline.update({
-        where: { id: params.id },
+        where: { id: timelineId },
         data: {
           events: {
             create: events.map((event: any) => ({
@@ -112,16 +118,18 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 // DELETE timeline
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { timelineId } = await params;
+
     // Check if timeline exists
     const timeline = await prisma.gameTimeline.findUnique({
-      where: { id: params.id },
+      where: { id: timelineId },
       include: {
         gameDetails: true,
       },
@@ -133,7 +141,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
     // Delete the timeline (events will cascade delete)
     await prisma.gameTimeline.delete({
-      where: { id: params.id },
+      where: { id: timelineId },
     });
 
     return NextResponse.json({ message: 'Timeline deleted successfully' });

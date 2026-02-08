@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
 
-type Props = {
-  params: { id: string };
+type PageProps = {
+  params: Promise<{
+    orderId: string;
+  }>;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,9 +21,11 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800',
 };
 
-export default async function OrderDetailPage({ params }: Props) {
+export default async function OrderDetailPage({ params }: PageProps) {
+  const { orderId } = await params;
+
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     include: {
       customer: true,
       items: {
