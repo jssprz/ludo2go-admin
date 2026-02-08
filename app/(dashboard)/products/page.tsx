@@ -92,11 +92,11 @@ export default async function ProductsPage(
               Export
             </span>
           </Button>
-          <Button size="sm" className="h-8 gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+          <Button asChild>
+            <Link href="/products/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
               Add Product
-            </span>
+            </Link>
           </Button>
         </div>
       </div>
