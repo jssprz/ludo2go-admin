@@ -9,16 +9,26 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { id: id },
-    include: {
-      game: true,
-      accessory: true,
-      bundle: true,
-      bgg: true,
-      variants: true,
-    },
-  });
+  const [product, timelines] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id: id },
+      include: {
+        game: true,
+        accessory: true,
+        bundle: true,
+        bgg: true,
+        variants: true,
+      },
+    }),
+    prisma.gameTimeline.findMany({
+      include: {
+        events: {
+          orderBy: [{ year: 'desc' }, { month: 'desc' }],
+          take: 1,
+        },
+      },
+    }),
+  ]);
 
   if (!product) {
     notFound();
@@ -37,7 +47,7 @@ export default async function EditProductPage({ params }: PageProps) {
         </div>
       </div>
 
-      <ProductEditForm product={product} />
+      <ProductEditForm product={product} timelines={timelines} />
     </div>
   );
 }

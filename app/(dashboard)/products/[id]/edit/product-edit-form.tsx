@@ -32,15 +32,24 @@ type ProductWithDetails = Product & {
   variants: ProductVariant[];
 };
 
+type TimelineSummary = {
+  id: string;
+  events: Array<{
+    year: number;
+    title: string;
+  }>;
+};
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
 
 type Props = {
   product: ProductWithDetails;
+  timelines: TimelineSummary[];
 };
 
-export function ProductEditForm({ product }: Props) {
+export function ProductEditForm({ product, timelines }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
@@ -57,10 +66,15 @@ export function ProductEditForm({ product }: Props) {
   const [description, setDescription] = useState(
     product.description ?? ''
   );
+  const [timelineId, setTimelineId] = useState<string>(
+    product.game?.timelineId ?? ''
+  );
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const isGameProduct = kind === 'game';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -75,7 +89,7 @@ export function ProductEditForm({ product }: Props) {
       .filter(Boolean);
 
     try {
-      const res = await fetch(`/products/${product.id}`, {
+      const res = await fetch(`/api/products/${product.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -89,6 +103,7 @@ export function ProductEditForm({ product }: Props) {
           tags: normalizedTags,
           shortDescription: shortDescription || null,
           description: description || null,
+          timelineId: isGameProduct && timelineId ? timelineId : null,
         }),
       });
 
@@ -210,6 +225,38 @@ export function ProductEditForm({ product }: Props) {
           rows={5}
         />
       </div>
+
+      {isGameProduct && (
+        <div className="space-y-2">
+          <Label>Timeline</Label>
+          <Select
+            value={timelineId || 'none'}
+            onValueChange={(val) => setTimelineId(val === 'none' ? '' : val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select timeline (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {timelines.length === 0 ? (
+                <SelectItem value="empty" disabled>No timelines available</SelectItem>
+              ) : (
+                timelines.map((timeline) => (
+                  <SelectItem key={timeline.id} value={timeline.id}>
+                    Timeline: {timeline.events[0]?.year || 'N/A'} - {timeline.events[0]?.title || 'Untitled'}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Link this game to a historical timeline.{' '}
+            <Link href="/timelines" className="text-blue-600 hover:underline">
+              Manage timelines
+            </Link>
+          </p>
+        </div>
+      )}
 
       <div className="space-y-3 border rounded-md p-4">
         <h2 className="text-sm font-medium">Variants / SKUs</h2>

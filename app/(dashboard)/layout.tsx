@@ -8,7 +8,8 @@ import {
   Settings,
   ShoppingCart,
   Users2,
-  UserCog
+  UserCog,
+  Clock
 } from 'lucide-react';
 
 import {
@@ -79,12 +80,16 @@ function DesktopNav() {
           <ShoppingCart className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/" label="Products">
+        <NavItem href="/products" label="Products">
           <Package className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/customers" label="Customers">
           <Users2 className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/timelines" label="Game Timelines">
+          <Clock className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="#" label="Analytics">
@@ -146,7 +151,7 @@ function MobileNav() {
             Orders
           </Link>
           <Link
-            href="#"
+            href="/products"
             className="flex items-center gap-4 px-2.5 text-foreground"
           >
             <Package className="h-5 w-5" />
@@ -158,6 +163,13 @@ function MobileNav() {
           >
             <Users2 className="h-5 w-5" />
             Customers
+          </Link>
+          <Link
+            href="/timelines"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Clock className="h-5 w-5" />
+            Timelines
           </Link>
           <Link
             href="/admin-users"
