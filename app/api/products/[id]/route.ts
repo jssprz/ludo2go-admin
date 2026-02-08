@@ -2,20 +2,24 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 
-type Params = {
-  params: { id: string };
+type RouteContext = {
+  params: Promise<{
+    productId: string;
+  }>;
 };
 
 // GET single product
-export async function GET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { productId } = await params;
+
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id: productId },
       include: {
         game: true,
         accessory: true,
@@ -40,7 +44,7 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 // PUT update product
-export async function PUT(request: Request, { params }: Params) {
+export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
@@ -60,9 +64,11 @@ export async function PUT(request: Request, { params }: Params) {
       timelineId,
     } = body;
 
+    const { productId } = await params;
+
     // Update product
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id: productId },
       data: {
         name,
         slug,
@@ -81,7 +87,7 @@ export async function PUT(request: Request, { params }: Params) {
     // If it's a game product, update the timeline
     if (kind === 'game' && product.game) {
       await prisma.gameDetails.update({
-        where: { productId: params.id },
+        where: { productId: productId },
         data: {
           timelineId: timelineId || null,
         },
@@ -99,15 +105,17 @@ export async function PUT(request: Request, { params }: Params) {
 }
 
 // DELETE product
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { productId } = await params;
+
     await prisma.product.delete({
-      where: { id: params.id },
+      where: { id: productId },
     });
 
     return NextResponse.json({ message: 'Product deleted successfully' });
