@@ -3,20 +3,24 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { OrderStatus } from '@prisma/client';
 
-type Params = {
-  params: { id: string };
+type RouteContext = {
+  params: Promise<{
+    orderId: string;
+  }>;
 };
 
 // GET single order
-export async function GET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { orderId } = await params;
+
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: orderId },
       include: {
         customer: true,
         items: {
@@ -49,7 +53,7 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 // PATCH update order status
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
@@ -66,8 +70,10 @@ export async function PATCH(request: Request, { params }: Params) {
       );
     }
 
+    const { orderId } = await params;
+
     const order = await prisma.order.update({
-      where: { id: params.id },
+      where: { id: orderId },
       data: {
         status: status as OrderStatus,
         updatedAt: new Date(),
@@ -104,15 +110,17 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 // DELETE order (optional - use with caution)
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    const { orderId } = await params;
+
     await prisma.order.delete({
-      where: { id: params.id },
+      where: { id: orderId },
     });
 
     return NextResponse.json({ message: 'Order deleted successfully' });
