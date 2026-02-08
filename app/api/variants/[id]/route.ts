@@ -177,6 +177,49 @@ export async function PUT(
       // TODO: Implement price saving based on your schema
     }
 
+    // Handle inventory updates
+    if (body.inventory && typeof body.inventory === 'object') {
+      const inventoryData = body.inventory as Record<string, { onHand: number; reserved: number }>;
+
+      for (const [locationId, stock] of Object.entries(inventoryData)) {
+        // Check if inventory record exists
+        const existingInventory = await prisma.inventory.findUnique({
+          where: {
+            variantId_locationId: {
+              variantId: id,
+              locationId: locationId,
+            },
+          },
+        });
+
+        if (existingInventory) {
+          // Update existing inventory
+          await prisma.inventory.update({
+            where: {
+              variantId_locationId: {
+                variantId: id,
+                locationId: locationId,
+              },
+            },
+            data: {
+              onHand: stock.onHand,
+              reserved: stock.reserved,
+            },
+          });
+        } else {
+          // Create new inventory record
+          await prisma.inventory.create({
+            data: {
+              variantId: id,
+              locationId: locationId,
+              onHand: stock.onHand,
+              reserved: stock.reserved,
+            },
+          });
+        }
+      }
+    }
+
     return NextResponse.json({
       message: 'Variant updated successfully',
       variant: updatedVariant,

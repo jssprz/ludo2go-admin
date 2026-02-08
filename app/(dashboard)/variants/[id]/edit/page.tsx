@@ -9,26 +9,35 @@ type PageProps = {
 export default async function EditVariantPage({ params }: PageProps) {
   const { id } = await params;
 
-  const variant = await prisma.productVariant.findUnique({
-    where: { id: id },
-    include: {
-      product: true,
-      prices: {
-        orderBy: [{ amount: 'asc' }]
+  const [variant, stores, locations] = await Promise.all([
+    prisma.productVariant.findUnique({
+      where: { id: id },
+      include: {
+        product: true,
+        prices: {
+          orderBy: [{ amount: 'asc' }]
+        },
+        externalPrices: {
+          orderBy: [{ observedAt: 'desc' }]
+        },
+        inventory: {
+          include: {
+            location: true
+          }
+        }
       },
-      externalPrices: {
-        orderBy: [{ observedAt: 'desc' }]
-      }
-    },
-  });
+    }),
+    prisma.store.findMany({
+      orderBy: { name: 'asc' },
+    }),
+    prisma.location.findMany({
+      orderBy: { name: 'asc' },
+    }),
+  ]);
 
   if (!variant) {
     notFound();
   }
-
-  const stores = await prisma.store.findMany({
-    orderBy: { name: 'asc' },
-  });
 
   const storeLinks = stores.map((store) => {
     const existing = variant.externalPrices.find(
@@ -60,7 +69,11 @@ export default async function EditVariantPage({ params }: PageProps) {
         </div>
       </div>
 
-      <VariantEditForm variant={variant} storeLinks={storeLinks} />
+      <VariantEditForm 
+        variant={variant} 
+        storeLinks={storeLinks} 
+        locations={locations}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { ProductVariant, ItemPriceInStore, Product, Price, PriceType } from '@prisma/client';
+import { ProductVariant, ItemPriceInStore, Product, Price, PriceType, Inventory, Location } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ type VariantWithRelations = ProductVariant & {
   product: Product;
   prices: Price[];
   externalPrices: ItemPriceInStore[];
+  inventory?: (Inventory & { location: Location })[];
 };
 
 type StoreLink = {
@@ -42,6 +43,7 @@ type StoreLinkState = StoreLink & { fullUrl: string };
 type Props = {
   variant: VariantWithRelations;
   storeLinks: StoreLink[];
+  locations: Location[];
 };
 
 function buildFullUrl(base: string, path: string): string {
@@ -66,7 +68,7 @@ function formatObservedAt(iso: string | null): string {
   }
 }
 
-export function VariantEditForm({ variant, storeLinks }: Props) {
+export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const router = useRouter();
 
   const [sku, setSku] = useState(variant.sku);
@@ -89,6 +91,18 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
 
   // Initialize prices - you may need to adjust based on your actual variant schema
   const [prices, setPrices] = useState<Price[]>(variant.prices);
+
+  // Initialize inventory state
+  const [inventoryData, setInventoryData] = useState<Record<string, { onHand: number; reserved: number }>>(
+    locations.reduce((acc, location) => {
+      const existing = variant.inventory?.find(inv => inv.locationId === location.id);
+      acc[location.id] = {
+        onHand: existing?.onHand ?? 0,
+        reserved: existing?.reserved ?? 0,
+      };
+      return acc;
+    }, {} as Record<string, { onHand: number; reserved: number }>)
+  );
 
   const [isSaving, setIsSaving] = useState(false);
   const [scrapingStoreId, setScrapingStoreId] = useState<string | null>(null);
@@ -264,6 +278,7 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
           condition,
           storeUrls: storeUrlsPayload,
           prices: prices,
+          inventory: inventoryData,
         }),
       });
 
@@ -659,6 +674,101 @@ export function VariantEditForm({ variant, storeLinks }: Props) {
         </div>
       </div>
 
+      {/* Inventory Management Section */}
+      <div className="space-y-3 border rounded-md p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium">Inventory Stock</h2>
+            <p className="text-xs text-muted-foreground">
+              Manage stock levels across different locations
+            </p>
+          </div>
+        </div>
+
+        {locations.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No locations available. Please create locations first.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {locations.map((location) => {
+              const available = inventoryData[location.id].onHand - inventoryData[location.id].reserved;
+              return (
+                <div
+                  key={location.id}
+                  className="border rounded-md p-3 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-sm">{location.name}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {location.code}
+                        {location.region && ` • ${location.region}`}
+                      </p>
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Available: </span>
+                      <span className={available > 0 ? 'text-green-600' : available < 0 ? 'text-red-600' : ''}>
+                        {available}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label htmlFor={`inventory-onhand-${location.id}`}>
+                        On Hand
+                      </Label>
+                      <Input
+                        id={`inventory-onhand-${location.id}`}
+                        type="number"
+                        min="0"
+                        value={inventoryData[location.id].onHand}
+                        onChange={(e) =>
+                          setInventoryData((prev) => ({
+                            ...prev,
+                            [location.id]: {
+                              ...prev[location.id],
+                              onHand: parseInt(e.target.value) || 0,
+                            },
+                          }))
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Total physical stock
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor={`inventory-reserved-${location.id}`}>
+                        Reserved
+                      </Label>
+                      <Input
+                        id={`inventory-reserved-${location.id}`}
+                        type="number"
+                        min="0"
+                        value={inventoryData[location.id].reserved}
+                        onChange={(e) =>
+                          setInventoryData((prev) => ({
+                            ...prev,
+                            [location.id]: {
+                              ...prev[location.id],
+                              reserved: parseInt(e.target.value) || 0,
+                            },
+                          }))
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Reserved for orders
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
       {successMsg && (
