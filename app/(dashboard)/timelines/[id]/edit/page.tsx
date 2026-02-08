@@ -2,14 +2,17 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { notFound } from 'next/navigation';
 import { TimelineForm } from '../../timeline-form';
 
-type Props = {
-  params: { id: string };
+type PageProps = {
+  params: Promise<{
+    timelineId: string;
+  }>;
 };
 
-export default async function EditTimelinePage({ params }: Props) {
+export default async function EditTimelinePage({ params }: PageProps) {
+  const { timelineId } = await params;
   const [timeline, variants] = await Promise.all([
     prisma.gameTimeline.findUnique({
-      where: { id: params.id },
+      where: { id: timelineId },
       include: {
         events: {
           orderBy: [
