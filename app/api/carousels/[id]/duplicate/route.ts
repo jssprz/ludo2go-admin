@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
+import { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 
 type RouteContext = {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 name: variant.name,
                 isActive: variant.isActive,
                 weight: variant.weight,
-                payload: variant.payload,
+                payload: variant.payload === null ? Prisma.JsonNull : variant.payload,
                 ctaText: variant.ctaText,
                 ctaUrl: variant.ctaUrl,
                 ctaType: variant.ctaType,
