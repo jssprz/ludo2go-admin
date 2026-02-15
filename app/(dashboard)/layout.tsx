@@ -10,7 +10,10 @@ import {
   Users2,
   UserCog,
   Clock,
-  Boxes
+  Boxes,
+  MapPin,
+  Image,
+  Mail
 } from 'lucide-react';
 
 import {
@@ -95,6 +98,18 @@ function DesktopNav() {
 
         <NavItem href="/timelines" label="Game Timelines">
           <Clock className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/pickup-locations" label="Pickup Locations">
+          <MapPin className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/carousels" label="Carousels">
+          <Image className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/early-access" label="Early Access">
+          <Mail className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="#" label="Analytics">
@@ -182,6 +197,27 @@ function MobileNav() {
           >
             <Clock className="h-5 w-5" />
             Timelines
+          </Link>
+          <Link
+            href="/pickup-locations"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <MapPin className="h-5 w-5" />
+            Pickup Locations
+          </Link>
+          <Link
+            href="/carousels"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Image className="h-5 w-5" />
+            Carousels
+          </Link>
+          <Link
+            href="/early-access"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Mail className="h-5 w-5" />
+            Early Access
           </Link>
           <Link
             href="/admin-users"
