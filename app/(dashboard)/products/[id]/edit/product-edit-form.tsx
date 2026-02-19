@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, FormEvent } from 'react';
 import type {
   Product,
+  Brand,
   GameDetails,
   AccessoryDetails,
   BundleDetails,
@@ -30,6 +31,7 @@ type ProductWithDetails = Product & {
   bundle: BundleDetails | null;
   bgg: BGGDetails | null;
   variants: ProductVariant[];
+  brand: Brand | null;
 };
 
 type TimelineSummary = {
@@ -40,6 +42,12 @@ type TimelineSummary = {
   }>;
 };
 
+type BrandOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
@@ -47,14 +55,15 @@ type ProductKind = Product['kind'];
 type Props = {
   product: ProductWithDetails;
   timelines: TimelineSummary[];
+  brands: BrandOption[];
 };
 
-export function ProductEditForm({ product, timelines }: Props) {
+export function ProductEditForm({ product, timelines, brands }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
   const [slug, setSlug] = useState(product.slug);
-  const [brand, setBrand] = useState(product.brand ?? '');
+  const [brandId, setBrandId] = useState(product.brandId ?? '');
   const [kind, setKind] = useState<ProductKind>(product.kind);
   const [status, setStatus] = useState<ProductStatus>(
     product.status as ProductStatus
@@ -97,7 +106,7 @@ export function ProductEditForm({ product, timelines }: Props) {
         body: JSON.stringify({
           name,
           slug,
-          brand: brand || null,
+          brandId: brandId || null,
           kind,
           status,
           tags: normalizedTags,
@@ -148,13 +157,23 @@ export function ProductEditForm({ product, timelines }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="brand">Brand</Label>
-          <Input
-            id="brand"
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            placeholder="e.g. Devir, CMON"
-          />
+          <Label>Brand</Label>
+          <Select
+            value={brandId || 'none'}
+            onValueChange={(val) => setBrandId(val === 'none' ? '' : val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select brand" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No brand</SelectItem>
+              {brands.map((brand) => (
+                <SelectItem key={brand.id} value={brand.id}>
+                  {brand.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">

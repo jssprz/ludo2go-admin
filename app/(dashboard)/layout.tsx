@@ -13,7 +13,9 @@ import {
   Boxes,
   MapPin,
   Image,
-  Mail
+  Mail,
+  Images,
+  Tag
 } from 'lucide-react';
 
 import {
@@ -88,6 +90,10 @@ function DesktopNav() {
           <Package className="h-5 w-5" />
         </NavItem>
 
+        <NavItem href="/brands" label="Brands">
+          <Tag className="h-5 w-5" />
+        </NavItem>
+
         <NavItem href="/inventory" label="Inventory">
           <Boxes className="h-5 w-5" />
         </NavItem>
@@ -110,6 +116,10 @@ function DesktopNav() {
 
         <NavItem href="/early-access" label="Early Access">
           <Mail className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/media" label="Media Gallery">
+          <Images className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="#" label="Analytics">
@@ -178,6 +188,13 @@ function MobileNav() {
             Products
           </Link>
           <Link
+            href="/brands"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Tag className="h-5 w-5" />
+            Brands
+          </Link>
+          <Link
             href="/inventory"
             className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
           >
@@ -218,6 +235,13 @@ function MobileNav() {
           >
             <Mail className="h-5 w-5" />
             Early Access
+          </Link>
+          <Link
+            href="/media"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Images className="h-5 w-5" />
+            Media Gallery
           </Link>
           <Link
             href="/admin-users"
