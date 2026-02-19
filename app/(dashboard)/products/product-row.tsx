@@ -16,7 +16,7 @@ import Link from 'next/link';
 
 export interface SelectProduct {
   id: string, name: string, status: ProductStatus, shortDescription: string | null,
-  description: string | null, tags: string[], brand: string | null, createdAt: Date,
+  description: string | null, tags: string[], brand: { name: string, slug: string } | null, createdAt: Date,
   mediaLinks: { media: { url: string } }[],
   variants: any[]
 }
