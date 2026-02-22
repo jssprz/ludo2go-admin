@@ -2,8 +2,12 @@ import { Suspense } from 'react';
 import { prisma } from '@jssprz/ludo2go-database';
 import { MediaGallery } from './media-gallery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getTranslations } from 'next-intl/server';
+
 
 export default async function MediaPage() {
+  const t = await getTranslations('media');
+
   // Get stats
   const [totalCount, imageCount, videoCount, pdfCount] = await Promise.all([
     prisma.mediaAsset.count(),
@@ -25,9 +29,9 @@ export default async function MediaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Media Gallery</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-muted-foreground">
-          Manage images, videos, and other media assets
+          {t('description')}
         </p>
       </div>
 
@@ -35,32 +39,32 @@ export default async function MediaPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Assets</CardDescription>
+            <CardDescription>{t('totalAssets')}</CardDescription>
             <CardTitle className="text-3xl">{totalCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Images</CardDescription>
+            <CardDescription>{t('imageAssets')}</CardDescription>
             <CardTitle className="text-3xl">{imageCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Videos</CardDescription>
+            <CardDescription>{t('videoAssets')}</CardDescription>
             <CardTitle className="text-3xl">{videoCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Storage Used</CardDescription>
+            <CardDescription>{t('storageUsed')}</CardDescription>
             <CardTitle className="text-3xl">{totalSizeMB} MB</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
       {/* Media Gallery */}
-      <Suspense fallback={<div>Loading gallery...</div>}>
+      <Suspense fallback={<div>{t('loadingGallery')}</div>}>
         <MediaGallery />
       </Suspense>
     </div>

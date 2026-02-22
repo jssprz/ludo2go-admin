@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import {
   Table,
   TableBody,
@@ -79,6 +80,8 @@ type Props = {
 
 export function BrandsTable({ initialBrands, mediaAssets }: Props) {
   const router = useRouter();
+  const t = useTranslations('brands');
+  const tc = useTranslations('common');
   const [brands, setBrands] = useState<Brand[]>(initialBrands);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);

@@ -39,6 +39,8 @@ import { VercelLogo } from '@/components/icons';
 import Providers from './providers';
 import { NavItem } from './nav-item';
 import { SearchInput } from './search';
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { getTranslations } from 'next-intl/server';
 
 export default function DashboardLayout({
   children
@@ -54,6 +56,7 @@ export default function DashboardLayout({
             <MobileNav />
             <DashboardBreadcrumb />
             <SearchInput />
+            <LanguageSwitcher />
             <User />
           </header>
           <main className="grid flex-1 items-start gap-2 p-4 sm:px-6 sm:py-0 md:gap-4 bg-muted/40">
@@ -66,7 +69,8 @@ export default function DashboardLayout({
   );
 }
 
-function DesktopNav() {
+async function DesktopNav() {
+  const t = await getTranslations('nav');
   return (
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
       <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
@@ -82,52 +86,52 @@ function DesktopNav() {
           <Home className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/orders" label="Orders">
+        <NavItem href="/orders" label={t('orders')}>
           <ShoppingCart className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/products" label="Products">
+        <NavItem href="/products" label={t('products')}>
           <Package className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/brands" label="Brands">
+        <NavItem href="/brands" label={t('brands')}>
           <Tag className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/inventory" label="Inventory">
+        <NavItem href="/inventory" label={t('inventory')}>
           <Boxes className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/customers" label="Customers">
+        <NavItem href="/customers" label={t('customers')}>
           <Users2 className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/timelines" label="Game Timelines">
+        <NavItem href="/timelines" label={t('timelines')}>
           <Clock className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/pickup-locations" label="Pickup Locations">
+        <NavItem href="/pickup-locations" label={t('pickupLocations')}>
           <MapPin className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/carousels" label="Carousels">
+        <NavItem href="/carousels" label={t('carousels')}>
           <Image className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/early-access" label="Early Access">
+        <NavItem href="/early-access" label={t('earlyAccess')}>
           <Mail className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="/media" label="Media Gallery">
+        <NavItem href="/media" label={t('mediaGallery')}>
           <Images className="h-5 w-5" />
         </NavItem>
 
-        <NavItem href="#" label="Analytics">
+        <NavItem href="#" label={t('analytics')}>
           <LineChart className="h-5 w-5" />
         </NavItem>
       </nav>
       <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
-        <NavItem href="/admin-users" label="Admin Users">
+        <NavItem href="/admin-users" label={t('adminUsers')}>
           <UserCog className="h-5 w-5" />
         </NavItem>
 
@@ -138,10 +142,10 @@ function DesktopNav() {
               className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
             >
               <Settings className="h-5 w-5" />
-              <span className="sr-only">Settings</span>
+              <span className="sr-only">{t('settings')}</span>
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Settings</TooltipContent>
+          <TooltipContent side="right">{t('settings')}</TooltipContent>
         </Tooltip>
       </nav>
     </aside>
