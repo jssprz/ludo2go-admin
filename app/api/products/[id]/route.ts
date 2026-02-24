@@ -62,6 +62,8 @@ export async function PUT(request: Request, { params }: RouteContext) {
       shortDescription,
       description,
       timelineId,
+      gameCategoryIds,
+      accessoryCategoryIds,
     } = body;
 
     const { id } = await params;
@@ -81,15 +83,31 @@ export async function PUT(request: Request, { params }: RouteContext) {
       },
       include: {
         game: true,
+        accessory: true,
       },
     });
 
-    // If it's a game product, update the timeline
+    // If it's a game product, update the timeline and categories
     if (kind === 'game' && product.game) {
       await prisma.gameDetails.update({
         where: { productId: id },
         data: {
           timelineId: timelineId || null,
+          categories: {
+            set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
+          },
+        },
+      });
+    }
+
+    // If it's an accessory product, update categories
+    if (kind === 'accessory' && product.accessory) {
+      await prisma.accessoryDetails.update({
+        where: { productId: id },
+        data: {
+          categories: {
+            set: (accessoryCategoryIds || []).map((catId: string) => ({ id: catId })),
+          },
         },
       });
     }

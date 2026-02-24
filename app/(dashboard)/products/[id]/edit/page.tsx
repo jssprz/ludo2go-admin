@@ -11,12 +11,20 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [product, timelines, brands] = await Promise.all([
+  const [product, timelines, brands, gameCategories, accessoryCategories] = await Promise.all([
     prisma.product.findUnique({
       where: { id: id },
       include: {
-        game: true,
-        accessory: true,
+        game: {
+          include: {
+            categories: true,
+          },
+        },
+        accessory: {
+          include: {
+            categories: true,
+          },
+        },
         bundle: true,
         bgg: true,
         variants: true,
@@ -33,6 +41,24 @@ export default async function EditProductPage({ params }: PageProps) {
     }),
     prisma.brand.findMany({
       orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    }),
+    prisma.gameCategory.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    }),
+    prisma.accessoryCategory.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
       select: {
         id: true,
         name: true,
@@ -65,7 +91,13 @@ export default async function EditProductPage({ params }: PageProps) {
         </TabsList>
 
         <TabsContent value="details">
-          <ProductEditForm product={product} timelines={timelines} brands={brands} />
+          <ProductEditForm 
+            product={product} 
+            timelines={timelines} 
+            brands={brands}
+            gameCategories={gameCategories}
+            accessoryCategories={accessoryCategories}
+          />
         </TabsContent>
 
         <TabsContent value="media">

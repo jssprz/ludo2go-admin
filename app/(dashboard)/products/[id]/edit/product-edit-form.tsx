@@ -9,7 +9,9 @@ import type {
   AccessoryDetails,
   BundleDetails,
   BGGDetails,
-  ProductVariant
+  ProductVariant,
+  GameCategory,
+  AccessoryCategory
 } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 
@@ -24,10 +26,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
+
+type GameDetailsWithCategories = GameDetails & {
+  categories: GameCategory[];
+};
+
+type AccessoryDetailsWithCategories = AccessoryDetails & {
+  categories: AccessoryCategory[];
+};
 
 type ProductWithDetails = Product & {
-  game: GameDetails | null;
-  accessory: AccessoryDetails | null;
+  game: GameDetailsWithCategories | null;
+  accessory: AccessoryDetailsWithCategories | null;
   bundle: BundleDetails | null;
   bgg: BGGDetails | null;
   variants: ProductVariant[];
@@ -48,6 +60,12 @@ type BrandOption = {
   slug: string;
 };
 
+type CategoryOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
@@ -56,9 +74,11 @@ type Props = {
   product: ProductWithDetails;
   timelines: TimelineSummary[];
   brands: BrandOption[];
+  gameCategories: CategoryOption[];
+  accessoryCategories: CategoryOption[];
 };
 
-export function ProductEditForm({ product, timelines, brands }: Props) {
+export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
@@ -78,12 +98,41 @@ export function ProductEditForm({ product, timelines, brands }: Props) {
   const [timelineId, setTimelineId] = useState<string>(
     product.game?.timelineId ?? ''
   );
+  
+  // Category state
+  const [selectedGameCategoryIds, setSelectedGameCategoryIds] = useState<string[]>(
+    product.game?.categories?.map(c => c.id) ?? []
+  );
+  const [selectedAccessoryCategoryIds, setSelectedAccessoryCategoryIds] = useState<string[]>(
+    product.accessory?.categories?.map(c => c.id) ?? []
+  );
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const isGameProduct = kind === 'game';
+  const isAccessoryProduct = kind === 'accessory';
+
+  function addGameCategory(categoryId: string) {
+    if (!selectedGameCategoryIds.includes(categoryId)) {
+      setSelectedGameCategoryIds([...selectedGameCategoryIds, categoryId]);
+    }
+  }
+
+  function removeGameCategory(categoryId: string) {
+    setSelectedGameCategoryIds(selectedGameCategoryIds.filter(id => id !== categoryId));
+  }
+
+  function addAccessoryCategory(categoryId: string) {
+    if (!selectedAccessoryCategoryIds.includes(categoryId)) {
+      setSelectedAccessoryCategoryIds([...selectedAccessoryCategoryIds, categoryId]);
+    }
+  }
+
+  function removeAccessoryCategory(categoryId: string) {
+    setSelectedAccessoryCategoryIds(selectedAccessoryCategoryIds.filter(id => id !== categoryId));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -113,6 +162,8 @@ export function ProductEditForm({ product, timelines, brands }: Props) {
           shortDescription: shortDescription || null,
           description: description || null,
           timelineId: isGameProduct && timelineId ? timelineId : null,
+          gameCategoryIds: isGameProduct ? selectedGameCategoryIds : [],
+          accessoryCategoryIds: isAccessoryProduct ? selectedAccessoryCategoryIds : [],
         }),
       });
 
@@ -274,6 +325,136 @@ export function ProductEditForm({ product, timelines, brands }: Props) {
               Manage timelines
             </Link>
           </p>
+        </div>
+      )}
+
+      {/* Game Categories */}
+      {isGameProduct && (
+        <div className="space-y-3 border rounded-md p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">Game Categories</h2>
+              <p className="text-xs text-muted-foreground">
+                Assign categories to this game.{' '}
+                <Link href="/game-categories" className="text-blue-600 hover:underline">
+                  Manage categories
+                </Link>
+              </p>
+            </div>
+          </div>
+          
+          {/* Selected categories */}
+          {selectedGameCategoryIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedGameCategoryIds.map((catId) => {
+                const category = gameCategories.find(c => c.id === catId);
+                if (!category) return null;
+                return (
+                  <Badge key={catId} variant="secondary" className="gap-1">
+                    {category.name}
+                    <button
+                      type="button"
+                      onClick={() => removeGameCategory(catId)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Add category select */}
+          <Select
+            value=""
+            onValueChange={(val) => {
+              if (val) addGameCategory(val);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Add a category..." />
+            </SelectTrigger>
+            <SelectContent>
+              {gameCategories
+                .filter(cat => !selectedGameCategoryIds.includes(cat.id))
+                .map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              {gameCategories.filter(cat => !selectedGameCategoryIds.includes(cat.id)).length === 0 && (
+                <SelectItem value="none" disabled>
+                  All categories selected
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Accessory Categories */}
+      {isAccessoryProduct && (
+        <div className="space-y-3 border rounded-md p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">Accessory Categories</h2>
+              <p className="text-xs text-muted-foreground">
+                Assign categories to this accessory.{' '}
+                <Link href="/accessory-categories" className="text-blue-600 hover:underline">
+                  Manage categories
+                </Link>
+              </p>
+            </div>
+          </div>
+          
+          {/* Selected categories */}
+          {selectedAccessoryCategoryIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedAccessoryCategoryIds.map((catId) => {
+                const category = accessoryCategories.find(c => c.id === catId);
+                if (!category) return null;
+                return (
+                  <Badge key={catId} variant="secondary" className="gap-1">
+                    {category.name}
+                    <button
+                      type="button"
+                      onClick={() => removeAccessoryCategory(catId)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Add category select */}
+          <Select
+            value=""
+            onValueChange={(val) => {
+              if (val) addAccessoryCategory(val);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Add a category..." />
+            </SelectTrigger>
+            <SelectContent>
+              {accessoryCategories
+                .filter(cat => !selectedAccessoryCategoryIds.includes(cat.id))
+                .map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              {accessoryCategories.filter(cat => !selectedAccessoryCategoryIds.includes(cat.id)).length === 0 && (
+                <SelectItem value="none" disabled>
+                  All categories selected
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

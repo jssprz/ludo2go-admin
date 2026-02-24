@@ -15,7 +15,9 @@ import {
   Image,
   Mail,
   Images,
-  Tag
+  Tag,
+  Gamepad2,
+  Puzzle
 } from 'lucide-react';
 
 import {
@@ -96,6 +98,14 @@ async function DesktopNav() {
 
         <NavItem href="/brands" label={t('brands')}>
           <Tag className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/game-categories" label={t('gameCategories')}>
+          <Gamepad2 className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/accessory-categories" label={t('accessoryCategories')}>
+          <Puzzle className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/inventory" label={t('inventory')}>
@@ -197,6 +207,20 @@ function MobileNav() {
           >
             <Tag className="h-5 w-5" />
             Brands
+          </Link>
+          <Link
+            href="/game-categories"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Gamepad2 className="h-5 w-5" />
+            Game Categories
+          </Link>
+          <Link
+            href="/accessory-categories"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Puzzle className="h-5 w-5" />
+            Accessory Categories
           </Link>
           <Link
             href="/inventory"
