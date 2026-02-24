@@ -64,6 +64,14 @@ export async function PUT(request: Request, { params }: RouteContext) {
       timelineId,
       gameCategoryIds,
       accessoryCategoryIds,
+      // GameDetails fields
+      yearPublished,
+      minPlayers,
+      maxPlayers,
+      minAge,
+      playtimeMin,
+      playtimeMax,
+      mechanics,
     } = body;
 
     const { id } = await params;
@@ -96,6 +104,13 @@ export async function PUT(request: Request, { params }: RouteContext) {
           categories: {
             set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
           },
+          yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
+          minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
+          maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
+          minAge: typeof minAge === 'number' ? minAge : null,
+          playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
+          playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+          mechanics: Array.isArray(mechanics) ? mechanics : [],
         },
       });
     }

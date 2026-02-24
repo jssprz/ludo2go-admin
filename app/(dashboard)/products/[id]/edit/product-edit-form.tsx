@@ -98,7 +98,14 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   const [timelineId, setTimelineId] = useState<string>(
     product.game?.timelineId ?? ''
   );
-  
+  const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? '');
+  const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? '');
+  const [maxPlayers, setMaxPlayers] = useState<number | ''>(product.game?.maxPlayers ?? '');
+  const [minAge, setMinAge] = useState<number | ''>(product.game?.minAge ?? '');
+  const [playtimeMin, setPlaytimeMin] = useState<number | ''>(product.game?.playtimeMin ?? '');
+  const [playtimeMax, setPlaytimeMax] = useState<number | ''>(product.game?.playtimeMax ?? '');
+  const [mechanics, setMechanics] = useState<string>(product.game?.mechanics?.join(', ') ?? '');
+
   // Category state
   const [selectedGameCategoryIds, setSelectedGameCategoryIds] = useState<string[]>(
     product.game?.categories?.map(c => c.id) ?? []
@@ -164,6 +171,14 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
           timelineId: isGameProduct && timelineId ? timelineId : null,
           gameCategoryIds: isGameProduct ? selectedGameCategoryIds : [],
           accessoryCategoryIds: isAccessoryProduct ? selectedAccessoryCategoryIds : [],
+          // GameDetails fields
+          yearPublished: isGameProduct ? (yearPublished !== '' ? Number(yearPublished) : null) : undefined,
+          minPlayers: isGameProduct ? (minPlayers !== '' ? Number(minPlayers) : null) : undefined,
+          maxPlayers: isGameProduct ? (maxPlayers !== '' ? Number(maxPlayers) : null) : undefined,
+          minAge: isGameProduct ? (minAge !== '' ? Number(minAge) : null) : undefined,
+          playtimeMin: isGameProduct ? (playtimeMin !== '' ? Number(playtimeMin) : null) : undefined,
+          playtimeMax: isGameProduct ? (playtimeMax !== '' ? Number(playtimeMax) : null) : undefined,
+          mechanics: isGameProduct ? mechanics.split(',').map(m => m.trim()).filter(Boolean) : undefined,
         }),
       });
 
@@ -296,38 +311,6 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
         />
       </div>
 
-      {isGameProduct && (
-        <div className="space-y-2">
-          <Label>Timeline</Label>
-          <Select
-            value={timelineId || 'none'}
-            onValueChange={(val) => setTimelineId(val === 'none' ? '' : val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select timeline (optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {timelines.length === 0 ? (
-                <SelectItem value="empty" disabled>No timelines available</SelectItem>
-              ) : (
-                timelines.map((timeline) => (
-                  <SelectItem key={timeline.id} value={timeline.id}>
-                    Timeline: {timeline.events[0]?.year || 'N/A'} - {timeline.events[0]?.title || 'Untitled'}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Link this game to a historical timeline.{' '}
-            <Link href="/timelines" className="text-blue-600 hover:underline">
-              Manage timelines
-            </Link>
-          </p>
-        </div>
-      )}
-
       {/* Game Categories */}
       {isGameProduct && (
         <div className="space-y-3 border rounded-md p-4">
@@ -373,21 +356,14 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             }}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Add a category..." />
+              <SelectValue placeholder="Add game category" />
             </SelectTrigger>
             <SelectContent>
-              {gameCategories
-                .filter(cat => !selectedGameCategoryIds.includes(cat.id))
-                .map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              {gameCategories.filter(cat => !selectedGameCategoryIds.includes(cat.id)).length === 0 && (
-                <SelectItem value="none" disabled>
-                  All categories selected
+              {gameCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id} disabled={selectedGameCategoryIds.includes(category.id)}>
+                  {category.name}
                 </SelectItem>
-              )}
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -438,85 +414,147 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             }}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Add a category..." />
+              <SelectValue placeholder="Add accessory category" />
             </SelectTrigger>
             <SelectContent>
-              {accessoryCategories
-                .filter(cat => !selectedAccessoryCategoryIds.includes(cat.id))
-                .map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              {accessoryCategories.filter(cat => !selectedAccessoryCategoryIds.includes(cat.id)).length === 0 && (
-                <SelectItem value="none" disabled>
-                  All categories selected
+              {accessoryCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id} disabled={selectedAccessoryCategoryIds.includes(category.id)}>
+                  {category.name}
                 </SelectItem>
-              )}
+              ))}
             </SelectContent>
           </Select>
         </div>
       )}
 
-      <div className="space-y-3 border rounded-md p-4">
-        <h2 className="text-sm font-medium">Variants / SKUs</h2>
-        {product.variants.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            This product has no variants yet.
-          </p>
-        ) : (
+      {/* GameDetails fields for game products */}
+      {isGameProduct && (
+        <div className="grid gap-4 sm:grid-cols-3 border rounded-md p-4 mb-4">
           <div className="space-y-2">
-            {product.variants.map((v) => (
-              <div
-                key={v.id}
-                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2"
-              >
-                <div className="space-y-0.5">
-                  <div className="text-sm font-medium">
-                    {v.sku}{' '}
-                    {v.edition && (
-                      <span className="text-xs text-muted-foreground">
-                        ({v.edition})
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {v.language ? `${v.language} · ` : ''}
-                    {v.status} · {v.condition}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/variants/${v.id}/edit`}>
-                      Edit variant
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            ))}
+            <Label htmlFor="yearPublished">Year published</Label>
+            <Input
+              id="yearPublished"
+              type="number"
+              value={yearPublished}
+              onChange={e => setYearPublished(e.target.value ? Number(e.target.value) : '')}
+            />
           </div>
-        )}
-      </div>
-
-      {errorMsg && (
-        <p className="text-sm text-red-500">{errorMsg}</p>
+          <div className="space-y-2">
+            <Label htmlFor="minPlayers">Min players</Label>
+            <Input
+              id="minPlayers"
+              type="number"
+              value={minPlayers}
+              onChange={e => setMinPlayers(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="maxPlayers">Max players</Label>
+            <Input
+              id="maxPlayers"
+              type="number"
+              value={maxPlayers}
+              onChange={e => setMaxPlayers(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="minAge">Min age</Label>
+            <Input
+              id="minAge"
+              type="number"
+              value={minAge}
+              onChange={e => setMinAge(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="playtimeMin">Playtime min (min)</Label>
+            <Input
+              id="playtimeMin"
+              type="number"
+              value={playtimeMin}
+              onChange={e => setPlaytimeMin(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="playtimeMax">Playtime max (min)</Label>
+            <Input
+              id="playtimeMax"
+              type="number"
+              value={playtimeMax}
+              onChange={e => setPlaytimeMax(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-3">
+            <Label htmlFor="mechanics">Mechanics</Label>
+            <Input
+              id="mechanics"
+              value={mechanics}
+              onChange={e => setMechanics(e.target.value)}
+              placeholder="Deck Building, Worker Placement"
+            />
+            <p className="text-xs text-muted-foreground">Comma separated. Example: <code>Deck Building, Worker Placement</code></p>
+          </div>
+        </div>
       )}
-      {successMsg && (
-        <p className="text-sm text-emerald-600">{successMsg}</p>
+
+      {isGameProduct && (
+        <div className="space-y-2">
+          <Label>Timeline</Label>
+          <Select
+            value={timelineId || 'none'}
+            onValueChange={(val) => setTimelineId(val === 'none' ? '' : val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select timeline (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {timelines.length === 0 ? (
+                <SelectItem value="empty" disabled>No timelines available</SelectItem>
+              ) : (
+                timelines.map((timeline) => (
+                  <SelectItem key={timeline.id} value={timeline.id}>
+                    Timeline: {timeline.events[0]?.year || 'N/A'} - {timeline.events[0]?.title || 'Untitled'}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Link this game to a historical timeline.{' '}
+            <Link href="/timelines" className="text-blue-600 hover:underline">
+              Manage timelines
+            </Link>
+          </p>
+        </div>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save changes'}
-        </Button>
+      <div className="flex justify-end gap-4">
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.back()}
+          onClick={() => router.push('/products')}
         >
           Cancel
         </Button>
+        <Button
+          type="submit"
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving...' : 'Save changes'}
+        </Button>
       </div>
+
+      {errorMsg && (
+        <p className="text-sm text-destructive">
+          {errorMsg}
+        </p>
+      )}
+      {successMsg && (
+        <p className="text-sm text-muted-foreground">
+          {successMsg}
+        </p>
+      )}
     </form>
   );
 }
