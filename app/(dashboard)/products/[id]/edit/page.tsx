@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductEditForm } from './product-edit-form';
+import { ProductMediaEditor } from './product-media-editor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type PageProps = {
   params: Promise<{ id: string; }>;
@@ -9,15 +11,24 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [product, timelines] = await Promise.all([
+  const [product, timelines, brands, gameCategories, accessoryCategories] = await Promise.all([
     prisma.product.findUnique({
       where: { id: id },
       include: {
-        game: true,
-        accessory: true,
+        game: {
+          include: {
+            categories: true,
+          },
+        },
+        accessory: {
+          include: {
+            categories: true,
+          },
+        },
         bundle: true,
         bgg: true,
         variants: true,
+        brand: true,
       },
     }),
     prisma.gameTimeline.findMany({
@@ -26,6 +37,32 @@ export default async function EditProductPage({ params }: PageProps) {
           orderBy: [{ year: 'desc' }, { month: 'desc' }],
           take: 1,
         },
+      },
+    }),
+    prisma.brand.findMany({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    }),
+    prisma.gameCategory.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    }),
+    prisma.accessoryCategory.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
       },
     }),
   ]);
@@ -39,15 +76,34 @@ export default async function EditProductPage({ params }: PageProps) {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Edit product
+            Edit product: {product.name}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Update the core information of this product.
+            Update product information, media, and settings.
           </p>
         </div>
       </div>
 
-      <ProductEditForm product={product} timelines={timelines} />
+      <Tabs defaultValue="details" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
+          <ProductEditForm 
+            product={product} 
+            timelines={timelines} 
+            brands={brands}
+            gameCategories={gameCategories}
+            accessoryCategories={accessoryCategories}
+          />
+        </TabsContent>
+
+        <TabsContent value="media">
+          <ProductMediaEditor productId={product.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

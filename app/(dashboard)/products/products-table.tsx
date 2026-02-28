@@ -16,11 +16,9 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { ProductRow } from './product-row';
-import { GameCategory, ProductionQualityTier, GameTimelineEventType } from '@prisma/client'
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ProductStatus } from '@prisma/client';
 import { SelectProduct } from './product-row';
 
 export function ProductsTable({
@@ -37,7 +35,7 @@ export function ProductsTable({
   status?: string
 }) {
   let router = useRouter();
-  let productsPerPage = 5;
+  let productsPerPage = 10;
 
   function prevPage() {
     router.back();

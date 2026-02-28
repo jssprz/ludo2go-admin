@@ -4,6 +4,7 @@ import { Package, ShoppingCart, Users, PlusCircle, LineChart, Workflow } from 'l
 import Link from 'next/link';
 import { prisma } from '@jssprz/ludo2go-database';
 import { OrderStatus, EventType, DeviceType } from '@prisma/client';
+import { getTranslations } from 'next-intl/server';
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('es-CL', {
@@ -14,6 +15,8 @@ const formatPrice = (price: number) => {
 }
 
 export default async function AdminHomePage() {
+  const t = await getTranslations('dashboard');
+  
   // get totals
   let totalProducts = await prisma.product.count();
   let totalVairants = await prisma.productVariant.count();
@@ -65,9 +68,9 @@ export default async function AdminHomePage() {
       {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Manage catalog, stock, orders, shipping, and customers of the store.
+            {t('description')}
           </p>
         </div>
         <div className="flex gap-2">

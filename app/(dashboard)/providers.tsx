@@ -6,7 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <TooltipProvider>{children}</TooltipProvider>
+      <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
     </SessionProvider>
   );
 }

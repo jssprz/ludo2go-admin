@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@jssprz/ludo2go-database';
 import { VariantEditForm } from './variant-edit-form';
+import { VariantMediaEditor } from './variant-media-editor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -69,11 +71,24 @@ export default async function EditVariantPage({ params }: PageProps) {
         </div>
       </div>
 
-      <VariantEditForm 
-        variant={variant} 
-        storeLinks={storeLinks} 
-        locations={locations}
-      />
+      <Tabs defaultValue="details" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
+          <VariantEditForm 
+            variant={variant} 
+            storeLinks={storeLinks} 
+            locations={locations}
+          />
+        </TabsContent>
+
+        <TabsContent value="media">
+          <VariantMediaEditor variantId={variant.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

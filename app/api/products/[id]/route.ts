@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 
 type RouteContext = {
   params: Promise<{
-    productId: string;
+    id: string;
   }>;
 };
 
@@ -16,10 +16,10 @@ export async function GET(request: Request, { params }: RouteContext) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { productId } = await params;
+    const { id } = await params;
 
     const product = await prisma.product.findUnique({
-      where: { id: productId },
+      where: { id },
       include: {
         game: true,
         accessory: true,
@@ -55,24 +55,34 @@ export async function PUT(request: Request, { params }: RouteContext) {
     const {
       name,
       slug,
-      brand,
+      brandId,
       kind,
       status,
       tags,
       shortDescription,
       description,
       timelineId,
+      gameCategoryIds,
+      accessoryCategoryIds,
+      // GameDetails fields
+      yearPublished,
+      minPlayers,
+      maxPlayers,
+      minAge,
+      playtimeMin,
+      playtimeMax,
+      mechanics,
     } = body;
 
-    const { productId } = await params;
+    const { id } = await params;
 
     // Update product
     const product = await prisma.product.update({
-      where: { id: productId },
+      where: { id },
       data: {
         name,
         slug,
-        brand,
+        brandId: brandId || null,
         kind,
         status,
         tags,
@@ -81,15 +91,38 @@ export async function PUT(request: Request, { params }: RouteContext) {
       },
       include: {
         game: true,
+        accessory: true,
       },
     });
 
-    // If it's a game product, update the timeline
+    // If it's a game product, update the timeline and categories
     if (kind === 'game' && product.game) {
       await prisma.gameDetails.update({
-        where: { productId: productId },
+        where: { productId: id },
         data: {
           timelineId: timelineId || null,
+          categories: {
+            set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
+          },
+          yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
+          minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
+          maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
+          minAge: typeof minAge === 'number' ? minAge : null,
+          playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
+          playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+          mechanics: Array.isArray(mechanics) ? mechanics : [],
+        },
+      });
+    }
+
+    // If it's an accessory product, update categories
+    if (kind === 'accessory' && product.accessory) {
+      await prisma.accessoryDetails.update({
+        where: { productId: id },
+        data: {
+          categories: {
+            set: (accessoryCategoryIds || []).map((catId: string) => ({ id: catId })),
+          },
         },
       });
     }
@@ -112,10 +145,10 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { productId } = await params;
+    const { id } = await params;
 
     await prisma.product.delete({
-      where: { id: productId },
+      where: { id },
     });
 
     return NextResponse.json({ message: 'Product deleted successfully' });

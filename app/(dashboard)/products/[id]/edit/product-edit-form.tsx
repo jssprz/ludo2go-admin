@@ -4,11 +4,14 @@ import Link from 'next/link';
 import { useState, FormEvent } from 'react';
 import type {
   Product,
+  Brand,
   GameDetails,
   AccessoryDetails,
   BundleDetails,
   BGGDetails,
-  ProductVariant
+  ProductVariant,
+  GameCategory,
+  AccessoryCategory
 } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 
@@ -23,13 +26,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { X, Trash2 } from 'lucide-react';
+
+type GameDetailsWithCategories = GameDetails & {
+  categories: GameCategory[];
+};
+
+type AccessoryDetailsWithCategories = AccessoryDetails & {
+  categories: AccessoryCategory[];
+};
 
 type ProductWithDetails = Product & {
-  game: GameDetails | null;
-  accessory: AccessoryDetails | null;
+  game: GameDetailsWithCategories | null;
+  accessory: AccessoryDetailsWithCategories | null;
   bundle: BundleDetails | null;
   bgg: BGGDetails | null;
   variants: ProductVariant[];
+  brand: Brand | null;
 };
 
 type TimelineSummary = {
@@ -40,6 +54,18 @@ type TimelineSummary = {
   }>;
 };
 
+type BrandOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type CategoryOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
@@ -47,14 +73,17 @@ type ProductKind = Product['kind'];
 type Props = {
   product: ProductWithDetails;
   timelines: TimelineSummary[];
+  brands: BrandOption[];
+  gameCategories: CategoryOption[];
+  accessoryCategories: CategoryOption[];
 };
 
-export function ProductEditForm({ product, timelines }: Props) {
+export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
   const [slug, setSlug] = useState(product.slug);
-  const [brand, setBrand] = useState(product.brand ?? '');
+  const [brandId, setBrandId] = useState(product.brandId ?? '');
   const [kind, setKind] = useState<ProductKind>(product.kind);
   const [status, setStatus] = useState<ProductStatus>(
     product.status as ProductStatus
@@ -69,12 +98,78 @@ export function ProductEditForm({ product, timelines }: Props) {
   const [timelineId, setTimelineId] = useState<string>(
     product.game?.timelineId ?? ''
   );
+  const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? '');
+  const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? '');
+  const [maxPlayers, setMaxPlayers] = useState<number | ''>(product.game?.maxPlayers ?? '');
+  const [minAge, setMinAge] = useState<number | ''>(product.game?.minAge ?? '');
+  const [playtimeMin, setPlaytimeMin] = useState<number | ''>(product.game?.playtimeMin ?? '');
+  const [playtimeMax, setPlaytimeMax] = useState<number | ''>(product.game?.playtimeMax ?? '');
+  const [mechanics, setMechanics] = useState<string>(product.game?.mechanics?.join(', ') ?? '');
+
+  // Category state
+  const [selectedGameCategoryIds, setSelectedGameCategoryIds] = useState<string[]>(
+    product.game?.categories?.map(c => c.id) ?? []
+  );
+  const [selectedAccessoryCategoryIds, setSelectedAccessoryCategoryIds] = useState<string[]>(
+    product.accessory?.categories?.map(c => c.id) ?? []
+  );
+
+  const [variants, setVariants] = useState(product.variants);
+  const [deletingVariantId, setDeletingVariantId] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const isGameProduct = kind === 'game';
+  const isAccessoryProduct = kind === 'accessory';
+
+  function addGameCategory(categoryId: string) {
+    if (!selectedGameCategoryIds.includes(categoryId)) {
+      setSelectedGameCategoryIds([...selectedGameCategoryIds, categoryId]);
+    }
+  }
+
+  function removeGameCategory(categoryId: string) {
+    setSelectedGameCategoryIds(selectedGameCategoryIds.filter(id => id !== categoryId));
+  }
+
+  function addAccessoryCategory(categoryId: string) {
+    if (!selectedAccessoryCategoryIds.includes(categoryId)) {
+      setSelectedAccessoryCategoryIds([...selectedAccessoryCategoryIds, categoryId]);
+    }
+  }
+
+  function removeAccessoryCategory(categoryId: string) {
+    setSelectedAccessoryCategoryIds(selectedAccessoryCategoryIds.filter(id => id !== categoryId));
+  }
+
+  async function handleDeleteVariant(variantId: string, sku: string) {
+    if (!confirm(`Are you sure you want to delete variant "${sku}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingVariantId(variantId);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch(`/api/variants/${variantId}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to delete variant');
+      }
+
+      setVariants(variants.filter(v => v.id !== variantId));
+      setSuccessMsg(`Variant "${sku}" deleted successfully.`);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete variant');
+    } finally {
+      setDeletingVariantId(null);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -97,13 +192,23 @@ export function ProductEditForm({ product, timelines }: Props) {
         body: JSON.stringify({
           name,
           slug,
-          brand: brand || null,
+          brandId: brandId || null,
           kind,
           status,
           tags: normalizedTags,
           shortDescription: shortDescription || null,
           description: description || null,
           timelineId: isGameProduct && timelineId ? timelineId : null,
+          gameCategoryIds: isGameProduct ? selectedGameCategoryIds : [],
+          accessoryCategoryIds: isAccessoryProduct ? selectedAccessoryCategoryIds : [],
+          // GameDetails fields
+          yearPublished: isGameProduct ? (yearPublished !== '' ? Number(yearPublished) : null) : undefined,
+          minPlayers: isGameProduct ? (minPlayers !== '' ? Number(minPlayers) : null) : undefined,
+          maxPlayers: isGameProduct ? (maxPlayers !== '' ? Number(maxPlayers) : null) : undefined,
+          minAge: isGameProduct ? (minAge !== '' ? Number(minAge) : null) : undefined,
+          playtimeMin: isGameProduct ? (playtimeMin !== '' ? Number(playtimeMin) : null) : undefined,
+          playtimeMax: isGameProduct ? (playtimeMax !== '' ? Number(playtimeMax) : null) : undefined,
+          mechanics: isGameProduct ? mechanics.split(',').map(m => m.trim()).filter(Boolean) : undefined,
         }),
       });
 
@@ -148,13 +253,23 @@ export function ProductEditForm({ product, timelines }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="brand">Brand</Label>
-          <Input
-            id="brand"
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            placeholder="e.g. Devir, CMON"
-          />
+          <Label>Brand</Label>
+          <Select
+            value={brandId || 'none'}
+            onValueChange={(val) => setBrandId(val === 'none' ? '' : val)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select brand" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No brand</SelectItem>
+              {brands.map((brand) => (
+                <SelectItem key={brand.id} value={brand.id}>
+                  {brand.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
@@ -226,6 +341,192 @@ export function ProductEditForm({ product, timelines }: Props) {
         />
       </div>
 
+      {/* Game Categories */}
+      {isGameProduct && (
+        <div className="space-y-3 border rounded-md p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">Game Categories</h2>
+              <p className="text-xs text-muted-foreground">
+                Assign categories to this game.{' '}
+                <Link href="/game-categories" className="text-blue-600 hover:underline">
+                  Manage categories
+                </Link>
+              </p>
+            </div>
+          </div>
+          
+          {/* Selected categories */}
+          {selectedGameCategoryIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedGameCategoryIds.map((catId) => {
+                const category = gameCategories.find(c => c.id === catId);
+                if (!category) return null;
+                return (
+                  <Badge key={catId} variant="secondary" className="gap-1">
+                    {category.name}
+                    <button
+                      type="button"
+                      onClick={() => removeGameCategory(catId)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Add category select */}
+          <Select
+            value=""
+            onValueChange={(val) => {
+              if (val) addGameCategory(val);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Add game category" />
+            </SelectTrigger>
+            <SelectContent>
+              {gameCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id} disabled={selectedGameCategoryIds.includes(category.id)}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Accessory Categories */}
+      {isAccessoryProduct && (
+        <div className="space-y-3 border rounded-md p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-medium">Accessory Categories</h2>
+              <p className="text-xs text-muted-foreground">
+                Assign categories to this accessory.{' '}
+                <Link href="/accessory-categories" className="text-blue-600 hover:underline">
+                  Manage categories
+                </Link>
+              </p>
+            </div>
+          </div>
+          
+          {/* Selected categories */}
+          {selectedAccessoryCategoryIds.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectedAccessoryCategoryIds.map((catId) => {
+                const category = accessoryCategories.find(c => c.id === catId);
+                if (!category) return null;
+                return (
+                  <Badge key={catId} variant="secondary" className="gap-1">
+                    {category.name}
+                    <button
+                      type="button"
+                      onClick={() => removeAccessoryCategory(catId)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Add category select */}
+          <Select
+            value=""
+            onValueChange={(val) => {
+              if (val) addAccessoryCategory(val);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Add accessory category" />
+            </SelectTrigger>
+            <SelectContent>
+              {accessoryCategories.map((category) => (
+                <SelectItem key={category.id} value={category.id} disabled={selectedAccessoryCategoryIds.includes(category.id)}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* GameDetails fields for game products */}
+      {isGameProduct && (
+        <div className="grid gap-4 sm:grid-cols-3 border rounded-md p-4 mb-4">
+          <div className="space-y-2">
+            <Label htmlFor="yearPublished">Year published</Label>
+            <Input
+              id="yearPublished"
+              type="number"
+              value={yearPublished}
+              onChange={e => setYearPublished(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="minPlayers">Min players</Label>
+            <Input
+              id="minPlayers"
+              type="number"
+              value={minPlayers}
+              onChange={e => setMinPlayers(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="maxPlayers">Max players</Label>
+            <Input
+              id="maxPlayers"
+              type="number"
+              value={maxPlayers}
+              onChange={e => setMaxPlayers(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="minAge">Min age</Label>
+            <Input
+              id="minAge"
+              type="number"
+              value={minAge}
+              onChange={e => setMinAge(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="playtimeMin">Playtime min (min)</Label>
+            <Input
+              id="playtimeMin"
+              type="number"
+              value={playtimeMin}
+              onChange={e => setPlaytimeMin(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="playtimeMax">Playtime max (min)</Label>
+            <Input
+              id="playtimeMax"
+              type="number"
+              value={playtimeMax}
+              onChange={e => setPlaytimeMax(e.target.value ? Number(e.target.value) : '')}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-3">
+            <Label htmlFor="mechanics">Mechanics</Label>
+            <Input
+              id="mechanics"
+              value={mechanics}
+              onChange={e => setMechanics(e.target.value)}
+              placeholder="Deck Building, Worker Placement"
+            />
+            <p className="text-xs text-muted-foreground">Comma separated. Example: <code>Deck Building, Worker Placement</code></p>
+          </div>
+        </div>
+      )}
+
       {isGameProduct && (
         <div className="space-y-2">
           <Label>Timeline</Label>
@@ -260,13 +561,13 @@ export function ProductEditForm({ product, timelines }: Props) {
 
       <div className="space-y-3 border rounded-md p-4">
         <h2 className="text-sm font-medium">Variants / SKUs</h2>
-        {product.variants.length === 0 ? (
+        {variants.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             This product has no variants yet.
           </p>
         ) : (
           <div className="space-y-2">
-            {product.variants.map((v) => (
+            {variants.map((v) => (
               <div
                 key={v.id}
                 className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2"
@@ -291,6 +592,22 @@ export function ProductEditForm({ product, timelines }: Props) {
                       Edit variant
                     </Link>
                   </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={deletingVariantId === v.id}
+                    onClick={() => handleDeleteVariant(v.id, v.sku)}
+                  >
+                    {deletingVariantId === v.id ? (
+                      'Deleting...'
+                    ) : (
+                      <>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Delete
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -298,25 +615,32 @@ export function ProductEditForm({ product, timelines }: Props) {
         )}
       </div>
 
-      {errorMsg && (
-        <p className="text-sm text-red-500">{errorMsg}</p>
-      )}
-      {successMsg && (
-        <p className="text-sm text-emerald-600">{successMsg}</p>
-      )}
-
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save changes'}
-        </Button>
+      <div className="flex justify-end gap-4">
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.back()}
+          onClick={() => router.push('/products')}
         >
           Cancel
         </Button>
+        <Button
+          type="submit"
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving...' : 'Save changes'}
+        </Button>
       </div>
+
+      {errorMsg && (
+        <p className="text-sm text-destructive">
+          {errorMsg}
+        </p>
+      )}
+      {successMsg && (
+        <p className="text-sm text-muted-foreground">
+          {successMsg}
+        </p>
+      )}
     </form>
   );
 }

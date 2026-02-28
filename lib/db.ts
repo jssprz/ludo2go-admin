@@ -1,18 +1,5 @@
 import 'server-only';
 
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import {
-  pgTable,
-  text,
-  numeric,
-  integer,
-  timestamp,
-  pgEnum,
-  serial
-} from 'drizzle-orm/pg-core';
-import { count, eq, ilike } from 'drizzle-orm';
-import { createInsertSchema } from 'drizzle-zod';
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductStatus } from '@prisma/client';
 
@@ -39,6 +26,7 @@ export async function getProducts(
   let totalProducts = await prisma.product.count({ where });
   let moreProducts = await prisma.product.findMany({
     include: {
+      brand: true,
       mediaLinks: {
         include: {
           media: true
@@ -47,7 +35,7 @@ export async function getProducts(
       variants: true
     }, 
     where, 
-    take: 5, 
+    take: 10, 
     skip: offset,
     orderBy: { createdAt: 'desc' }
   });
