@@ -266,3 +266,44 @@ export async function GET(
     );
   }
 }
+
+// DELETE variant
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await context.params;
+
+    const existingVariant = await prisma.productVariant.findUnique({
+      where: { id },
+    });
+
+    if (!existingVariant) {
+      return NextResponse.json(
+        { message: 'Variant not found' },
+        { status: 404 }
+      );
+    }
+
+    await prisma.productVariant.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: 'Variant deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting variant:', error);
+    return NextResponse.json(
+      { message: error.message || 'Failed to delete variant' },
+      { status: 500 }
+    );
+  }
+}
