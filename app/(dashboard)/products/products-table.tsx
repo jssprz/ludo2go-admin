@@ -35,7 +35,7 @@ export function ProductsTable({
   status?: string
 }) {
   let router = useRouter();
-  let productsPerPage = 5;
+  let productsPerPage = 10;
 
   function prevPage() {
     router.back();

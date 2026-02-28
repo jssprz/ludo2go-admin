@@ -35,7 +35,7 @@ export async function getProducts(
       variants: true
     }, 
     where, 
-    take: 5, 
+    take: 10, 
     skip: offset,
     orderBy: { createdAt: 'desc' }
   });
