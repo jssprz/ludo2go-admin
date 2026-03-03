@@ -512,262 +512,265 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           </div>
         </div>
 
-        {/* Variant Prices Section */}
-        <div className="space-y-3 border rounded-md p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-medium">Variant Prices</h2>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={handleAddPrice}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Price
-            </Button>
-          </div>
+        <div className="space-y-3">
+          {/* Variant Prices Section */}
+          <div className="space-y-3 border rounded-md p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-medium">Variant Prices</h2>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAddPrice}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Price
+              </Button>
+            </div>
 
-          <p className="text-xs text-muted-foreground">
-            Manage the pricing for this variant. Mark a price as active to use it.
-          </p>
-
-          {prices.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No prices added yet. Click &quot;Add Price&quot; to create one.
+            <p className="text-xs text-muted-foreground">
+              Manage the pricing for this variant. Mark a price as active to use it.
             </p>
-          ) : (
-            <div className="space-y-3">
-              {prices.map((price) => (
-                <div
-                  key={price.id}
-                  className={`border rounded-md p-3 space-y-3 ${price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
-                    }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+
+            {prices.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No prices added yet. Click &quot;Add Price&quot; to create one.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {prices.map((price) => (
+                  <div
+                    key={price.id}
+                    className={`border rounded-md p-3 space-y-3 ${price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={price.active ? 'default' : 'outline'}
+                          onClick={() => handleToggleActivePrice(price.id)}
+                          className="h-8"
+                        >
+                          {price.active && <Check className="h-3 w-3 mr-1" />}
+                          {price.active ? 'Active' : 'Inactive'}
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
+                        </span>
+                      </div>
                       <Button
                         type="button"
                         size="sm"
-                        variant={price.active ? 'default' : 'outline'}
-                        onClick={() => handleToggleActivePrice(price.id)}
-                        className="h-8"
+                        variant="ghost"
+                        onClick={() => handleRemovePrice(price.id)}
+                        className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
-                        {price.active && <Check className="h-3 w-3 mr-1" />}
-                        {price.active ? 'Active' : 'Inactive'}
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                      <span className="text-xs text-muted-foreground">
-                        {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemovePrice(price.id)}
-                      className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label htmlFor={`price-amount-${price.id}`}>Amount</Label>
-                      <Input
-                        id={`price-amount-${price.id}`}
-                        type="number"
-                        step="10"
-                        min="0"
-                        value={price.amount}
-                        onChange={(e) =>
-                          handlePriceChange(
-                            price.id,
-                            'amount',
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        required
-                      />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label htmlFor={`price-currency-${price.id}`}>Currency</Label>
-                      <Select
-                        value={price.currency}
-                        onValueChange={(val) =>
-                          handlePriceChange(price.id, 'currency', val)
-                        }
-                      >
-                        <SelectTrigger id={`price-currency-${price.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CLP">CLP</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="ARS">ARS</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`price-amount-${price.id}`}>Amount</Label>
+                        <Input
+                          id={`price-amount-${price.id}`}
+                          type="number"
+                          step="10"
+                          min="0"
+                          value={price.amount}
+                          onChange={(e) =>
+                            handlePriceChange(
+                              price.id,
+                              'amount',
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor={`price-currency-${price.id}`}>Currency</Label>
+                        <Select
+                          value={price.currency}
+                          onValueChange={(val) =>
+                            handlePriceChange(price.id, 'currency', val)
+                          }
+                        >
+                          <SelectTrigger id={`price-currency-${price.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CLP">CLP</SelectItem>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="ARS">ARS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor={`price-type-${price.id}`}>Price Type</Label>
+                        <Select
+                          value={price.type}
+                          onValueChange={(val) =>
+                            handlePriceChange(price.id, 'type', val)
+                          }
+                        >
+                          <SelectTrigger id={`price-type-${price.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="list">List Price</SelectItem>
+                            <SelectItem value="sale">Sale Price</SelectItem>
+                            <SelectItem value="cost">Cost</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <Label htmlFor={`price-type-${price.id}`}>Price Type</Label>
-                      <Select
-                        value={price.type}
-                        onValueChange={(val) =>
-                          handlePriceChange(price.id, 'type', val)
-                        }
-                      >
-                        <SelectTrigger id={`price-type-${price.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="list">List Price</SelectItem>
-                          <SelectItem value="sale">Sale Price</SelectItem>
-                          <SelectItem value="cost">Cost</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor={`price-start-${price.id}`}>
+                          Start Date (optional)
+                        </Label>
+                        <Input
+                          id={`price-start-${price.id}`}
+                          type="date"
+                          value={price.startsAt?.toISOString().split('T')[0] || ''}
+                          onChange={(e) =>
+                            handlePriceChange(
+                              price.id,
+                              'startsAt',
+                              e.target.value || null
+                            )
+                          }
+                        />
+                      </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label htmlFor={`price-start-${price.id}`}>
-                        Start Date (optional)
-                      </Label>
-                      <Input
-                        id={`price-start-${price.id}`}
-                        type="date"
-                        value={price.startsAt?.toISOString().split('T')[0] || ''}
-                        onChange={(e) =>
-                          handlePriceChange(
-                            price.id,
-                            'startsAt',
-                            e.target.value || null
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor={`price-end-${price.id}`}>
-                        End Date (optional)
-                      </Label>
-                      <Input
-                        id={`price-end-${price.id}`}
-                        type="date"
-                        value={price.endsAt?.toISOString().split('T')[0] || ''}
-                        onChange={(e) =>
-                          handlePriceChange(
-                            price.id,
-                            'endsAt',
-                            e.target.value || null
-                          )
-                        }
-                      />
+                      <div className="space-y-1">
+                        <Label htmlFor={`price-end-${price.id}`}>
+                          End Date (optional)
+                        </Label>
+                        <Input
+                          id={`price-end-${price.id}`}
+                          type="date"
+                          value={price.endsAt?.toISOString().split('T')[0] || ''}
+                          onChange={(e) =>
+                            handlePriceChange(
+                              price.id,
+                              'endsAt',
+                              e.target.value || null
+                            )
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Inventory Management Section */}
+          <div className="space-y-3 border rounded-md p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-medium">Inventory Stock</h2>
+                <p className="text-xs text-muted-foreground">
+                  Manage stock levels across different locations
+                </p>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Inventory Management Section */}
-      <div className="space-y-3 border rounded-md p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-medium">Inventory Stock</h2>
-            <p className="text-xs text-muted-foreground">
-              Manage stock levels across different locations
-            </p>
+            {locations.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No locations available. Please create locations first.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {locations.map((location) => {
+                  const available = inventoryData[location.id].onHand - inventoryData[location.id].reserved;
+                  return (
+                    <div
+                      key={location.id}
+                      className="border rounded-md p-3 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-medium text-sm">{location.name}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            {location.code}
+                            {location.region && ` • ${location.region}`}
+                          </p>
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">Available: </span>
+                          <span className={available > 0 ? 'text-green-600' : available < 0 ? 'text-red-600' : ''}>
+                            {available}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor={`inventory-onhand-${location.id}`}>
+                            On Hand
+                          </Label>
+                          <Input
+                            id={`inventory-onhand-${location.id}`}
+                            type="number"
+                            min="0"
+                            value={inventoryData[location.id].onHand}
+                            onChange={(e) =>
+                              setInventoryData((prev) => ({
+                                ...prev,
+                                [location.id]: {
+                                  ...prev[location.id],
+                                  onHand: parseInt(e.target.value) || 0,
+                                },
+                              }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Total physical stock
+                          </p>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor={`inventory-reserved-${location.id}`}>
+                            Reserved
+                          </Label>
+                          <Input
+                            id={`inventory-reserved-${location.id}`}
+                            type="number"
+                            min="0"
+                            value={inventoryData[location.id].reserved}
+                            onChange={(e) =>
+                              setInventoryData((prev) => ({
+                                ...prev,
+                                [location.id]: {
+                                  ...prev[location.id],
+                                  reserved: parseInt(e.target.value) || 0,
+                                },
+                              }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Reserved for orders
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        {locations.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No locations available. Please create locations first.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {locations.map((location) => {
-              const available = inventoryData[location.id].onHand - inventoryData[location.id].reserved;
-              return (
-                <div
-                  key={location.id}
-                  className="border rounded-md p-3 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-sm">{location.name}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {location.code}
-                        {location.region && ` • ${location.region}`}
-                      </p>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Available: </span>
-                      <span className={available > 0 ? 'text-green-600' : available < 0 ? 'text-red-600' : ''}>
-                        {available}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label htmlFor={`inventory-onhand-${location.id}`}>
-                        On Hand
-                      </Label>
-                      <Input
-                        id={`inventory-onhand-${location.id}`}
-                        type="number"
-                        min="0"
-                        value={inventoryData[location.id].onHand}
-                        onChange={(e) =>
-                          setInventoryData((prev) => ({
-                            ...prev,
-                            [location.id]: {
-                              ...prev[location.id],
-                              onHand: parseInt(e.target.value) || 0,
-                            },
-                          }))
-                        }
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Total physical stock
-                      </p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor={`inventory-reserved-${location.id}`}>
-                        Reserved
-                      </Label>
-                      <Input
-                        id={`inventory-reserved-${location.id}`}
-                        type="number"
-                        min="0"
-                        value={inventoryData[location.id].reserved}
-                        onChange={(e) =>
-                          setInventoryData((prev) => ({
-                            ...prev,
-                            [location.id]: {
-                              ...prev[location.id],
-                              reserved: parseInt(e.target.value) || 0,
-                            },
-                          }))
-                        }
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Reserved for orders
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}

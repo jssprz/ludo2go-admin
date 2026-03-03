@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductEditForm } from './product-edit-form';
 import { ProductMediaEditor } from './product-media-editor';
+import { ProductVariantsEditor } from './product-variants-editor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type PageProps = {
@@ -11,13 +12,15 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [product, timelines, brands, gameCategories, accessoryCategories] = await Promise.all([
+  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics] = await Promise.all([
     prisma.product.findUnique({
       where: { id: id },
       include: {
         game: {
           include: {
             categories: true,
+            themes: true,
+            mechanics: true,
           },
         },
         accessory: {
@@ -65,6 +68,24 @@ export default async function EditProductPage({ params }: PageProps) {
         slug: true,
       },
     }),
+    prisma.gameTheme.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    }),
+    prisma.gameMechanic.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    }),
   ]);
 
   if (!product) {
@@ -88,6 +109,7 @@ export default async function EditProductPage({ params }: PageProps) {
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="media">Media</TabsTrigger>
+          <TabsTrigger value="variants">Variants</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
@@ -97,11 +119,17 @@ export default async function EditProductPage({ params }: PageProps) {
             brands={brands}
             gameCategories={gameCategories}
             accessoryCategories={accessoryCategories}
+            gameThemes={gameThemes}
+            gameMechanics={gameMechanics}
           />
         </TabsContent>
 
         <TabsContent value="media">
           <ProductMediaEditor productId={product.id} />
+        </TabsContent>
+
+        <TabsContent value="variants">
+          <ProductVariantsEditor productId={product.id} variants={product.variants} />
         </TabsContent>
       </Tabs>
     </div>

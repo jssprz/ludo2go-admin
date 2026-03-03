@@ -3,7 +3,6 @@ import {
   Home,
   LineChart,
   Package,
-  Package2,
   PanelLeft,
   Settings,
   ShoppingCart,
@@ -12,12 +11,14 @@ import {
   Clock,
   Boxes,
   MapPin,
-  Image,
+  Image as ImageIcon,
   Mail,
   Images,
   Tag,
   Gamepad2,
-  Puzzle
+  Puzzle,
+  Palette,
+  Wrench
 } from 'lucide-react';
 
 import {
@@ -25,8 +26,6 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -35,14 +34,16 @@ import {
   TooltipContent,
   TooltipTrigger
 } from '@/components/ui/tooltip';
+import Image from 'next/image';
 import { Analytics } from '@vercel/analytics/react';
 import { User } from './user';
-import { VercelLogo } from '@/components/icons';
 import Providers from './providers';
 import { NavItem } from './nav-item';
 import { SearchInput } from './search';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { getTranslations } from 'next-intl/server';
+
+const LOGO_URL = `${process.env.NEXT_PUBLIC_BLOB_BASE_URL}/assets/jobys-logo-130x59.png`;
 
 export default function DashboardLayout({
   children
@@ -77,11 +78,17 @@ async function DesktopNav() {
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
       <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
         <Link
-          href="https://vercel.com/templates/next.js/admin-dashboard-tailwind-postgres-react-nextjs"
-          className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
+          href="/"
+          className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base overflow-hidden"
         >
-          <VercelLogo className="h-3 w-3 transition-all group-hover:scale-110" />
-          <span className="sr-only">Acme Inc</span>
+          <Image
+            src={LOGO_URL}
+            alt="Joby's"
+            width={130}
+            height={59}
+            className="h-5 w-auto transition-all group-hover:scale-110"
+          />
+          <span className="sr-only">Jobys</span>
         </Link>
 
         <NavItem href="/" label="Dashboard">
@@ -108,6 +115,14 @@ async function DesktopNav() {
           <Puzzle className="h-5 w-5" />
         </NavItem>
 
+        <NavItem href="/game-themes" label={t('gameThemes')}>
+          <Palette className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/game-mechanics" label={t('gameMechanics')}>
+          <Wrench className="h-5 w-5" />
+        </NavItem>
+
         <NavItem href="/inventory" label={t('inventory')}>
           <Boxes className="h-5 w-5" />
         </NavItem>
@@ -125,7 +140,7 @@ async function DesktopNav() {
         </NavItem>
 
         <NavItem href="/carousels" label={t('carousels')}>
-          <Image className="h-5 w-5" />
+          <ImageIcon className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/early-access" label={t('earlyAccess')}>
@@ -174,11 +189,17 @@ function MobileNav() {
       <SheetContent side="left" className="sm:max-w-xs">
         <nav className="grid gap-6 text-lg font-medium">
           <Link
-            href="#"
-            className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
+            href="/"
+            className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base overflow-hidden"
           >
-            <Package2 className="h-5 w-5 transition-all group-hover:scale-110" />
-            <span className="sr-only">Vercel</span>
+            <Image
+              src={LOGO_URL}
+              alt="Joby's"
+              width={130}
+              height={59}
+              className="h-6 w-auto transition-all group-hover:scale-110"
+            />
+            <span className="sr-only">Joby&apos;s</span>
           </Link>
           <Link
             href="/"
@@ -223,6 +244,20 @@ function MobileNav() {
             Accessory Categories
           </Link>
           <Link
+            href="/game-themes"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Palette className="h-5 w-5" />
+            Game Themes
+          </Link>
+          <Link
+            href="/game-mechanics"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Wrench className="h-5 w-5" />
+            Game Mechanics
+          </Link>
+          <Link
             href="/inventory"
             className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
           >
@@ -254,7 +289,7 @@ function MobileNav() {
             href="/carousels"
             className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
           >
-            <Image className="h-5 w-5" />
+            <ImageIcon className="h-5 w-5" />
             Carousels
           </Link>
           <Link

@@ -8,7 +8,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, ImageOff } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { deleteProduct } from './actions';
 import { ProductStatus } from '@prisma/client';
@@ -25,13 +25,19 @@ export function ProductRow({ product }: { product: SelectProduct }) {
   return (
     <TableRow>
       <TableCell className="hidden sm:table-cell">
-        <Image
-          alt="Product image"
-          className="aspect-square rounded-md object-cover"
-          height="64"
-          src={product.mediaLinks[0].media.url}
-          width="64"
-        />
+        {product.mediaLinks.length > 0 ? (
+          <Image
+            alt="Product image"
+            className="aspect-square rounded-md object-cover"
+            height="64"
+            src={product.mediaLinks[0].media.url}
+            width="64"
+          />
+        ) : (
+          <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
+            <ImageOff className="h-6 w-6 text-muted-foreground" />
+          </div>
+        )}
       </TableCell>
       <TableCell className="font-medium">{product.name}</TableCell>
       <TableCell>
