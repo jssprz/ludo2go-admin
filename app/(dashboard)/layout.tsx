@@ -11,6 +11,7 @@ import {
   Clock,
   Boxes,
   MapPin,
+  Warehouse,
   Image as ImageIcon,
   Mail,
   Images,
@@ -125,6 +126,10 @@ async function DesktopNav() {
 
         <NavItem href="/inventory" label={t('inventory')}>
           <Boxes className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/locations" label={t('locations')}>
+          <Warehouse className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/customers" label={t('customers')}>
@@ -263,6 +268,13 @@ function MobileNav() {
           >
             <Boxes className="h-5 w-5" />
             Inventory
+          </Link>
+          <Link
+            href="/locations"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Warehouse className="h-5 w-5" />
+            Locations
           </Link>
           <Link
             href="#"
