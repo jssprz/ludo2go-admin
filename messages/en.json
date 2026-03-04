@@ -22,7 +22,10 @@
     "noResults": "No results found",
     "error": "Error",
     "success": "Success",
-    "warning": "Warning"
+    "warning": "Warning",
+    "creating": "Creating...",
+    "saving": "Saving...",
+    "deleting": "Deleting..."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -43,7 +46,8 @@
     "accessoryCategories": "Accessory Categories",
     "gameThemes": "Game Themes",
     "gameMechanics": "Game Mechanics",
-    "gameComplexities": "Game Complexities"
+    "gameComplexities": "Game Complexities",
+    "locations": "Locations"
   },
   "auth": {
     "signIn": "Sign In",
@@ -385,5 +389,31 @@
     "confirmDelete": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
     "cannotDeleteWithGames": "This complexity has {count} associated game(s). Please reassign or remove them before deleting this complexity.",
     "slugExists": "A game complexity with this slug already exists"
+  },
+  "locations": {
+    "title": "Inventory Locations",
+    "description": "Manage warehouses, stores, and other inventory locations",
+    "allLocations": "All Locations",
+    "locationsTotal": "{count, plural, one {# location} other {# locations}} total",
+    "addLocation": "Add Location",
+    "editLocation": "Edit Location",
+    "createDescription": "Add a new inventory location where stock can be tracked.",
+    "editDescription": "Update inventory location details.",
+    "deleteTitle": "Delete Location",
+    "deleteConfirmation": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+    "code": "Code",
+    "name": "Name",
+    "address": "Address",
+    "region": "Region",
+    "inventoryRecords": "Inventory",
+    "codePlaceholder": "e.g. WAREHOUSE-01",
+    "namePlaceholder": "e.g. Main Warehouse",
+    "addressPlaceholder": "e.g. 123 Storage St, City",
+    "regionPlaceholder": "e.g. Madrid, Spain",
+    "codeHint": "Unique identifier for this location. Typically uppercase with dashes.",
+    "searchPlaceholder": "Search locations...",
+    "noLocations": "No inventory locations found. Add your first location!",
+    "noResultsSearch": "No locations match your search.",
+    "codeNameRequired": "Code and name are required"
   }
 }

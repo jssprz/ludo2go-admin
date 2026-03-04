@@ -22,7 +22,10 @@
     "noResults": "No se encontraron resultados",
     "error": "Error",
     "success": "Éxito",
-    "warning": "Advertencia"
+    "warning": "Advertencia",
+    "creating": "Creando...",
+    "saving": "Guardando...",
+    "deleting": "Eliminando..."
   },
   "nav": {
     "dashboard": "Panel",
@@ -42,7 +45,8 @@
     "gameCategories": "Categorías de Juegos",
     "accessoryCategories": "Categorías de Accesorios",
     "gameThemes": "Temáticas de Juegos",
-    "gameMechanics": "Mecánicas de Juegos"
+    "gameMechanics": "Mecánicas de Juegos",
+    "locations": "Ubicaciones"
   },
   "auth": {
     "signIn": "Iniciar Sesión",
@@ -384,5 +388,31 @@
     "confirmDelete": "¿Estás seguro de que deseas eliminar \"{name}\"? Esta acción no se puede deshacer.",
     "cannotDeleteWithGames": "Este nivel de complejidad tiene {count} juego(s) asociado(s). Por favor, reasígnalos o elimínalos antes de eliminarlo.",
     "slugExists": "Ya existe un nivel de complejidad de juegos con este slug"
+  },
+  "locations": {
+    "title": "Ubicaciones de Inventario",
+    "description": "Administra bodegas, tiendas y otras ubicaciones de inventario",
+    "allLocations": "Todas las ubicaciones",
+    "locationsTotal": "{count, plural, one {# ubicación} other {# ubicaciones}} en total",
+    "addLocation": "Agregar ubicación",
+    "editLocation": "Editar ubicación",
+    "createDescription": "Agrega una nueva ubicación de inventario donde se pueda rastrear el stock.",
+    "editDescription": "Actualiza los detalles de la ubicación de inventario.",
+    "deleteTitle": "Eliminar ubicación",
+    "deleteConfirmation": "¿Estás seguro de que deseas eliminar \"{name}\"? Esta acción no se puede deshacer.",
+    "code": "Código",
+    "name": "Nombre",
+    "address": "Dirección",
+    "region": "Región",
+    "inventoryRecords": "Inventario",
+    "codePlaceholder": "ej. BODEGA-01",
+    "namePlaceholder": "ej. Bodega Principal",
+    "addressPlaceholder": "ej. Calle Almacén 123, Ciudad",
+    "regionPlaceholder": "ej. Madrid, España",
+    "codeHint": "Identificador único para esta ubicación. Generalmente en mayúsculas con guiones.",
+    "searchPlaceholder": "Buscar ubicaciones...",
+    "noLocations": "No se encontraron ubicaciones de inventario. ¡Agrega tu primera ubicación!",
+    "noResultsSearch": "Tu búsqueda no hizo match con ninguna ubicación.",
+    "codeNameRequired": "El código y el nombre son requeridos"
   }
 }
