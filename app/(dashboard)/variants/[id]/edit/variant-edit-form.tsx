@@ -68,6 +68,13 @@ function formatObservedAt(iso: string | null): string {
   }
 }
 
+function toDateInputValue(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  if (typeof value === 'string') return value.split('T')[0];
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  return '';
+}
+
 export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const router = useRouter();
 
@@ -623,9 +630,10 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="list">List Price</SelectItem>
-                            <SelectItem value="sale">Sale Price</SelectItem>
-                            <SelectItem value="cost">Cost</SelectItem>
+                            <SelectItem value="msrp">MSRP (Manufacturer's Suggsted Retail Price)</SelectItem>
+                            <SelectItem value="retail">List</SelectItem>
+                            <SelectItem value="sale">Sale</SelectItem>
+                            <SelectItem value="member">Member</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -639,7 +647,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                         <Input
                           id={`price-start-${price.id}`}
                           type="date"
-                          value={price.startsAt?.toISOString().split('T')[0] || ''}
+                          value={toDateInputValue(price.startsAt)}
                           onChange={(e) =>
                             handlePriceChange(
                               price.id,
@@ -657,7 +665,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                         <Input
                           id={`price-end-${price.id}`}
                           type="date"
-                          value={price.endsAt?.toISOString().split('T')[0] || ''}
+                          value={toDateInputValue(price.endsAt)}
                           onChange={(e) =>
                             handlePriceChange(
                               price.id,

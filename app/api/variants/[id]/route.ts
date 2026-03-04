@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
+import { PriceType, PriceCurrency } from '@prisma/client';
 import { auth } from '@/lib/auth';
 
 type RouteContext = {
@@ -123,58 +124,57 @@ export async function PUT(
     }
 
     // Handle prices updates
-    // Note: You'll need to create a VariantPrice table in your Prisma schema
-    // or adjust this based on your actual schema structure
     if (prices && Array.isArray(prices)) {
-      // For now, we'll store prices as JSON or you can create a separate table
-      // This depends on your database schema design
-      
-      // Option 1: If you have a VariantPrice model in Prisma
-      // First, delete existing prices and create new ones
-      // await prisma.variantPrice.deleteMany({
-      //   where: { variantId: id },
-      // });
-      
-      // for (const price of prices) {
-      //   if (!price.id.startsWith('temp-')) {
-      //     // It's an existing price, update it
-      //     await prisma.variantPrice.update({
-      //       where: { id: price.id },
-      //       data: {
-      //         amount: price.amount,
-      //         currency: price.currency,
-      //         type: price.type,
-      //         isActive: price.isActive,
-      //         startDate: price.startDate ? new Date(price.startDate) : null,
-      //         endDate: price.endDate ? new Date(price.endDate) : null,
-      //       },
-      //     });
-      //   } else {
-      //     // It's a new price, create it
-      //     await prisma.variantPrice.create({
-      //       data: {
-      //         variantId: id,
-      //         amount: price.amount,
-      //         currency: price.currency,
-      //         type: price.type,
-      //         isActive: price.isActive,
-      //         startDate: price.startDate ? new Date(price.startDate) : null,
-      //         endDate: price.endDate ? new Date(price.endDate) : null,
-      //       },
-      //     });
-      //   }
-      // }
+      // Get existing price IDs for this variant
+      const existingPrices = await prisma.price.findMany({
+        where: { variantId: id },
+        select: { id: true },
+      });
+      const existingPriceIds = new Set(existingPrices.map((p) => p.id));
 
-      // Option 2: Store as JSON in the variant (if you have a prices field)
-      // await prisma.productVariant.update({
-      //   where: { id },
-      //   data: {
-      //     prices: JSON.stringify(prices),
-      //   },
-      // });
-      
-      console.log('Prices to be saved:', prices);
-      // TODO: Implement price saving based on your schema
+      // Collect the IDs from the incoming payload (excluding temp IDs)
+      const incomingPriceIds = new Set(
+        prices
+          .filter((p: any) => !String(p.id).startsWith('temp-'))
+          .map((p: any) => p.id)
+      );
+
+      // Delete prices that were removed by the user
+      const idsToDelete = Array.from(existingPriceIds).filter(
+        (existingId) => !incomingPriceIds.has(existingId)
+      );
+      if (idsToDelete.length > 0) {
+        await prisma.price.deleteMany({
+          where: { id: { in: idsToDelete }, variantId: id },
+        });
+      }
+
+      // Upsert each price from the payload
+      for (const price of prices) {
+        const isNew = String(price.id).startsWith('temp-');
+        const priceData = {
+          variantId: id,
+          amount: typeof price.amount === 'string' ? parseInt(price.amount, 10) : price.amount,
+          currency: (price.currency ?? 'CLP') as PriceCurrency,
+          type: (price.type ?? 'retail') as PriceType,
+          active: price.active ?? true,
+          taxIncluded: price.taxIncluded ?? null,
+          priceBookId: price.priceBookId ?? null,
+          channelId: price.channelId ?? null,
+          region: price.region ?? null,
+          startsAt: price.startsAt ? new Date(price.startsAt) : null,
+          endsAt: price.endsAt ? new Date(price.endsAt) : null,
+        };
+
+        if (isNew) {
+          await prisma.price.create({ data: priceData });
+        } else {
+          await prisma.price.update({
+            where: { id: price.id },
+            data: priceData,
+          });
+        }
+      }
     }
 
     // Handle inventory updates
