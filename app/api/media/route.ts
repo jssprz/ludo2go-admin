@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       'image/gif',
       'image/webp',
       'image/svg+xml',
+      'image/avif',
       'video/mp4',
       'video/webm',
       'application/pdf',
