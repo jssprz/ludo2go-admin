@@ -47,7 +47,8 @@
     "gameThemes": "Game Themes",
     "gameMechanics": "Game Mechanics",
     "gameComplexities": "Game Complexities",
-    "locations": "Locations"
+    "locations": "Locations",
+    "stores": "Stores"
   },
   "auth": {
     "signIn": "Sign In",
@@ -415,5 +416,38 @@
     "noLocations": "No inventory locations found. Add your first location!",
     "noResultsSearch": "No locations match your search.",
     "codeNameRequired": "Code and name are required"
+  },
+  "stores": {
+    "title": "Stores",
+    "description": "Manage external stores used for price comparison and tracking",
+    "allStores": "All Stores",
+    "storesTotal": "{count, plural, one {# store} other {# stores}} total",
+    "addStore": "Add Store",
+    "editStore": "Edit Store",
+    "createDescription": "Add a new external store for price tracking and comparison.",
+    "editDescription": "Update store details.",
+    "deleteTitle": "Delete Store",
+    "deleteConfirmation": "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
+    "name": "Name",
+    "url": "URL",
+    "logo": "Logo URL",
+    "shipping": "Shipping",
+    "shippingCost": "Shipping Cost",
+    "shippingFree": "Free",
+    "shippingPaid": "Paid",
+    "shippingPickup": "Pickup",
+    "rating": "Rating",
+    "reviews": "Reviews",
+    "trackedPrices": "Tracked Prices",
+    "paymentMethods": "Payment Methods",
+    "selectPaymentMethod": "Select a payment method...",
+    "customPaymentMethodPlaceholder": "Or type a custom method...",
+    "namePlaceholder": "e.g. MercadoLibre Chile",
+    "urlPlaceholder": "e.g. https://www.mercadolibre.cl",
+    "logoPlaceholder": "e.g. https://example.com/logo.png",
+    "searchPlaceholder": "Search stores...",
+    "noStores": "No stores found. Add your first store!",
+    "noResultsSearch": "No stores match your search.",
+    "nameUrlRequired": "Name and URL are required"
   }
 }
