@@ -46,7 +46,8 @@
     "accessoryCategories": "Categorías de Accesorios",
     "gameThemes": "Temáticas de Juegos",
     "gameMechanics": "Mecánicas de Juegos",
-    "locations": "Ubicaciones"
+    "locations": "Ubicaciones",
+    "stores": "Tiendas"
   },
   "auth": {
     "signIn": "Iniciar Sesión",
@@ -414,5 +415,38 @@
     "noLocations": "No se encontraron ubicaciones de inventario. ¡Agrega tu primera ubicación!",
     "noResultsSearch": "Tu búsqueda no hizo match con ninguna ubicación.",
     "codeNameRequired": "El código y el nombre son requeridos"
+  },
+  "stores": {
+    "title": "Tiendas",
+    "description": "Administra tiendas externas para comparación y seguimiento de precios",
+    "allStores": "Todas las tiendas",
+    "storesTotal": "{count, plural, one {# tienda} other {# tiendas}} en total",
+    "addStore": "Agregar tienda",
+    "editStore": "Editar tienda",
+    "createDescription": "Agrega una nueva tienda externa para seguimiento y comparación de precios.",
+    "editDescription": "Actualiza los detalles de la tienda.",
+    "deleteTitle": "Eliminar tienda",
+    "deleteConfirmation": "¿Estás seguro de que deseas eliminar \"{name}\"? Esta acción no se puede deshacer.",
+    "name": "Nombre",
+    "url": "URL",
+    "logo": "URL del logo",
+    "shipping": "Envío",
+    "shippingCost": "Costo de envío",
+    "shippingFree": "Gratis",
+    "shippingPaid": "Con costo",
+    "shippingPickup": "Retiro",
+    "rating": "Puntuación",
+    "reviews": "Reseñas",
+    "trackedPrices": "Precios rastreados",
+    "paymentMethods": "Métodos de pago",
+    "selectPaymentMethod": "Selecciona un método de pago...",
+    "customPaymentMethodPlaceholder": "O escribe un método personalizado...",
+    "namePlaceholder": "ej. MercadoLibre Chile",
+    "urlPlaceholder": "ej. https://www.mercadolibre.cl",
+    "logoPlaceholder": "ej. https://example.com/logo.png",
+    "searchPlaceholder": "Buscar tiendas...",
+    "noStores": "No se encontraron tiendas. ¡Agrega tu primera tienda!",
+    "noResultsSearch": "Tu búsqueda no hizo match con ninguna tienda.",
+    "nameUrlRequired": "El nombre y la URL son requeridos"
   }
 }

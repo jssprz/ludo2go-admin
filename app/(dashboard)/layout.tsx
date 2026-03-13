@@ -19,7 +19,8 @@ import {
   Gamepad2,
   Puzzle,
   Palette,
-  Wrench
+  Wrench,
+  Store
 } from 'lucide-react';
 
 import {
@@ -130,6 +131,10 @@ async function DesktopNav() {
 
         <NavItem href="/locations" label={t('locations')}>
           <Warehouse className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/stores" label={t('stores')}>
+          <Store className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/customers" label={t('customers')}>
@@ -275,6 +280,13 @@ function MobileNav() {
           >
             <Warehouse className="h-5 w-5" />
             Locations
+          </Link>
+          <Link
+            href="/stores"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Store className="h-5 w-5" />
+            Stores
           </Link>
           <Link
             href="#"
