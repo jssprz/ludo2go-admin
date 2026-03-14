@@ -129,7 +129,7 @@ export default async function EditProductPage({ params }: PageProps) {
         </TabsContent>
 
         <TabsContent value="variants">
-          <ProductVariantsEditor productId={product.id} variants={product.variants} />
+          <ProductVariantsEditor productId={product.id} productSlug={product.slug} variants={product.variants} />
         </TabsContent>
       </Tabs>
     </div>

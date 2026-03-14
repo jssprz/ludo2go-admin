@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
-import { Trash2, Plus, Check } from 'lucide-react';
+import { Trash2, Plus, Check, Wand2, Loader2 } from 'lucide-react';
 
 type Language = ProductVariant['language'];
 type VariantStatus = ProductVariant['status'];
@@ -114,6 +114,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [scrapingStoreId, setScrapingStoreId] = useState<string | null>(null);
   const [isScrapingAll, setIsScrapingAll] = useState(false);
+  const [isGeneratingSku, setIsGeneratingSku] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -123,6 +124,38 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         s.storeId === storeId ? { ...s, fullUrl: value } : s
       )
     );
+  }
+
+  async function handleGenerateSku() {
+    setIsGeneratingSku(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/variants/generate-sku', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: variant.productId,
+          language,
+          edition: edition.trim() || null,
+          format: null, // Use current attributes — no format field in edit form
+          bundle: null,
+          condition,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate SKU');
+      }
+
+      setSku(data.sku);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to generate SKU');
+    } finally {
+      setIsGeneratingSku(false);
+    }
   }
 
   // Price management functions
@@ -309,12 +342,29 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       <div className="grid gap-4 sm:grid-cols-5">
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
-          <Input
-            id="sku"
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-            required
-          />
+          <div className="flex gap-2">
+            <Input
+              id="sku"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              required
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleGenerateSku}
+              disabled={isGeneratingSku}
+              title="Auto-generate SKU"
+            >
+              {isGeneratingSku ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
