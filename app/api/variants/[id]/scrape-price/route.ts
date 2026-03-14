@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { scrapeAndInsertExternalPrice } from '@/lib/scraping/external-price';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Allow up to 60s for Playwright scraping
+export const maxDuration = 30; // Allow up to 30s for fetch-based scraping
 
 type RouteContext = {
   params: Promise<{ id: string }>;
