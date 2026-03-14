@@ -218,7 +218,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
     try {
       const res = await fetch(
-        `/variants/${variant.id}/scrape-price`,
+        `/api/variants/${variant.id}/scrape-price`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

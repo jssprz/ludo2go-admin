@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { prisma } from '@jssprz/ludo2go-database';
+import { PriceCurrency } from '@prisma/client';
 
 type TemplateConfig = {
   name: string;
@@ -411,7 +412,7 @@ export async function scrapeAndInsertExternalPrice(variantId: string, url: strin
         storeId: store.id,
         urlPathInStore,
         observedPrice: -1,
-        currency: result.currency || 'CLP',
+        currency: (result.currency || 'CLP') as PriceCurrency,
         observedAt: new Date(),
       },
     });
@@ -424,7 +425,7 @@ export async function scrapeAndInsertExternalPrice(variantId: string, url: strin
       storeId: store.id,
       urlPathInStore,
       observedPrice: result.price,
-      currency: result.currency || 'CLP',
+      currency: (result.currency || 'CLP') as PriceCurrency,
       observedAt: new Date(),
     },
   });
