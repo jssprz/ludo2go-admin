@@ -22,14 +22,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Trash2, Package, Plus } from 'lucide-react';
+import { Trash2, Package, Plus, Wand2, Loader2 } from 'lucide-react';
 
 type Props = {
   productId: string;
+  productSlug: string;
   variants: ProductVariant[];
 };
 
-export function ProductVariantsEditor({ productId, variants: initialVariants }: Props) {
+export function ProductVariantsEditor({ productId, productSlug, variants: initialVariants }: Props) {
   const [variants, setVariants] = useState(initialVariants);
   const [deletingVariantId, setDeletingVariantId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -46,6 +47,9 @@ export function ProductVariantsEditor({ productId, variants: initialVariants }: 
   const [newStatus, setNewStatus] = useState('draft');
   const [newDisplayTitleShort, setNewDisplayTitleShort] = useState('');
   const [newDisplayTitleLong, setNewDisplayTitleLong] = useState('');
+  const [newFormat, setNewFormat] = useState('STD');
+  const [newBundle, setNewBundle] = useState('');
+  const [isGeneratingSku, setIsGeneratingSku] = useState(false);
 
   function resetNewVariantForm() {
     setNewSku('');
@@ -56,6 +60,40 @@ export function ProductVariantsEditor({ productId, variants: initialVariants }: 
     setNewStatus('draft');
     setNewDisplayTitleShort('');
     setNewDisplayTitleLong('');
+    setNewFormat('STD');
+    setNewBundle('');
+  }
+
+  async function handleGenerateSku() {
+    setIsGeneratingSku(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/variants/generate-sku', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId,
+          language: newLanguage,
+          edition: newEdition.trim() || null,
+          format: newFormat,
+          bundle: (newBundle && newBundle !== 'none') ? newBundle : null,
+          condition: newCondition,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to generate SKU');
+      }
+
+      setNewSku(data.sku);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to generate SKU');
+    } finally {
+      setIsGeneratingSku(false);
+    }
   }
 
   async function handleCreateVariant() {
@@ -144,7 +182,7 @@ export function ProductVariantsEditor({ productId, variants: initialVariants }: 
               Add variant
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>New variant</DialogTitle>
               <DialogDescription>
@@ -156,12 +194,32 @@ export function ProductVariantsEditor({ productId, variants: initialVariants }: 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="new-sku">SKU *</Label>
-                  <Input
-                    id="new-sku"
-                    value={newSku}
-                    onChange={(e) => setNewSku(e.target.value)}
-                    placeholder="e.g. CATAN-ES-NEW"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="new-sku"
+                      value={newSku}
+                      onChange={(e) => setNewSku(e.target.value)}
+                      placeholder="e.g. JBY-CATAN-ESSTDNEW-001"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleGenerateSku}
+                      disabled={isGeneratingSku}
+                      title="Auto-generate SKU"
+                    >
+                      {isGeneratingSku ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    JBY-[SLUG]-[LANG][ED][FMT][BND][COND]-[SEQ]
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-ean">EAN / UPC</Label>
@@ -174,17 +232,34 @@ export function ProductVariantsEditor({ productId, variants: initialVariants }: 
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="new-edition">Edition</Label>
-                <Input
-                  id="new-edition"
-                  value={newEdition}
-                  onChange={(e) => setNewEdition(e.target.value)}
-                  placeholder="e.g. 2nd Edition"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="new-edition">Edition / Region</Label>
+                  <Input
+                    id="new-edition"
+                    value={newEdition}
+                    onChange={(e) => setNewEdition(e.target.value)}
+                    placeholder="e.g. 2nd Edition, Chile, US"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Format</Label>
+                  <Select value={newFormat} onValueChange={setNewFormat}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STD">Standard</SelectItem>
+                      <SelectItem value="DLX">Deluxe</SelectItem>
+                      <SelectItem value="TRV">Travel</SelectItem>
+                      <SelectItem value="MNI">Mini</SelectItem>
+                      <SelectItem value="COL">Collector</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
                   <Label>Language</Label>
                   <Select value={newLanguage} onValueChange={setNewLanguage}>
@@ -208,6 +283,20 @@ export function ProductVariantsEditor({ productId, variants: initialVariants }: 
                       <SelectItem value="new">New</SelectItem>
                       <SelectItem value="used">Used</SelectItem>
                       <SelectItem value="refurbished">Refurbished</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Bundle</Label>
+                  <Select value={newBundle} onValueChange={setNewBundle}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="None" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="BND">Bundle</SelectItem>
+                      <SelectItem value="B2">Bundle x2</SelectItem>
+                      <SelectItem value="B3">Bundle x3</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

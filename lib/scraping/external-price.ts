@@ -1,5 +1,6 @@
-import { chromium } from 'playwright';
+import * as cheerio from 'cheerio';
 import { prisma } from '@jssprz/ludo2go-database';
+import { PriceCurrency } from '@prisma/client';
 
 type TemplateConfig = {
   name: string;
@@ -239,19 +240,19 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
   ],
 };
 
-async function tryJsonLd(page: any) {
+async function tryJsonLd($: cheerio.CheerioAPI) {
   try {
-    const handles = await page.locator('script[type="application/ld+json"]').all();
-    for (const h of handles) {
-      const raw = await h.textContent();
+    const scripts = $('script[type="application/ld+json"]');
+    for (let i = 0; i < scripts.length; i++) {
+      const raw = $(scripts[i]).html();
       if (!raw) continue;
-      const candidates = [];
+      const candidates: any[] = [];
       try {
         const parsed = JSON.parse(raw.trim());
         if (Array.isArray(parsed)) candidates.push(...parsed);
         else candidates.push(parsed);
       } catch {
-        const parts = raw.split(/\n(?=\s*\{|\s*\[)/).map((s: any) => s.trim());
+        const parts = raw.split(/\n(?=\s*\{|\s*\[)/).map((s: string) => s.trim());
         for (const p of parts) {
           try { candidates.push(JSON.parse(p)); } catch { }
         }
@@ -320,7 +321,7 @@ function normalizePriceText(text: string, locale = 'es-CL') {
   return Number.isNaN(num) ? null : num;
 }
 
-async function extractWithTemplates(page: any, hostname: string) {
+function extractWithTemplates($: cheerio.CheerioAPI, hostname: string) {
   const hostTemplates = TEMPLATES[hostname] ?? [];
   const candidates = [
     ...hostTemplates,
@@ -330,28 +331,25 @@ async function extractWithTemplates(page: any, hostname: string) {
   for (const tpl of candidates) {
     for (const sel of tpl.selectors) {
       try {
+        const el = $(sel).first();
+        if (!el.length) continue;
+
         if (tpl.readAttrIfMeta) {
-          const el = page.locator(sel).first();
-          if (await el.count()) {
-            const content = await el.getAttribute(tpl.readAttrIfMeta);
-            if (content) {
-              const price = normalizePriceText(content, tpl.locale);
-              if (price != null) {
-                const currency = guessCurrencyFromText(content) || 'CLP';
-                return { source: tpl.name, selector: sel, price, currency };
-              }
+          const content = el.attr(tpl.readAttrIfMeta);
+          if (content) {
+            const price = normalizePriceText(content, tpl.locale);
+            if (price != null) {
+              const currency = guessCurrencyFromText(content) || 'CLP';
+              return { source: tpl.name, selector: sel, price, currency };
             }
           }
         } else {
-          const el = page.locator(sel).first();
-          if (await el.count()) {
-            const text = (await el.textContent())?.trim();
-            if (text) {
-              const price = normalizePriceText(text, tpl.locale);
-              if (price != null) {
-                const currency = guessCurrencyFromText(text) || 'CLP';
-                return { source: tpl.name, selector: sel, price, currency };
-              }
+          const text = el.text()?.trim();
+          if (text) {
+            const price = normalizePriceText(text, tpl.locale);
+            if (price != null) {
+              const currency = guessCurrencyFromText(text) || 'CLP';
+              return { source: tpl.name, selector: sel, price, currency };
             }
           }
         }
@@ -362,23 +360,40 @@ async function extractWithTemplates(page: any, hostname: string) {
   return null;
 }
 
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
 async function scrapePrice(url: string) {
   const u = new URL(url);
   const hostname = u.hostname.toLowerCase();
-  const browser = await chromium.launch();
-  const ctx = await browser.newContext({ userAgent: 'PriceBot/1.0 (+your-email@example.com)', locale: 'es-CL' });
-  const page = await ctx.newPage();
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  const jsonld = await tryJsonLd(page);
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': USER_AGENT,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'es-CL,es;q=0.9,en;q=0.5',
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} fetching ${url}`);
+  }
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+
+  // 1. Try JSON-LD structured data first
+  const jsonld = await tryJsonLd($);
   if (jsonld?.price != null) {
-    await browser.close();
     return { url, hostname, price: jsonld.price, currency: jsonld.currency || 'CLP', method: 'json-ld' };
   }
-  const fromTpl = await extractWithTemplates(page, hostname);
-  await browser.close();
+
+  // 2. Try template-based CSS selectors
+  const fromTpl = extractWithTemplates($, hostname);
   if (fromTpl) {
     return { url, hostname, price: fromTpl.price, currency: fromTpl.currency, method: `template:${fromTpl.source}`, selector: fromTpl.selector };
   }
+
   return { url, hostname, price: null, currency: null, method: 'not-found' };
 }
 
@@ -411,7 +426,7 @@ export async function scrapeAndInsertExternalPrice(variantId: string, url: strin
         storeId: store.id,
         urlPathInStore,
         observedPrice: -1,
-        currency: result.currency || 'CLP',
+        currency: (result.currency || 'CLP') as PriceCurrency,
         observedAt: new Date(),
       },
     });
@@ -424,7 +439,7 @@ export async function scrapeAndInsertExternalPrice(variantId: string, url: strin
       storeId: store.id,
       urlPathInStore,
       observedPrice: result.price,
-      currency: result.currency || 'CLP',
+      currency: (result.currency || 'CLP') as PriceCurrency,
       observedAt: new Date(),
     },
   });
