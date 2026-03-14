@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ProductsTable } from './products-table';
 import { getProducts } from '@/lib/db';
 import { ProductStatus } from '@prisma/client'
+import { GoogleMerchantSyncButton } from './google-merchant-sync-button';
 
 type StatusTab = 'all' | 'active' | 'draft' | 'archived';
 
@@ -86,6 +87,7 @@ export default async function ProductsPage(
           </TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
+          <GoogleMerchantSyncButton />
           <Button size="sm" variant="outline" className="h-8 gap-1">
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
