@@ -214,7 +214,7 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
     {
       name: 'revaruk',
       selectors: [
-        '.product .price .amount bdi'
+        'p.price ins .woocommerce-Price-amount bdi, p.price > span.woocommerce-Price-amount bdi'
       ],
       locale: 'es-CL'
     }
