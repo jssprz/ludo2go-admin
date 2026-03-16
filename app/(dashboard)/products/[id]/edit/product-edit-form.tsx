@@ -69,6 +69,12 @@ type CategoryOption = {
   slug: string;
 };
 
+type ComplexityOption = {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
@@ -81,9 +87,10 @@ type Props = {
   accessoryCategories: CategoryOption[];
   gameThemes: CategoryOption[];
   gameMechanics: CategoryOption[];
+  gameComplexities: ComplexityOption[];
 };
 
-export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics }: Props) {
+export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
@@ -102,6 +109,9 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   );
   const [timelineId, setTimelineId] = useState<string>(
     product.game?.timelineId ?? ''
+  );
+  const [complexityTierId, setComplexityTierId] = useState<string>(
+    product.game?.complexityId ?? ''
   );
   const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? '');
   const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? '');
@@ -125,6 +135,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   const [selectedGameMechanicIds, setSelectedGameMechanicIds] = useState<string[]>(
     product.game?.mechanics?.map(m => m.id) ?? []
   );
+  
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -207,6 +218,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
           shortDescription: shortDescription || null,
           description: description || null,
           timelineId: isGameProduct && timelineId ? timelineId : null,
+          complexityId: isGameProduct && complexityTierId ? complexityTierId : null,
           gameCategoryIds: isGameProduct ? selectedGameCategoryIds : [],
           gameThemeIds: isGameProduct ? selectedGameThemeIds : [],
           gameMechanicIds: isGameProduct ? selectedGameMechanicIds : [],
@@ -481,6 +493,39 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                         {mechanic.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Game Complexity Tier */}
+              <div className="space-y-3 border rounded-md p-4">
+                <div>
+                  <h2 className="text-sm font-medium">Game Complexity</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Select the complexity of this game.{' '}
+                    <Link href="/game-complexities" className="text-blue-600 hover:underline">
+                      Manage complexity tiers
+                    </Link>
+                  </p>
+                </div>
+                <Select
+                  value={complexityTierId || 'none'}
+                  onValueChange={(val) => setComplexityTierId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select complexity tier (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {gameComplexities.length === 0 ? (
+                      <SelectItem value="empty" disabled>No complexity tiers available</SelectItem>
+                    ) : (
+                      gameComplexities.map((complexity) => (
+                        <SelectItem key={complexity.id} value={complexity.id}>
+                          {complexity.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

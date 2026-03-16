@@ -12,7 +12,7 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics] = await Promise.all([
+  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities] = await Promise.all([
     prisma.product.findUnique({
       where: { id: id },
       include: {
@@ -86,6 +86,11 @@ export default async function EditProductPage({ params }: PageProps) {
         slug: true,
       },
     }),
+    prisma.gameComplexity.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, slug: true },
+    })
   ]);
 
   if (!product) {
@@ -113,14 +118,15 @@ export default async function EditProductPage({ params }: PageProps) {
         </TabsList>
 
         <TabsContent value="details">
-          <ProductEditForm 
-            product={product} 
-            timelines={timelines} 
+          <ProductEditForm
+            product={product}
+            timelines={timelines}
             brands={brands}
             gameCategories={gameCategories}
             accessoryCategories={accessoryCategories}
             gameThemes={gameThemes}
             gameMechanics={gameMechanics}
+            gameComplexities={gameComplexities}
           />
         </TabsContent>
 

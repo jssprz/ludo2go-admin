@@ -61,6 +61,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
       tags,
       shortDescription,
       description,
+      complexityId,
       timelineId,
       gameCategoryIds,
       gameThemeIds,
@@ -103,6 +104,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
         where: { productId: id },
         data: {
           timelineId: timelineId || null,
+          complexityId: complexityId || null,
           categories: {
             set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
           },
