@@ -49,8 +49,17 @@ type Location = {
   id: string;
   code: string;
   name: string;
-  address: string | null;
+  description: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
   region: string | null;
+  postalCode: string | null;
+  country: string;
+  lat: number | null;
+  lng: number | null;
+  phone: string | null;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
   variantsCount: number;
@@ -78,16 +87,27 @@ export function LocationsTable({ initialLocations }: Props) {
   // Form states
   const [formCode, setFormCode] = useState('');
   const [formName, setFormName] = useState('');
-  const [formAddress, setFormAddress] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formAddressLine1, setFormAddressLine1] = useState('');
+  const [formAddressLine2, setFormAddressLine2] = useState('');
+  const [formCity, setFormCity] = useState('');
   const [formRegion, setFormRegion] = useState('');
+  const [formPostalCode, setFormPostalCode] = useState('');
+  const [formCountry, setFormCountry] = useState('CL');
+  const [formLat, setFormLat] = useState('');
+  const [formLng, setFormLng] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formIsActive, setFormIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
 
   const filteredLocations = locations.filter(
     (loc) =>
       loc.name.toLowerCase().includes(search.toLowerCase()) ||
       loc.code.toLowerCase().includes(search.toLowerCase()) ||
-      (loc.address && loc.address.toLowerCase().includes(search.toLowerCase())) ||
-      (loc.region && loc.region.toLowerCase().includes(search.toLowerCase()))
+      loc.addressLine1.toLowerCase().includes(search.toLowerCase()) ||
+      loc.city.toLowerCase().includes(search.toLowerCase()) ||
+      (loc.region && loc.region.toLowerCase().includes(search.toLowerCase())) ||
+      loc.country.toLowerCase().includes(search.toLowerCase())
   );
 
   function generateCode(name: string) {
@@ -107,8 +127,17 @@ export function LocationsTable({ initialLocations }: Props) {
   function resetForm() {
     setFormCode('');
     setFormName('');
-    setFormAddress('');
+    setFormDescription('');
+    setFormAddressLine1('');
+    setFormAddressLine2('');
+    setFormCity('');
     setFormRegion('');
+    setFormPostalCode('');
+    setFormCountry('CL');
+    setFormLat('');
+    setFormLng('');
+    setFormPhone('');
+    setFormIsActive(true);
     setFormError(null);
   }
 
@@ -122,8 +151,17 @@ export function LocationsTable({ initialLocations }: Props) {
     setSelectedLocation(location);
     setFormCode(location.code);
     setFormName(location.name);
-    setFormAddress(location.address || '');
+    setFormDescription(location.description || '');
+    setFormAddressLine1(location.addressLine1 || '');
+    setFormAddressLine2(location.addressLine2 || '');
+    setFormCity(location.city || '');
     setFormRegion(location.region || '');
+    setFormPostalCode(location.postalCode || '');
+    setFormCountry(location.country || 'CL');
+    setFormLat(location.lat != null ? String(location.lat) : '');
+    setFormLng(location.lng != null ? String(location.lng) : '');
+    setFormPhone(location.phone || '');
+    setFormIsActive(location.isActive);
     setFormError(null);
     setShowEditDialog(true);
   }
@@ -134,7 +172,7 @@ export function LocationsTable({ initialLocations }: Props) {
   }
 
   async function handleCreate() {
-    if (!formCode.trim() || !formName.trim()) {
+    if (!formCode.trim() || !formName.trim() || !formAddressLine1.trim() || !formCity.trim() || !formCountry.trim()) {
       setFormError(t('codeNameRequired'));
       return;
     }
@@ -149,8 +187,17 @@ export function LocationsTable({ initialLocations }: Props) {
         body: JSON.stringify({
           code: formCode.trim(),
           name: formName.trim(),
-          address: formAddress.trim() || null,
+          description: formDescription.trim() || null,
+          addressLine1: formAddressLine1.trim(),
+          addressLine2: formAddressLine2.trim() || null,
+          city: formCity.trim(),
           region: formRegion.trim() || null,
+          postalCode: formPostalCode.trim() || null,
+          country: formCountry.trim(),
+          lat: formLat.trim() ? parseFloat(formLat.trim()) : null,
+          lng: formLng.trim() ? parseFloat(formLng.trim()) : null,
+          phone: formPhone.trim() || null,
+          isActive: formIsActive,
         }),
       });
 
@@ -177,7 +224,7 @@ export function LocationsTable({ initialLocations }: Props) {
 
   async function handleUpdate() {
     if (!selectedLocation) return;
-    if (!formCode.trim() || !formName.trim()) {
+    if (!formCode.trim() || !formName.trim() || !formAddressLine1.trim() || !formCity.trim() || !formCountry.trim()) {
       setFormError(t('codeNameRequired'));
       return;
     }
@@ -192,8 +239,17 @@ export function LocationsTable({ initialLocations }: Props) {
         body: JSON.stringify({
           code: formCode.trim(),
           name: formName.trim(),
-          address: formAddress.trim() || null,
+          description: formDescription.trim() || null,
+          addressLine1: formAddressLine1.trim(),
+          addressLine2: formAddressLine2.trim() || null,
+          city: formCity.trim(),
           region: formRegion.trim() || null,
+          postalCode: formPostalCode.trim() || null,
+          country: formCountry.trim(),
+          lat: formLat.trim() ? parseFloat(formLat.trim()) : null,
+          lng: formLng.trim() ? parseFloat(formLng.trim()) : null,
+          phone: formPhone.trim() || null,
+          isActive: formIsActive,
         }),
       });
 
@@ -288,8 +344,10 @@ export function LocationsTable({ initialLocations }: Props) {
                 <TableRow>
                   <TableHead>{t('code')}</TableHead>
                   <TableHead>{t('name')}</TableHead>
-                  <TableHead>{t('address')}</TableHead>
-                  <TableHead>{t('region')}</TableHead>
+                  <TableHead>{t('addressLine1')}</TableHead>
+                  <TableHead>{t('city')}</TableHead>
+                  <TableHead>{t('country')}</TableHead>
+                  <TableHead>{t('isActive')}</TableHead>
                   <TableHead className="text-center">{t('variantsCount')}</TableHead>
                   <TableHead className="text-center">{t('totalItems')}</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -299,7 +357,7 @@ export function LocationsTable({ initialLocations }: Props) {
                 {filteredLocations.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={9}
                       className="text-center py-8 text-muted-foreground"
                     >
                       {search ? t('noResultsSearch') : t('noLocations')}
@@ -313,22 +371,33 @@ export function LocationsTable({ initialLocations }: Props) {
                       </TableCell>
                       <TableCell>
                         <div className="font-medium">{location.name}</div>
-                      </TableCell>
-                      <TableCell>
-                        {location.address ? (
-                          <span className="text-sm text-muted-foreground">
-                            {location.address}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
+                        {location.description && (
+                          <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {location.description}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
-                        {location.region ? (
-                          <Badge variant="outline">{location.region}</Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
+                        <div className="text-sm">
+                          {location.addressLine1}
+                          {location.addressLine2 && (
+                            <span className="text-muted-foreground">, {location.addressLine2}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">{location.city}</span>
+                        {location.region && (
+                          <span className="text-sm text-muted-foreground">, {location.region}</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{location.country}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={location.isActive ? 'default' : 'secondary'}>
+                          {location.isActive ? t('active') : t('inactive')}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
@@ -388,7 +457,7 @@ export function LocationsTable({ initialLocations }: Props) {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('addLocation')}</DialogTitle>
             <DialogDescription>{t('createDescription')}</DialogDescription>
@@ -399,42 +468,148 @@ export function LocationsTable({ initialLocations }: Props) {
                 {formError}
               </div>
             )}
+            {/* Name & Code */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-name">{t('name')} *</Label>
+                <Input
+                  id="create-name"
+                  value={formName}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  placeholder={t('namePlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-code">{t('code')} *</Label>
+                <Input
+                  id="create-code"
+                  value={formCode}
+                  onChange={(e) => setFormCode(e.target.value)}
+                  placeholder={t('codePlaceholder')}
+                />
+                <p className="text-xs text-muted-foreground">{t('codeHint')}</p>
+              </div>
+            </div>
+            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="create-name">{t('name')} *</Label>
+              <Label htmlFor="create-description">{t('description_field')}</Label>
               <Input
-                id="create-name"
-                value={formName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder={t('namePlaceholder')}
+                id="create-description"
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                placeholder={t('descriptionPlaceholder')}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="create-code">{t('code')} *</Label>
-              <Input
-                id="create-code"
-                value={formCode}
-                onChange={(e) => setFormCode(e.target.value)}
-                placeholder={t('codePlaceholder')}
-              />
-              <p className="text-xs text-muted-foreground">{t('codeHint')}</p>
+            {/* Address Lines */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-addressLine1">{t('addressLine1')} *</Label>
+                <Input
+                  id="create-addressLine1"
+                  value={formAddressLine1}
+                  onChange={(e) => setFormAddressLine1(e.target.value)}
+                  placeholder={t('addressLine1Placeholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-addressLine2">{t('addressLine2')}</Label>
+                <Input
+                  id="create-addressLine2"
+                  value={formAddressLine2}
+                  onChange={(e) => setFormAddressLine2(e.target.value)}
+                  placeholder={t('addressLine2Placeholder')}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="create-address">{t('address')}</Label>
-              <Input
-                id="create-address"
-                value={formAddress}
-                onChange={(e) => setFormAddress(e.target.value)}
-                placeholder={t('addressPlaceholder')}
-              />
+            {/* City, Region, PostalCode */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-city">{t('city')} *</Label>
+                <Input
+                  id="create-city"
+                  value={formCity}
+                  onChange={(e) => setFormCity(e.target.value)}
+                  placeholder={t('cityPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-region">{t('region')}</Label>
+                <Input
+                  id="create-region"
+                  value={formRegion}
+                  onChange={(e) => setFormRegion(e.target.value)}
+                  placeholder={t('regionPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-postalCode">{t('postalCode')}</Label>
+                <Input
+                  id="create-postalCode"
+                  value={formPostalCode}
+                  onChange={(e) => setFormPostalCode(e.target.value)}
+                  placeholder={t('postalCodePlaceholder')}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="create-region">{t('region')}</Label>
-              <Input
-                id="create-region"
-                value={formRegion}
-                onChange={(e) => setFormRegion(e.target.value)}
-                placeholder={t('regionPlaceholder')}
+            {/* Country & Phone */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-country">{t('country')} *</Label>
+                <Input
+                  id="create-country"
+                  value={formCountry}
+                  onChange={(e) => setFormCountry(e.target.value.toUpperCase())}
+                  placeholder={t('countryPlaceholder')}
+                  maxLength={2}
+                />
+                <p className="text-xs text-muted-foreground">{t('countryHint')}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-phone">{t('phone')}</Label>
+                <Input
+                  id="create-phone"
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  placeholder={t('phonePlaceholder')}
+                />
+              </div>
+            </div>
+            {/* Lat & Lng */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-lat">{t('lat')}</Label>
+                <Input
+                  id="create-lat"
+                  type="number"
+                  step="any"
+                  value={formLat}
+                  onChange={(e) => setFormLat(e.target.value)}
+                  placeholder={t('latPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-lng">{t('lng')}</Label>
+                <Input
+                  id="create-lng"
+                  type="number"
+                  step="any"
+                  value={formLng}
+                  onChange={(e) => setFormLng(e.target.value)}
+                  placeholder={t('lngPlaceholder')}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('coordinatesHint')}</p>
+            {/* Active toggle */}
+            <div className="flex items-center gap-3">
+              <input
+                id="create-isActive"
+                type="checkbox"
+                checked={formIsActive}
+                onChange={(e) => setFormIsActive(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
               />
+              <Label htmlFor="create-isActive">{t('isActive')}</Label>
             </div>
           </div>
           <DialogFooter>
@@ -461,7 +636,7 @@ export function LocationsTable({ initialLocations }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('editLocation')}</DialogTitle>
             <DialogDescription>{t('editDescription')}</DialogDescription>
@@ -472,42 +647,148 @@ export function LocationsTable({ initialLocations }: Props) {
                 {formError}
               </div>
             )}
+            {/* Name & Code */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">{t('name')} *</Label>
+                <Input
+                  id="edit-name"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder={t('namePlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-code">{t('code')} *</Label>
+                <Input
+                  id="edit-code"
+                  value={formCode}
+                  onChange={(e) => setFormCode(e.target.value)}
+                  placeholder={t('codePlaceholder')}
+                />
+                <p className="text-xs text-muted-foreground">{t('codeHint')}</p>
+              </div>
+            </div>
+            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="edit-name">{t('name')} *</Label>
+              <Label htmlFor="edit-description">{t('description_field')}</Label>
               <Input
-                id="edit-name"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder={t('namePlaceholder')}
+                id="edit-description"
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                placeholder={t('descriptionPlaceholder')}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-code">{t('code')} *</Label>
-              <Input
-                id="edit-code"
-                value={formCode}
-                onChange={(e) => setFormCode(e.target.value)}
-                placeholder={t('codePlaceholder')}
-              />
-              <p className="text-xs text-muted-foreground">{t('codeHint')}</p>
+            {/* Address Lines */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-addressLine1">{t('addressLine1')} *</Label>
+                <Input
+                  id="edit-addressLine1"
+                  value={formAddressLine1}
+                  onChange={(e) => setFormAddressLine1(e.target.value)}
+                  placeholder={t('addressLine1Placeholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-addressLine2">{t('addressLine2')}</Label>
+                <Input
+                  id="edit-addressLine2"
+                  value={formAddressLine2}
+                  onChange={(e) => setFormAddressLine2(e.target.value)}
+                  placeholder={t('addressLine2Placeholder')}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-address">{t('address')}</Label>
-              <Input
-                id="edit-address"
-                value={formAddress}
-                onChange={(e) => setFormAddress(e.target.value)}
-                placeholder={t('addressPlaceholder')}
-              />
+            {/* City, Region, PostalCode */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">{t('city')} *</Label>
+                <Input
+                  id="edit-city"
+                  value={formCity}
+                  onChange={(e) => setFormCity(e.target.value)}
+                  placeholder={t('cityPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-region">{t('region')}</Label>
+                <Input
+                  id="edit-region"
+                  value={formRegion}
+                  onChange={(e) => setFormRegion(e.target.value)}
+                  placeholder={t('regionPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-postalCode">{t('postalCode')}</Label>
+                <Input
+                  id="edit-postalCode"
+                  value={formPostalCode}
+                  onChange={(e) => setFormPostalCode(e.target.value)}
+                  placeholder={t('postalCodePlaceholder')}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-region">{t('region')}</Label>
-              <Input
-                id="edit-region"
-                value={formRegion}
-                onChange={(e) => setFormRegion(e.target.value)}
-                placeholder={t('regionPlaceholder')}
+            {/* Country & Phone */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-country">{t('country')} *</Label>
+                <Input
+                  id="edit-country"
+                  value={formCountry}
+                  onChange={(e) => setFormCountry(e.target.value.toUpperCase())}
+                  placeholder={t('countryPlaceholder')}
+                  maxLength={2}
+                />
+                <p className="text-xs text-muted-foreground">{t('countryHint')}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">{t('phone')}</Label>
+                <Input
+                  id="edit-phone"
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  placeholder={t('phonePlaceholder')}
+                />
+              </div>
+            </div>
+            {/* Lat & Lng */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-lat">{t('lat')}</Label>
+                <Input
+                  id="edit-lat"
+                  type="number"
+                  step="any"
+                  value={formLat}
+                  onChange={(e) => setFormLat(e.target.value)}
+                  placeholder={t('latPlaceholder')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lng">{t('lng')}</Label>
+                <Input
+                  id="edit-lng"
+                  type="number"
+                  step="any"
+                  value={formLng}
+                  onChange={(e) => setFormLng(e.target.value)}
+                  placeholder={t('lngPlaceholder')}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('coordinatesHint')}</p>
+            {/* Active toggle */}
+            <div className="flex items-center gap-3">
+              <input
+                id="edit-isActive"
+                type="checkbox"
+                checked={formIsActive}
+                onChange={(e) => setFormIsActive(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
               />
+              <Label htmlFor="edit-isActive">{t('isActive')}</Label>
             </div>
           </div>
           <DialogFooter>
