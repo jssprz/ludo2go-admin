@@ -103,18 +103,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    // Check if location has inventory records
-    const inventoryCount = await prisma.inventory.count({
-      where: { locationId: id },
-    });
-
-    if (inventoryCount > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete a location that has inventory records. Remove all inventory first.' },
-        { status: 400 }
-      );
-    }
-
     await prisma.location.delete({
       where: { id },
     });
