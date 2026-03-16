@@ -53,9 +53,8 @@ type Location = {
   region: string | null;
   createdAt: Date;
   updatedAt: Date;
-  _count: {
-    inventories: number;
-  };
+  variantsCount: number;
+  totalItems: number;
 };
 
 type Props = {
@@ -208,7 +207,7 @@ export function LocationsTable({ initialLocations }: Props) {
         prev
           .map((loc) =>
             loc.id === selectedLocation.id
-              ? { ...data, _count: loc._count }
+              ? { ...data }
               : loc
           )
           .sort((a, b) => a.name.localeCompare(b.name))
@@ -291,7 +290,8 @@ export function LocationsTable({ initialLocations }: Props) {
                   <TableHead>{t('name')}</TableHead>
                   <TableHead>{t('address')}</TableHead>
                   <TableHead>{t('region')}</TableHead>
-                  <TableHead className="text-center">{t('inventoryRecords')}</TableHead>
+                  <TableHead className="text-center">{t('variantsCount')}</TableHead>
+                  <TableHead className="text-center">{t('totalItems')}</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -333,12 +333,23 @@ export function LocationsTable({ initialLocations }: Props) {
                       <TableCell className="text-center">
                         <Badge
                           variant={
-                            location._count.inventories > 0
+                            location.variantsCount > 0
                               ? 'default'
                               : 'secondary'
                           }
                         >
-                          {location._count.inventories}
+                          {location.variantsCount}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={
+                            location.totalItems > 0
+                              ? 'default'
+                              : 'secondary'
+                          }
+                        >
+                          {location.totalItems}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -358,7 +369,7 @@ export function LocationsTable({ initialLocations }: Props) {
                             <DropdownMenuItem
                               onClick={() => openDeleteDialog(location)}
                               className="text-red-600"
-                              disabled={location._count.inventories > 0}
+                              disabled={location.totalItems > 0}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               {tc('delete')}

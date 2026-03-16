@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import type { ProductVariant, Product, Inventory, Location } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ const LOW_STOCK_THRESHOLD = 10; // Highlight if available stock is below this
 const CRITICAL_STOCK_THRESHOLD = 5; // Critical if available stock is below this
 
 export function InventoryTable({ variants, locations }: Props) {
+  const t = useTranslations('locations');
   const router = useRouter();
   const [selectedLocation, setSelectedLocation] = useState<string>(
     locations[0]?.id || 'all'
@@ -185,7 +187,7 @@ export function InventoryTable({ variants, locations }: Props) {
               <SelectValue placeholder="Select location" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Locations</SelectItem>
+              <SelectItem value="all">{t('allLocations')}</SelectItem>
               {locations.map((loc) => (
                 <SelectItem key={loc.id} value={loc.id}>
                   {loc.name}
