@@ -30,6 +30,11 @@ export async function PUT(
       language,
       status,
       condition,
+      weightGrams,
+      widthMm,
+      heightMm,
+      depthMm,
+      packageType,
       storeUrls,
       prices,
     } = body;
@@ -63,6 +68,11 @@ export async function PUT(
         language,
         status,
         condition,
+        weightGrams,
+        widthMm,
+        heightMm,
+        depthMm,
+        packageType
       },
     });
 
