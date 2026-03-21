@@ -21,7 +21,7 @@ import {
 
 // Usa los mismos tipos que en tu schema
 type ProductStatus = 'draft' | 'active' | 'archived';
-type ProductKind = 'game' | 'accessory' | 'bundle';
+type ProductKind = 'game' | 'expansion' | 'accessory' | 'bundle';
 
 type BGGGameData = {
   id: number;
@@ -66,6 +66,12 @@ type ComplexityOption = {
   slug: string;
 }
 
+type BaseGameOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 type Props = {
   brands: BrandOption[];
   timelines: TimelineSummary[];
@@ -74,6 +80,7 @@ type Props = {
   gameThemes: CategoryOption[];
   gameMechanics: CategoryOption[];
   gameComplexities: ComplexityOption[];
+  baseGames: BaseGameOption[];
 };
 
 function slugify(name: string): string {
@@ -85,7 +92,7 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function NewProductForm({ brands, timelines, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities }: Props) {
+export function NewProductForm({ brands, timelines, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames }: Props) {
   const router = useRouter();
 
   // Core product
@@ -122,6 +129,13 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
   const [bayesAverageRating, setBayesAverageRating] = useState<number | ''>('');
   const [averageWeightRating, setAverageWeightRating] = useState<number | ''>('');
 
+  // Expansion-specific fields
+  const [baseGameId, setBaseGameId] = useState('');
+  const [addedComponents, setAddedComponents] = useState('');
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isMajor, setIsMajor] = useState(false);
+  const [editionNumber, setEditionNumber] = useState<number | ''>('');
+
   // UI state
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingBGG, setIsFetchingBGG] = useState(false);
@@ -129,6 +143,8 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const isGameProduct = kind === 'game';
+  const isExpansionProduct = kind === 'expansion';
+  const isGameOrExpansion = isGameProduct || isExpansionProduct;
   const isAccessoryProduct = kind === 'accessory';
 
   function addGameCategory(categoryId: string) {
@@ -267,6 +283,27 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
               playtimeMin: playtimeMin || null,
               playtimeMax: playtimeMax || null,
               timelineId: timelineId || null,
+              complexityTierId: complexityTierId || null,
+              gameCategoryIds: selectedGameCategoryIds,
+              gameThemeIds: selectedGameThemeIds,
+              gameMechanicIds: selectedGameMechanicIds,
+            }
+            : null,
+          expansion: kind === 'expansion'
+            ? {
+              baseGameId: baseGameId || null,
+              yearPublished: yearPublished || null,
+              minPlayers: minPlayers || null,
+              maxPlayers: maxPlayers || null,
+              minAge: minAge || null,
+              playtimeMin: playtimeMin || null,
+              playtimeMax: playtimeMax || null,
+              timelineId: timelineId || null,
+              complexityTierId: complexityTierId || null,
+              addedComponents: addedComponents || null,
+              isStandalone,
+              isMajor,
+              editionNumber: editionNumber !== '' ? Number(editionNumber) : null,
               gameCategoryIds: selectedGameCategoryIds,
               gameThemeIds: selectedGameThemeIds,
               gameMechanicIds: selectedGameMechanicIds,
@@ -395,12 +432,13 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                   <SelectItem value="game">Game</SelectItem>
                   <SelectItem value="accessory">Accessory</SelectItem>
                   <SelectItem value="bundle">Bundle</SelectItem>
+                  <SelectItem value="expansion">Expansion</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {isGameProduct && (
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Game Categories */}
               <div className="space-y-3 border rounded-md p-4">
@@ -620,10 +658,12 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
             </div>
           )}
 
-          {/* GameDetails fields for game products */}
-          {isGameProduct && (
+          {/* GameDetails fields for game and expansion products */}
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-3 border rounded-md p-4">
-              <h2 className="text-sm font-medium sm:col-span-3">Game Details</h2>
+              <h2 className="text-sm font-medium sm:col-span-3">
+                {isExpansionProduct ? 'Expansion Details' : 'Game Details'}
+              </h2>
               <div className="space-y-2">
                 <Label htmlFor="yearPublished">Year published</Label>
                 <Input
@@ -677,6 +717,85 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                   value={playtimeMax}
                   onChange={e => setPlaytimeMax(e.target.value ? Number(e.target.value) : '')}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Expansion-specific fields */}
+          {isExpansionProduct && (
+            <div className="grid gap-4 sm:grid-cols-2 border rounded-md p-4">
+              <h2 className="text-sm font-medium sm:col-span-2">Expansion Info</h2>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Base Game *</Label>
+                <Select
+                  value={baseGameId || 'none'}
+                  onValueChange={(val) => setBaseGameId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select base game" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a base game…</SelectItem>
+                    {baseGames.map((game) => (
+                      <SelectItem key={game.id} value={game.id}>
+                        {game.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The base game this expansion extends. Must be an existing game product.
+                </p>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="addedComponents">Added components</Label>
+                <Textarea
+                  id="addedComponents"
+                  value={addedComponents}
+                  onChange={(e) => setAddedComponents(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. 30 new cards, 2 player boards, 10 meeples"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editionNumber">Edition number</Label>
+                <Input
+                  id="editionNumber"
+                  type="number"
+                  value={editionNumber}
+                  onChange={e => setEditionNumber(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="e.g. 1"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 justify-end">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isStandalone"
+                    type="checkbox"
+                    checked={isStandalone}
+                    onChange={(e) => setIsStandalone(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isStandalone" className="text-sm font-normal">
+                    Standalone (can be played without the base game)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isMajor"
+                    type="checkbox"
+                    checked={isMajor}
+                    onChange={(e) => setIsMajor(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isMajor" className="text-sm font-normal">
+                    Major expansion (significant content addition)
+                  </Label>
+                </div>
               </div>
             </div>
           )}

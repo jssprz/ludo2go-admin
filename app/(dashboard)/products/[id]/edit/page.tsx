@@ -12,7 +12,7 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities] = await Promise.all([
+  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames] = await Promise.all([
     prisma.product.findUnique({
       where: { id: id },
       include: {
@@ -26,6 +26,16 @@ export default async function EditProductPage({ params }: PageProps) {
         accessory: {
           include: {
             categories: true,
+          },
+        },
+        expansion: {
+          include: {
+            categories: true,
+            themes: true,
+            mechanics: true,
+            baseGame: {
+              include: { product: { select: { name: true } } },
+            },
           },
         },
         bundle: true,
@@ -90,7 +100,18 @@ export default async function EditProductPage({ params }: PageProps) {
       where: { isActive: true },
       orderBy: { order: 'asc' },
       select: { id: true, name: true, slug: true },
-    })
+    }),
+    // Fetch all game products as potential base games for expansions
+    prisma.product.findMany({
+      where: { kind: 'game', game: { isNot: null } },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        game: { select: { productId: true } },
+      },
+    }),
   ]);
 
   if (!product) {
@@ -127,6 +148,7 @@ export default async function EditProductPage({ params }: PageProps) {
             gameThemes={gameThemes}
             gameMechanics={gameMechanics}
             gameComplexities={gameComplexities}
+            baseGames={baseGames.map(g => ({ id: g.game!.productId, name: g.name, slug: g.slug }))}
           />
         </TabsContent>
 

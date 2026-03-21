@@ -23,6 +23,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       include: {
         game: true,
         accessory: true,
+        expansion: true,
         bundle: true,
         bgg: true,
         variants: true,
@@ -67,14 +68,19 @@ export async function PUT(request: Request, { params }: RouteContext) {
       gameThemeIds,
       gameMechanicIds,
       accessoryCategoryIds,
-      // GameDetails fields
+      // Game / Expansion shared fields
       yearPublished,
       minPlayers,
       maxPlayers,
       minAge,
       playtimeMin,
       playtimeMax,
-      mechanics,
+      // Expansion-specific fields
+      baseGameId,
+      addedComponents,
+      isStandalone,
+      isMajor,
+      editionNumber,
     } = body;
 
     const { id } = await params;
@@ -95,6 +101,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
       include: {
         game: true,
         accessory: true,
+        expansion: true,
       },
     });
 
@@ -134,6 +141,69 @@ export async function PUT(request: Request, { params }: RouteContext) {
           },
         },
       });
+    }
+
+    // If it's an expansion product, upsert expansion details
+    if (kind === 'expansion') {
+      const expansionData = {
+        baseGameId: baseGameId || product.expansion?.baseGameId,
+        timelineId: timelineId || null,
+        complexityId: complexityId || null,
+        yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
+        minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
+        maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
+        minAge: typeof minAge === 'number' ? minAge : null,
+        playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
+        playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+        addedComponents: addedComponents || null,
+        isStandalone: isStandalone ?? false,
+        isMajor: isMajor ?? false,
+        editionNumber: typeof editionNumber === 'number' ? editionNumber : null,
+        categories: {
+          set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
+        },
+        themes: {
+          set: (gameThemeIds || []).map((themeId: string) => ({ id: themeId })),
+        },
+        mechanics: {
+          set: (gameMechanicIds || []).map((mechanicId: string) => ({ id: mechanicId })),
+        },
+      };
+
+      if (product.expansion) {
+        await prisma.gameExpansionDetails.update({
+          where: { productId: id },
+          data: expansionData,
+        });
+      } else if (baseGameId) {
+        await prisma.gameExpansionDetails.create({
+          data: {
+            productId: id,
+            baseGameId,
+            timelineId: timelineId || null,
+            complexityId: complexityId || null,
+            yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
+            minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
+            maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
+            minAge: typeof minAge === 'number' ? minAge : null,
+            playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
+            playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+            addedComponents: addedComponents || null,
+            isStandalone: isStandalone ?? false,
+            isMajor: isMajor ?? false,
+            editionNumber: typeof editionNumber === 'number' ? editionNumber : null,
+            ...(gameCategoryIds?.length
+              ? { categories: { connect: gameCategoryIds.map((cId: string) => ({ id: cId })) } }
+              : {}),
+            ...(gameThemeIds?.length
+              ? { themes: { connect: gameThemeIds.map((tId: string) => ({ id: tId })) } }
+              : {}),
+            ...(gameMechanicIds?.length
+              ? { mechanics: { connect: gameMechanicIds.map((mId: string) => ({ id: mId })) } }
+              : {}),
+          },
+        });
+      }
     }
 
     return NextResponse.json(product);

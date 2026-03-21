@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { product: productData, game, accessory, bgg } = body;
+    const { product: productData, game, expansion, accessory, bgg } = body;
 
     if (!productData?.name) {
       return NextResponse.json(
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
           playtimeMin: typeof game.playtimeMin === 'number' ? game.playtimeMin : null,
           playtimeMax: typeof game.playtimeMax === 'number' ? game.playtimeMax : null,
           timelineId: game.timelineId || null,
+          complexityId: game.complexityTierId || null,
           ...(game.gameCategoryIds?.length
             ? { categories: { connect: game.gameCategoryIds.map((id: string) => ({ id })) } }
             : {}),
@@ -73,6 +74,44 @@ export async function POST(request: Request) {
             : {}),
           ...(game.gameMechanicIds?.length
             ? { mechanics: { connect: game.gameMechanicIds.map((id: string) => ({ id })) } }
+            : {}),
+        },
+      });
+    }
+
+    // Create expansion details if it's an expansion product
+    if (productData.kind === 'expansion' && expansion) {
+      if (!expansion.baseGameId) {
+        return NextResponse.json(
+          { message: 'Base game is required for expansion products' },
+          { status: 400 }
+        );
+      }
+
+      await prisma.gameExpansionDetails.create({
+        data: {
+          productId: created.id,
+          baseGameId: expansion.baseGameId,
+          yearPublished: typeof expansion.yearPublished === 'number' ? expansion.yearPublished : null,
+          minPlayers: typeof expansion.minPlayers === 'number' ? expansion.minPlayers : null,
+          maxPlayers: typeof expansion.maxPlayers === 'number' ? expansion.maxPlayers : null,
+          minAge: typeof expansion.minAge === 'number' ? expansion.minAge : null,
+          playtimeMin: typeof expansion.playtimeMin === 'number' ? expansion.playtimeMin : null,
+          playtimeMax: typeof expansion.playtimeMax === 'number' ? expansion.playtimeMax : null,
+          timelineId: expansion.timelineId || null,
+          complexityId: expansion.complexityTierId || null,
+          addedComponents: expansion.addedComponents || null,
+          isStandalone: expansion.isStandalone ?? false,
+          isMajor: expansion.isMajor ?? false,
+          editionNumber: typeof expansion.editionNumber === 'number' ? expansion.editionNumber : null,
+          ...(expansion.gameCategoryIds?.length
+            ? { categories: { connect: expansion.gameCategoryIds.map((id: string) => ({ id })) } }
+            : {}),
+          ...(expansion.gameThemeIds?.length
+            ? { themes: { connect: expansion.gameThemeIds.map((id: string) => ({ id })) } }
+            : {}),
+          ...(expansion.gameMechanicIds?.length
+            ? { mechanics: { connect: expansion.gameMechanicIds.map((id: string) => ({ id })) } }
             : {}),
         },
       });

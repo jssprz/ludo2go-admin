@@ -6,6 +6,7 @@ import type {
   Product,
   Brand,
   GameDetails,
+  GameExpansionDetails,
   AccessoryDetails,
   BundleDetails,
   BGGDetails,
@@ -37,12 +38,19 @@ type GameDetailsWithCategories = GameDetails & {
   mechanics: GameMechanic[];
 };
 
+type ExpansionDetailsWithCategories = GameExpansionDetails & {
+  categories: GameCategory[];
+  themes: GameTheme[];
+  mechanics: GameMechanic[];
+};
+
 type AccessoryDetailsWithCategories = AccessoryDetails & {
   categories: AccessoryCategory[];
 };
 
 type ProductWithDetails = Product & {
   game: GameDetailsWithCategories | null;
+  expansion: ExpansionDetailsWithCategories | null;
   accessory: AccessoryDetailsWithCategories | null;
   bundle: BundleDetails | null;
   bgg: BGGDetails | null;
@@ -75,6 +83,12 @@ type ComplexityOption = {
   slug: string;
 }
 
+type BaseGameOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
@@ -88,9 +102,10 @@ type Props = {
   gameThemes: CategoryOption[];
   gameMechanics: CategoryOption[];
   gameComplexities: ComplexityOption[];
+  baseGames: BaseGameOption[];
 };
 
-export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities }: Props) {
+export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
@@ -108,21 +123,21 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
     product.description ?? ''
   );
   const [timelineId, setTimelineId] = useState<string>(
-    product.game?.timelineId ?? ''
+    product.game?.timelineId ?? product.expansion?.timelineId ?? ''
   );
   const [complexityTierId, setComplexityTierId] = useState<string>(
-    product.game?.complexityId ?? ''
+    product.game?.complexityId ?? product.expansion?.complexityId ?? ''
   );
-  const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? '');
-  const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? '');
-  const [maxPlayers, setMaxPlayers] = useState<number | ''>(product.game?.maxPlayers ?? '');
-  const [minAge, setMinAge] = useState<number | ''>(product.game?.minAge ?? '');
-  const [playtimeMin, setPlaytimeMin] = useState<number | ''>(product.game?.playtimeMin ?? '');
-  const [playtimeMax, setPlaytimeMax] = useState<number | ''>(product.game?.playtimeMax ?? '');
+  const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? product.expansion?.yearPublished ?? '');
+  const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? product.expansion?.minPlayers ?? '');
+  const [maxPlayers, setMaxPlayers] = useState<number | ''>(product.game?.maxPlayers ?? product.expansion?.maxPlayers ?? '');
+  const [minAge, setMinAge] = useState<number | ''>(product.game?.minAge ?? product.expansion?.minAge ?? '');
+  const [playtimeMin, setPlaytimeMin] = useState<number | ''>(product.game?.playtimeMin ?? product.expansion?.playtimeMin ?? '');
+  const [playtimeMax, setPlaytimeMax] = useState<number | ''>(product.game?.playtimeMax ?? product.expansion?.playtimeMax ?? '');
 
   // Category state
   const [selectedGameCategoryIds, setSelectedGameCategoryIds] = useState<string[]>(
-    product.game?.categories?.map(c => c.id) ?? []
+    product.game?.categories?.map(c => c.id) ?? product.expansion?.categories?.map(c => c.id) ?? []
   );
   const [selectedAccessoryCategoryIds, setSelectedAccessoryCategoryIds] = useState<string[]>(
     product.accessory?.categories?.map(c => c.id) ?? []
@@ -130,10 +145,10 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
 
   // Themes & Mechanics state
   const [selectedGameThemeIds, setSelectedGameThemeIds] = useState<string[]>(
-    product.game?.themes?.map(t => t.id) ?? []
+    product.game?.themes?.map(t => t.id) ?? product.expansion?.themes?.map(t => t.id) ?? []
   );
   const [selectedGameMechanicIds, setSelectedGameMechanicIds] = useState<string[]>(
-    product.game?.mechanics?.map(m => m.id) ?? []
+    product.game?.mechanics?.map(m => m.id) ?? product.expansion?.mechanics?.map(m => m.id) ?? []
   );
   
 
@@ -147,7 +162,16 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   const [bayesAverageRating, setBayesAverageRating] = useState<number | ''>(product.bgg?.bayesAverageRating ?? '');
   const [averageWeightRating, setAverageWeightRating] = useState<number | ''>(product.bgg?.averageWeightRating ?? '');
 
+  // Expansion-specific fields
+  const [baseGameId, setBaseGameId] = useState(product.expansion?.baseGameId ?? '');
+  const [addedComponents, setAddedComponents] = useState(product.expansion?.addedComponents ?? '');
+  const [isStandalone, setIsStandalone] = useState(product.expansion?.isStandalone ?? false);
+  const [isMajor, setIsMajor] = useState(product.expansion?.isMajor ?? false);
+  const [editionNumber, setEditionNumber] = useState<number | ''>(product.expansion?.editionNumber ?? '');
+
   const isGameProduct = kind === 'game';
+  const isExpansionProduct = kind === 'expansion';
+  const isGameOrExpansion = isGameProduct || isExpansionProduct;
   const isAccessoryProduct = kind === 'accessory';
 
   function addGameCategory(categoryId: string) {
@@ -217,19 +241,27 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
           tags: normalizedTags,
           shortDescription: shortDescription || null,
           description: description || null,
-          timelineId: isGameProduct && timelineId ? timelineId : null,
-          complexityId: isGameProduct && complexityTierId ? complexityTierId : null,
-          gameCategoryIds: isGameProduct ? selectedGameCategoryIds : [],
-          gameThemeIds: isGameProduct ? selectedGameThemeIds : [],
-          gameMechanicIds: isGameProduct ? selectedGameMechanicIds : [],
+          timelineId: isGameOrExpansion && timelineId ? timelineId : null,
+          complexityId: isGameOrExpansion && complexityTierId ? complexityTierId : null,
+          gameCategoryIds: isGameOrExpansion ? selectedGameCategoryIds : [],
+          gameThemeIds: isGameOrExpansion ? selectedGameThemeIds : [],
+          gameMechanicIds: isGameOrExpansion ? selectedGameMechanicIds : [],
           accessoryCategoryIds: isAccessoryProduct ? selectedAccessoryCategoryIds : [],
-          // GameDetails fields
-          yearPublished: isGameProduct ? (yearPublished !== '' ? Number(yearPublished) : null) : undefined,
-          minPlayers: isGameProduct ? (minPlayers !== '' ? Number(minPlayers) : null) : undefined,
-          maxPlayers: isGameProduct ? (maxPlayers !== '' ? Number(maxPlayers) : null) : undefined,
-          minAge: isGameProduct ? (minAge !== '' ? Number(minAge) : null) : undefined,
-          playtimeMin: isGameProduct ? (playtimeMin !== '' ? Number(playtimeMin) : null) : undefined,
-          playtimeMax: isGameProduct ? (playtimeMax !== '' ? Number(playtimeMax) : null) : undefined,
+          // Game / Expansion shared fields
+          yearPublished: isGameOrExpansion ? (yearPublished !== '' ? Number(yearPublished) : null) : undefined,
+          minPlayers: isGameOrExpansion ? (minPlayers !== '' ? Number(minPlayers) : null) : undefined,
+          maxPlayers: isGameOrExpansion ? (maxPlayers !== '' ? Number(maxPlayers) : null) : undefined,
+          minAge: isGameOrExpansion ? (minAge !== '' ? Number(minAge) : null) : undefined,
+          playtimeMin: isGameOrExpansion ? (playtimeMin !== '' ? Number(playtimeMin) : null) : undefined,
+          playtimeMax: isGameOrExpansion ? (playtimeMax !== '' ? Number(playtimeMax) : null) : undefined,
+          // Expansion-specific fields
+          ...(isExpansionProduct ? {
+            baseGameId: baseGameId || null,
+            addedComponents: addedComponents || null,
+            isStandalone,
+            isMajor,
+            editionNumber: editionNumber !== '' ? Number(editionNumber) : null,
+          } : {}),
         }),
       });
 
@@ -338,6 +370,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="game">Game</SelectItem>
+                  <SelectItem value="expansion">Expansion</SelectItem>
                   <SelectItem value="accessory">Accessory</SelectItem>
                   <SelectItem value="bundle">Bundle</SelectItem>
                 </SelectContent>
@@ -345,7 +378,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             </div>
           </div>
 
-          {isGameProduct && (
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Game Categories */}
               <div className="space-y-3 border rounded-md p-4">
@@ -565,10 +598,12 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             </div>
           )}
 
-          {/* GameDetails fields for game products */}
-          {isGameProduct && (
+          {/* GameDetails fields for game and expansion products */}
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-3 border rounded-md p-4">
-              <h2 className="text-sm font-medium sm:col-span-3">Game Details</h2>
+              <h2 className="text-sm font-medium sm:col-span-3">
+                {isExpansionProduct ? 'Expansion Details' : 'Game Details'}
+              </h2>
               <div className="space-y-2">
                 <Label htmlFor="yearPublished">Year published</Label>
                 <Input
@@ -622,6 +657,85 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                   value={playtimeMax}
                   onChange={e => setPlaytimeMax(e.target.value ? Number(e.target.value) : '')}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Expansion-specific fields */}
+          {isExpansionProduct && (
+            <div className="grid gap-4 sm:grid-cols-2 border rounded-md p-4">
+              <h2 className="text-sm font-medium sm:col-span-2">Expansion Info</h2>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Base Game *</Label>
+                <Select
+                  value={baseGameId || 'none'}
+                  onValueChange={(val) => setBaseGameId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select base game" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a base game…</SelectItem>
+                    {baseGames.map((game) => (
+                      <SelectItem key={game.id} value={game.id}>
+                        {game.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The base game this expansion extends. Must be an existing game product.
+                </p>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="addedComponents">Added components</Label>
+                <Textarea
+                  id="addedComponents"
+                  value={addedComponents}
+                  onChange={(e) => setAddedComponents(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. 30 new cards, 2 player boards, 10 meeples"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editionNumber">Edition number</Label>
+                <Input
+                  id="editionNumber"
+                  type="number"
+                  value={editionNumber}
+                  onChange={e => setEditionNumber(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="e.g. 1"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 justify-end">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isStandalone"
+                    type="checkbox"
+                    checked={isStandalone}
+                    onChange={(e) => setIsStandalone(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isStandalone" className="text-sm font-normal">
+                    Standalone (can be played without the base game)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isMajor"
+                    type="checkbox"
+                    checked={isMajor}
+                    onChange={(e) => setIsMajor(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isMajor" className="text-sm font-normal">
+                    Major expansion (significant content addition)
+                  </Label>
+                </div>
               </div>
             </div>
           )}
