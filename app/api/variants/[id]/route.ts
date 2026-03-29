@@ -29,6 +29,7 @@ export async function PUT(
       edition,
       language,
       status,
+      activeAtScheduled,
       condition,
       weightGrams,
       widthMm,
@@ -59,6 +60,26 @@ export async function PUT(
       );
     }
 
+    // Build activation-related data
+    const now = new Date();
+    const becomingActive = status === 'active' && existingVariant.status !== 'active';
+    const activationData: Record<string, any> = {};
+
+    if (becomingActive) {
+      activationData.activedAt = now;
+      // Only set firstActivedAt once
+      if (!existingVariant.firstActivedAt) {
+        activationData.firstActivedAt = now;
+      }
+    }
+
+    // Handle scheduled date
+    if (status === 'scheduled' && activeAtScheduled) {
+      activationData.activeAtScheduled = new Date(activeAtScheduled);
+    } else {
+      activationData.activeAtScheduled = null;
+    }
+
     // Update the variant
     const updatedVariant = await prisma.productVariant.update({
       where: { id },
@@ -72,7 +93,8 @@ export async function PUT(
         widthMm,
         heightMm,
         depthMm,
-        packageType
+        packageType,
+        ...activationData,
       },
     });
 

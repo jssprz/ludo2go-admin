@@ -45,6 +45,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
   const [newLanguage, setNewLanguage] = useState('es');
   const [newCondition, setNewCondition] = useState('new');
   const [newStatus, setNewStatus] = useState('draft');
+  const [newActiveAtScheduled, setNewActiveAtScheduled] = useState('');
   const [newDisplayTitleShort, setNewDisplayTitleShort] = useState('');
   const [newDisplayTitleLong, setNewDisplayTitleLong] = useState('');
   const [newFormat, setNewFormat] = useState('STD');
@@ -58,6 +59,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
     setNewLanguage('es');
     setNewCondition('new');
     setNewStatus('draft');
+    setNewActiveAtScheduled('');
     setNewDisplayTitleShort('');
     setNewDisplayTitleLong('');
     setNewFormat('STD');
@@ -115,6 +117,9 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
           language: newLanguage,
           condition: newCondition,
           status: newStatus,
+          activeAtScheduled: newStatus === 'scheduled' && newActiveAtScheduled
+            ? new Date(newActiveAtScheduled).toISOString()
+            : null,
           displayTitleShort: newDisplayTitleShort.trim() || null,
           displayTitleLong: newDisplayTitleLong.trim() || null,
         }),
@@ -302,18 +307,44 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                 </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
-                  <Select value={newStatus} onValueChange={setNewStatus}>
+                  <Select
+                    value={newStatus}
+                    onValueChange={(val) => {
+                      setNewStatus(val);
+                      if (val !== 'scheduled') setNewActiveAtScheduled('');
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="pending_review">Pending Review</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="discontinued">Discontinued</SelectItem>
                       <SelectItem value="archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+              {newStatus === 'scheduled' && (
+                <div className="space-y-2">
+                  <Label htmlFor="new-active-at-scheduled">Scheduled activation date</Label>
+                  <Input
+                    id="new-active-at-scheduled"
+                    type="datetime-local"
+                    value={newActiveAtScheduled}
+                    onChange={(e) => setNewActiveAtScheduled(e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The variant will become active automatically at this date &amp; time.
+                  </p>
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -388,6 +419,9 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                 <div className="text-xs text-muted-foreground">
                   {v.language ? `${v.language} · ` : ''}
                   {v.status} · {v.condition}
+                  {v.status === 'scheduled' && v.activeAtScheduled && (
+                    <> · activates {new Date(v.activeAtScheduled).toLocaleString()}</>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">

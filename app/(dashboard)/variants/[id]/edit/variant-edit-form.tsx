@@ -75,6 +75,15 @@ function toDateInputValue(value: Date | string | null | undefined): string {
   return '';
 }
 
+function toDatetimeLocalValue(value: Date | string | null | undefined): string {
+  if (!value) return '';
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+  // Format as YYYY-MM-DDTHH:mm for datetime-local input
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const router = useRouter();
 
@@ -82,6 +91,9 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const [edition, setEdition] = useState(variant.edition ?? '');
   const [language, setLanguage] = useState<Language>(variant.language);
   const [status, setStatus] = useState<VariantStatus>(variant.status);
+  const [activeAtScheduled, setActiveAtScheduled] = useState<string>(
+    toDatetimeLocalValue(variant.activeAtScheduled)
+  );
   const [condition, setCondition] = useState<Condition>(variant.condition);
   const [packageType, setPackageType] = useState<PackagingType>(variant.packageType);
   const [weightGrams, setWeightGrams] = useState<number | null>(variant.weightGrams);
@@ -315,6 +327,9 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           edition: edition || null,
           language: language || null,
           status,
+          activeAtScheduled: status === 'scheduled' && activeAtScheduled
+            ? new Date(activeAtScheduled).toISOString()
+            : null,
           condition,
           weightGrams,
           widthMm,
@@ -419,21 +434,54 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           <Label htmlFor="status">Status</Label>
           <Select
             value={status}
-            onValueChange={(val) => setStatus(val as VariantStatus)}
+            onValueChange={(val) => {
+              setStatus(val as VariantStatus);
+              if (val !== 'scheduled') setActiveAtScheduled('');
+            }}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select kind" />
+              <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent>
-              {/* Ajusta según el enum ProductKind que tengas */}
               <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="pending_review">Pending Review</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
               <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="discontinued">Discontinued</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Physical Attrs */}
+
+        {status === 'scheduled' && (
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="activeAtScheduled">Scheduled activation date</Label>
+            <Input
+              id="activeAtScheduled"
+              type="datetime-local"
+              value={activeAtScheduled}
+              onChange={(e) => setActiveAtScheduled(e.target.value)}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              The variant will become active automatically at this date &amp; time.
+            </p>
+          </div>
+        )}
+
+        {(variant.activedAt || variant.firstActivedAt) && (
+          <div className="sm:col-span-5 flex gap-6 text-xs text-muted-foreground border-t pt-2">
+            {variant.firstActivedAt && (
+              <span>First activated: {new Date(variant.firstActivedAt).toLocaleString()}</span>
+            )}
+            {variant.activedAt && (
+              <span>Last activated: {new Date(variant.activedAt).toLocaleString()}</span>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="weightGrams">Weight (grams)</Label>
