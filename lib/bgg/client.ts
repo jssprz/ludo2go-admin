@@ -21,11 +21,12 @@ export interface BggClientOptions {
   rateMs?: number;       // per-call delay to be polite
   maxRetries202?: number;
   cacheTtlMs?: number;
+  token?: string;        // BGG API Bearer token
 }
 
 const DEFAULTS: Required<Pick<
   BggClientOptions,
-  "xmlBase" | "jsonBase" | "bggJsonBase" | "fetch" | "rateMs" | "maxRetries202" | "cacheTtlMs"
+  "xmlBase" | "jsonBase" | "bggJsonBase" | "fetch" | "rateMs" | "maxRetries202" | "cacheTtlMs" | "token"
 >> = {
   xmlBase: "https://boardgamegeek.com/xmlapi2",
   jsonBase: "https://boardgamegeek.com/api",
@@ -34,6 +35,7 @@ const DEFAULTS: Required<Pick<
   rateMs: 1100,          // be nice to BGG
   maxRetries202: 10,     // collection endpoints often queue
   cacheTtlMs: 60_000,    // 1 min
+  token: "",             // will be overridden from env
 };
 
 type CacheEntry<T> = { expires: number; data: T };
@@ -54,7 +56,11 @@ export class BggClient {
   private o: typeof DEFAULTS;
 
   constructor(opts: BggClientOptions = {}) {
-    this.o = { ...DEFAULTS, ...opts };
+    this.o = {
+      ...DEFAULTS,
+      ...opts,
+      token: process.env.BGG_TOKEN || opts.token || DEFAULTS.token,
+    };
   }
 
   /** Low-level GET with politeness, 202-retry, and optional cache */
@@ -65,14 +71,19 @@ export class BggClient {
       if (cached) return cached.clone();
     }
 
+    const headers: Record<string, string> = {};
+    if (this.o.token) {
+      headers["Authorization"] = `Bearer ${this.o.token}`;
+    }
+
     await sleep(this.o.rateMs);
-    let resp = await this.o.fetch(url, { method: "GET" });
+    let resp = await this.o.fetch(url, { method: "GET", headers });
 
     // 202 means "queued" on XML endpoints (esp. /collection). Retry.
     let tries = 0;
     while (resp.status === 202 && tries < this.o.maxRetries202) {
       await sleep(Math.max(this.o.rateMs, 2000));
-      resp = await this.o.fetch(url, { method: "GET" });
+      resp = await this.o.fetch(url, { method: "GET", headers });
       tries++;
     }
 
@@ -122,6 +133,7 @@ export class BggClient {
         yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
         minPlayers: it.minplayers?.value ? Number(it.minplayers.value) : undefined,
         maxPlayers: it.maxplayers?.value ? Number(it.maxplayers.value) : undefined,
+        minAge: it.minage?.value ? Number(it.minage.value) : undefined,
         minPlayTime: it.minplaytime?.value ? Number(it.minplaytime.value) : undefined,
         maxPlayTime: it.maxplaytime?.value ? Number(it.maxplaytime.value) : undefined,
         playingTime: it.playingtime?.value ? Number(it.playingtime.value) : undefined,
@@ -136,6 +148,7 @@ export class BggClient {
           usersRated: ratings.usersrated?.value ? Number(ratings.usersrated.value) : undefined,
           average: ratings.average?.value ? Number(ratings.average.value) : undefined,
           bayesAverage: ratings.bayesaverage?.value ? Number(ratings.bayesaverage.value) : undefined,
+          averageWeight: ratings.averageweight?.value ? Number(ratings.averageweight.value) : undefined,
           ranks: (ratings.ranks?.rank ?? []).map((r:any)=>({
             id: String(r.id),
             name: r.name,
@@ -220,4 +233,6 @@ export class BggClient {
   }
 }
 
-export const bgg = new BggClient();
+export const bgg = new BggClient({
+  token: process.env.BGG_TOKEN ?? "",
+});

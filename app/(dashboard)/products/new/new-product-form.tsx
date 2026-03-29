@@ -894,9 +894,8 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                 type="button"
                 variant="outline"
                 onClick={handleFetchFromBGG}
-                disabled={true}
               >
-                {isFetchingBGG ? 'Fetching...' : 'Fetch (Coming soon)'}
+                {isFetchingBGG ? 'Fetching...' : 'Fetch'}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">

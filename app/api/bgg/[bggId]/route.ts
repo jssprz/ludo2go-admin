@@ -36,13 +36,11 @@ export async function GET(
       playingTime: thing.playingTime,
       minPlayTime: thing.minPlayTime,
       maxPlayTime: thing.maxPlayTime,
-      // minAge no está en BggThing actual; si lo necesitas hay que extender el client
-      minAge: undefined,
+      minAge: thing.minAge,
       mechanics: thing.mechanics ?? [],
       avgRating: thing.stats?.average,
       bayesAverageRating: thing.stats?.bayesAverage,
-      // weight tampoco está en tu client actual; puedes añadirlo en BggClient si quieres
-      averageWeightRating: undefined,
+      averageWeightRating: thing.stats?.averageWeight,
       categories: thing.categories ?? [],
       designers: thing.designers ?? [],
       publishers: thing.publishers ?? [],

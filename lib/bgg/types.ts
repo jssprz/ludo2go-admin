@@ -7,6 +7,7 @@ export interface BggThing {
   yearPublished?: number;
   minPlayers?: number;
   maxPlayers?: number;
+  minAge?: number;
   minPlayTime?: number;
   maxPlayTime?: number;
   playingTime?: number;
@@ -21,6 +22,7 @@ export interface BggThing {
     usersRated?: number;
     average?: number;
     bayesAverage?: number;
+    averageWeight?: number;
     ranks?: Array<{ id: string; name: string; value: number | "Not Ranked" }>;
   };
 }
