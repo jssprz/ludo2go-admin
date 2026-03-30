@@ -9,7 +9,14 @@ import type {
   BggPlay,
 } from "./types";
 
-const XML = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
+const XML = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "",
+  isArray: (name: string) => {
+    // These elements can appear 1..N times; always treat as array
+    return ["item", "name", "link", "rank", "result", "results"].includes(name);
+  },
+});
 
 type Fetcher = typeof fetch;
 
@@ -168,7 +175,7 @@ export class BggClient {
     const arr = Array.isArray(items) ? items : [items];
     return arr.map((it:any)=>({
       id: String(it.id),
-      name: it.name?.value ?? "",
+      name: (Array.isArray(it.name) ? it.name[0] : it.name)?.value ?? "",
       yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
       thumbnail: it.thumbnail,
     }));
@@ -184,7 +191,7 @@ export class BggClient {
     const arr = Array.isArray(items) ? items : [items].filter(Boolean);
     return arr.map((it:any)=>({
       id: String(it.objectid),
-      name: it.name?.value ?? "",
+      name: (Array.isArray(it.name) ? it.name[0] : it.name)?.value ?? "",
       yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
       image: it.image,
       thumbnail: it.thumbnail,
