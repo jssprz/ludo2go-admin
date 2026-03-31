@@ -15,18 +15,24 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
     {
       name: 'woocommerce-amount-bdi',
       selectors: [
-        '.summary .price .amount bdi',
-        '.product .price .amount bdi',
-        '.price not(del) .woocommerce-Price-amount bdi'
+        '.summary .price ins .amount bdi',
+        '.summary .price > span.amount bdi',
+        '.product .price ins .amount bdi',
+        '.product .price > span.amount bdi',
+        'p.price ins .woocommerce-Price-amount bdi',
+        'p.price > span.woocommerce-Price-amount bdi'
       ],
       locale: 'es-CL'
     },
     {
       name: 'woocommerce-amount',
       selectors: [
-        '.summary .price .amount',
-        '.product .price .amount',
-        '.price not(del) .woocommerce-Price-amount'
+        '.summary .price ins .amount',
+        '.summary .price > span.amount',
+        '.product .price ins .amount',
+        '.product .price > span.amount',
+        'p.price ins .woocommerce-Price-amount',
+        'p.price > span.woocommerce-Price-amount'
       ],
       locale: 'es-CL'
     },
@@ -67,9 +73,10 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
       name: 'updown-woocommerce',
       // Example: <p class="price woobt-price-162547"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">$</span>29.990</bdi></span></p>
       selectors: [
-        'p.price not(del) .woocommerce-Price-amount bdi',
-        'p.price not(del) .woocommerce-Price-amount',
-        'p.price .price'
+        'p.price ins .woocommerce-Price-amount bdi',
+        'p.price > span.woocommerce-Price-amount bdi',
+        'p.price ins .woocommerce-Price-amount',
+        'p.price > span.woocommerce-Price-amount'
       ],
       locale: 'es-CL'
     }
@@ -102,11 +109,13 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
   'www.gatoarcano.cl': [
     {
       name: 'gato-arcano-woocommerce',
-      // Example: <p class="price"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">$</span>41.990</bdi></span></p>
+      // When discounted: <del>old price</del> <ins>sale price</ins>
+      // When regular:    <span class="woocommerce-Price-amount">price</span>
       selectors: [
-        'p.price not(del) .woocommerce-Price-amount bdi',
-        'p.price not(del) .woocommerce-Price-amount',
-        'p.price .price'
+        'p.price ins .woocommerce-Price-amount bdi',
+        'p.price > span.woocommerce-Price-amount bdi',
+        'p.price ins .woocommerce-Price-amount',
+        'p.price > span.woocommerce-Price-amount'
       ],
       locale: 'es-CL'
     }
@@ -160,6 +169,8 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
     {
       name: 'labovedadelmago',
       selectors: [
+        '.summary .price ins .amount bdi',
+        '.summary .price > span.amount bdi',
         '.summary .price .amount bdi'
       ],
       locale: 'es-CL'
@@ -223,6 +234,8 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
     {
       name: 'mangaigames',
       selectors: [
+        '.summary .price ins .amount bdi',
+        '.summary .price > span.amount bdi',
         '.summary .price .amount bdi'
       ],
       locale: 'es-CL'

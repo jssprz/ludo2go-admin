@@ -100,11 +100,13 @@ const TEMPLATES = {
   'www.gatoarcano.cl': [
     {
       name: 'gato-arcano-woocommerce',
-      // Example: <p class="price"><span class="woocommerce-Price-amount amount"><bdi><span class="woocommerce-Price-currencySymbol">$</span>41.990</bdi></span></p>
+      // When discounted: <del>old price</del> <ins>sale price</ins>
+      // When regular:    <span class="woocommerce-Price-amount">price</span>
       selectors: [
-        'p.price not(del) .woocommerce-Price-amount bdi',
-        'p.price not(del) .woocommerce-Price-amount',
-        'p.price .price'
+        'p.price ins .woocommerce-Price-amount bdi',
+        'p.price > span.woocommerce-Price-amount bdi',
+        'p.price ins .woocommerce-Price-amount',
+        'p.price > span.woocommerce-Price-amount'
       ],
       locale: 'es-CL'
     }
