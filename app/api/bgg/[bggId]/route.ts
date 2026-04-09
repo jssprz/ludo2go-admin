@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { bgg } from '@/lib/bgg/client'; // ajusta ruta si es distinta
+import { bgg } from '@/lib/bgg/client';
+import { prisma } from '@jssprz/ludo2go-database';
 
 export async function GET(
   _req: Request,
@@ -15,7 +16,6 @@ export async function GET(
   }
 
   try {
-    // Usamos tu cliente existente
     const things = await bgg.thing(bggId, { stats: true });
     const thing = things[0];
 
@@ -24,6 +24,19 @@ export async function GET(
         { message: 'Game not found in BGG' },
         { status: 404 }
       );
+    }
+
+    // Extract mechanic BGG IDs from the links
+    const mechanicLinks = (thing.links ?? []).filter(l => l.type === 'boardgamemechanic');
+    const mechanicBggIds = mechanicLinks.map(l => l.id);
+
+    // Look up which of those BGG mechanic IDs exist in our GameMechanic table
+    let matchedMechanics: Array<{ id: string; name: string; slug: string; bggId: number | null }> = [];
+    if (mechanicBggIds.length > 0) {
+      matchedMechanics = await prisma.gameMechanic.findMany({
+        where: { bggId: { in: mechanicBggIds } },
+        select: { id: true, name: true, slug: true, bggId: true },
+      });
     }
 
     const response = {
@@ -37,7 +50,18 @@ export async function GET(
       minPlayTime: thing.minPlayTime,
       maxPlayTime: thing.maxPlayTime,
       minAge: thing.minAge,
+      image: thing.image,
+      thumbnail: thing.thumbnail,
+      // All raw BGG links (for storing in BGGDetails.links)
+      links: thing.links ?? [],
+      // Convenience: mechanic names from BGG
       mechanics: thing.mechanics ?? [],
+      // Matched mechanics from our DB (id + name for auto-selecting in the form)
+      matchedMechanics,
+      // Unmatched mechanic names (BGG mechanics we don't have in our DB)
+      unmatchedMechanics: mechanicLinks
+        .filter(l => !matchedMechanics.some(m => m.bggId === l.id))
+        .map(l => ({ bggId: l.id, name: l.value })),
       avgRating: thing.stats?.average,
       bayesAverageRating: thing.stats?.bayesAverage,
       averageWeightRating: thing.stats?.averageWeight,

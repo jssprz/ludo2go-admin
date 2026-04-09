@@ -35,9 +35,17 @@ type BGGGameData = {
   minPlayTime?: number;
   maxPlayTime?: number;
   mechanics?: string[];
+  matchedMechanics?: Array<{ id: string; name: string; slug: string; bggId: number | null }>;
+  unmatchedMechanics?: Array<{ bggId: number; name: string }>;
+  links?: Array<{ type: string; id: number; value: string; inbound?: boolean }>;
   avgRating?: number;
   bayesAverageRating?: number;
   averageWeightRating?: number;
+  image?: string;
+  thumbnail?: string;
+  categories?: string[];
+  designers?: string[];
+  publishers?: string[];
 };
 
 type BrandOption = {
@@ -234,13 +242,34 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
         if (!tags) setTags(mechStr);
       }
 
+      // Auto-select matched mechanics from our DB
+      if (data.matchedMechanics && data.matchedMechanics.length > 0) {
+        const matchedIds = data.matchedMechanics.map(m => m.id);
+        setSelectedGameMechanicIds(prev => {
+          const combined = new Set([...prev, ...matchedIds]);
+          return Array.from(combined);
+        });
+      }
+
+      // Log unmatched mechanics so the user knows
+      if (data.unmatchedMechanics && data.unmatchedMechanics.length > 0) {
+        console.warn('BGG mechanics not found in DB:', data.unmatchedMechanics);
+      }
+
       if (typeof data.avgRating === 'number') setAvgRating(data.avgRating);
       if (typeof data.bayesAverageRating === 'number')
         setBayesAverageRating(data.bayesAverageRating);
       if (typeof data.averageWeightRating === 'number')
         setAverageWeightRating(data.averageWeightRating);
 
-      setSuccessMsg('Fields populated from BGG.');
+      let msg = 'Fields populated from BGG.';
+      if (data.matchedMechanics?.length) {
+        msg += ` ${data.matchedMechanics.length} mechanic(s) auto-selected.`;
+      }
+      if (data.unmatchedMechanics?.length) {
+        msg += ` ${data.unmatchedMechanics.length} BGG mechanic(s) not in DB: ${data.unmatchedMechanics.map(m => m.name).join(', ')}.`;
+      }
+      setSuccessMsg(msg);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error calling BGG API');
     } finally {

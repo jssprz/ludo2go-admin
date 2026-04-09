@@ -3,6 +3,7 @@ import { XMLParser } from "fast-xml-parser";
 import type {
   BggId,
   BggThing,
+  BggLink,
   BggSearchResult,
   BggCollectionItem,
   BggUser,
@@ -133,6 +134,13 @@ export class BggClient {
     return arr.map((it: any) => {
       const primary = (Array.isArray(it.name) ? it.name.find((n:any)=>n.type==="primary") : it.name);
       const ratings = it.statistics?.ratings;
+      const rawLinks: any[] = Array.isArray(it.link) ? it.link : (it.link ? [it.link] : []);
+      const links: BggLink[] = rawLinks.map((l: any) => ({
+        type: l.type as string,
+        id: Number(l.id),
+        value: l.value as string,
+        ...(l.inbound === "true" ? { inbound: true } : {}),
+      }));
       return {
         id: String(it.id),
         type: it.type,
@@ -147,10 +155,11 @@ export class BggClient {
         image: it.image,
         thumbnail: it.thumbnail,
         description: it.description,
-        categories: (it.link || []).filter((l:any)=>l.type==="boardgamecategory").map((l:any)=>l.value),
-        mechanics: (it.link || []).filter((l:any)=>l.type==="boardgamemechanic").map((l:any)=>l.value),
-        designers: (it.link || []).filter((l:any)=>l.type==="boardgamedesigner").map((l:any)=>l.value),
-        publishers: (it.link || []).filter((l:any)=>l.type==="boardgamepublisher").map((l:any)=>l.value),
+        links,
+        categories: links.filter(l=>l.type==="boardgamecategory").map(l=>l.value),
+        mechanics: links.filter(l=>l.type==="boardgamemechanic").map(l=>l.value),
+        designers: links.filter(l=>l.type==="boardgamedesigner").map(l=>l.value),
+        publishers: links.filter(l=>l.type==="boardgamepublisher").map(l=>l.value),
         stats: ratings ? {
           usersRated: ratings.usersrated?.value ? Number(ratings.usersrated.value) : undefined,
           average: ratings.average?.value ? Number(ratings.average.value) : undefined,

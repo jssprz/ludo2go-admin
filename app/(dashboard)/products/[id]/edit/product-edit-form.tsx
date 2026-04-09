@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 
 type GameDetailsWithCategories = GameDetails & {
   categories: GameCategory[];
@@ -92,6 +92,31 @@ type BaseGameOption = {
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
+
+type BGGGameData = {
+  id: number;
+  name: string;
+  description?: string;
+  yearPublished?: number;
+  minPlayers?: number;
+  maxPlayers?: number;
+  minAge?: number;
+  playingTime?: number;
+  minPlayTime?: number;
+  maxPlayTime?: number;
+  mechanics?: string[];
+  matchedMechanics?: Array<{ id: string; name: string; slug: string; bggId: number | null }>;
+  unmatchedMechanics?: Array<{ bggId: number; name: string }>;
+  links?: Array<{ type: string; id: number; value: string; inbound?: boolean }>;
+  avgRating?: number;
+  bayesAverageRating?: number;
+  averageWeightRating?: number;
+  image?: string;
+  thumbnail?: string;
+  categories?: string[];
+  designers?: string[];
+  publishers?: string[];
+};
 
 type Props = {
   product: ProductWithDetails;
@@ -161,6 +186,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   const [avgRating, setAvgRating] = useState<number | ''>(product.bgg?.avgRating ?? '');
   const [bayesAverageRating, setBayesAverageRating] = useState<number | ''>(product.bgg?.bayesAverageRating ?? '');
   const [averageWeightRating, setAverageWeightRating] = useState<number | ''>(product.bgg?.averageWeightRating ?? '');
+  const [isFetchingBGG, setIsFetchingBGG] = useState(false);
 
   // Expansion-specific fields
   const [baseGameId, setBaseGameId] = useState(product.expansion?.baseGameId ?? '');
@@ -212,6 +238,67 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
 
   function removeGameMechanic(mechanicId: string) {
     setSelectedGameMechanicIds(selectedGameMechanicIds.filter(id => id !== mechanicId));
+  }
+
+  async function handleFetchFromBGG() {
+    if (!bggId.trim()) return;
+
+    setIsFetchingBGG(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await fetch(`/api/bgg/${bggId.trim()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to fetch from BGG');
+      }
+
+      const data: BGGGameData = await res.json();
+
+      // Prefill game fields — intentionally NOT touching description/shortDescription
+      if (data.name && !name) setName(data.name);
+      if (data.yearPublished) setYearPublished(data.yearPublished);
+      if (data.minPlayers) setMinPlayers(data.minPlayers);
+      if (data.maxPlayers) setMaxPlayers(data.maxPlayers);
+      if (data.minAge) setMinAge(data.minAge);
+
+      if (data.minPlayTime) setPlaytimeMin(data.minPlayTime);
+      if (data.maxPlayTime) setPlaytimeMax(data.maxPlayTime);
+      else if (data.playingTime) {
+        if (!playtimeMin) setPlaytimeMin(data.playingTime);
+        if (!playtimeMax) setPlaytimeMax(data.playingTime);
+      }
+
+      // Auto-select matched mechanics from our DB
+      if (data.matchedMechanics && data.matchedMechanics.length > 0) {
+        const matchedIds = data.matchedMechanics.map(m => m.id);
+        setSelectedGameMechanicIds(prev => {
+          const combined = new Set([...prev, ...matchedIds]);
+          return Array.from(combined);
+        });
+      }
+
+      // BGG rating fields
+      if (typeof data.avgRating === 'number') setAvgRating(data.avgRating);
+      if (typeof data.bayesAverageRating === 'number')
+        setBayesAverageRating(data.bayesAverageRating);
+      if (typeof data.averageWeightRating === 'number')
+        setAverageWeightRating(data.averageWeightRating);
+
+      let msg = 'BGG data fetched successfully.';
+      if (data.matchedMechanics?.length) {
+        msg += ` ${data.matchedMechanics.length} mechanic(s) auto-selected.`;
+      }
+      if (data.unmatchedMechanics?.length) {
+        msg += ` ${data.unmatchedMechanics.length} BGG mechanic(s) not in DB: ${data.unmatchedMechanics.map(m => m.name).join(', ')}.`;
+      }
+      setSuccessMsg(msg);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error calling BGG API');
+    } finally {
+      setIsFetchingBGG(false);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -820,15 +907,34 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             <h2 className="text-sm font-medium">BoardGameGeek</h2>
             <div className="space-y-2">
               <Label htmlFor="bggId">BGG ID (optional)</Label>
-              <Input
-                id="bggId"
-                value={bggId}
-                onChange={(e) => setBggId(e.target.value)}
-                placeholder="e.g. 174430"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="bggId"
+                  value={bggId}
+                  onChange={(e) => setBggId(e.target.value)}
+                  placeholder="e.g. 174430"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!bggId.trim() || isFetchingBGG}
+                  onClick={handleFetchFromBGG}
+                >
+                  {isFetchingBGG ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Fetching…
+                    </>
+                  ) : (
+                    'Fetch from BGG'
+                  )}
+                </Button>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              The BoardGameGeek game ID for this product.
+              Enter a BGG game ID and click &quot;Fetch from BGG&quot; to populate game fields, ratings, and mechanics. Description fields will not be overwritten.
             </p>
           </div>
 

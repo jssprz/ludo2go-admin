@@ -49,7 +49,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, description, icon, order, isActive } = body;
+    const { name, slug, description, icon, bggId, bggName, order, isActive } = body;
 
     if (!name || !slug) {
       return NextResponse.json(
@@ -80,6 +80,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
         slug,
         description: description || null,
         icon: icon || null,
+        bggId: typeof bggId === 'number' ? bggId : null,
+        bggName: bggName || null,
         order: order ?? 0,
         isActive: isActive ?? true,
       },

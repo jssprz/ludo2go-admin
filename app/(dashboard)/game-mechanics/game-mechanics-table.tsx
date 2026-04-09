@@ -54,6 +54,8 @@ type GameMechanic = {
   slug: string;
   description: string | null;
   icon: string | null;
+  bggId: number | null;
+  bggName: string | null;
   order: number;
   isActive: boolean;
   createdAt: Date;
@@ -86,6 +88,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
   const [formSlug, setFormSlug] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formIcon, setFormIcon] = useState('');
+  const [formBggId, setFormBggId] = useState<number | ''>('');
+  const [formBggName, setFormBggName] = useState('');
   const [formOrder, setFormOrder] = useState(0);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -115,6 +119,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
     setFormSlug('');
     setFormDescription('');
     setFormIcon('');
+    setFormBggId('');
+    setFormBggName('');
     setFormOrder(mechanics.length);
     setFormIsActive(true);
     setFormError(null);
@@ -132,6 +138,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
     setFormSlug(mechanic.slug);
     setFormDescription(mechanic.description || '');
     setFormIcon(mechanic.icon || '');
+    setFormBggId(mechanic.bggId ?? '');
+    setFormBggName(mechanic.bggName || '');
     setFormOrder(mechanic.order);
     setFormIsActive(mechanic.isActive);
     setFormError(null);
@@ -161,6 +169,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
           icon: formIcon.trim() || null,
+          bggId: formBggId !== '' ? Number(formBggId) : null,
+          bggName: formBggName.trim() || null,
           order: formOrder,
           isActive: formIsActive,
         }),
@@ -204,6 +214,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
           icon: formIcon.trim() || null,
+          bggId: formBggId !== '' ? Number(formBggId) : null,
+          bggName: formBggName.trim() || null,
           order: formOrder,
           isActive: formIsActive,
         }),
@@ -272,6 +284,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           slug: mechanic.slug,
           description: mechanic.description,
           icon: mechanic.icon,
+          bggId: mechanic.bggId,
+          bggName: mechanic.bggName,
           order: mechanic.order,
           isActive: !mechanic.isActive,
         }),
@@ -334,6 +348,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                   <TableHead>{t('name')}</TableHead>
                   <TableHead>{t('slug')}</TableHead>
                   <TableHead>{t('icon')}</TableHead>
+                  <TableHead>BGG</TableHead>
                   <TableHead className="text-center">{t('games')}</TableHead>
                   <TableHead className="text-center">{t('status')}</TableHead>
                   <TableHead className="w-12"></TableHead>
@@ -342,7 +357,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
               <TableBody>
                 {filteredMechanics.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {search ? t('noResultsSearch') : t('noMechanics')}
                     </TableCell>
                   </TableRow>
@@ -371,6 +386,20 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                       <TableCell>
                         {mechanic.icon ? (
                           <code className="text-sm">{mechanic.icon}</code>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {mechanic.bggId ? (
+                          <div>
+                            <code className="text-sm">{mechanic.bggId}</code>
+                            {mechanic.bggName && (
+                              <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={mechanic.bggName}>
+                                {mechanic.bggName}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">—</span>
                         )}
@@ -483,6 +512,27 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                 placeholder={t('iconPlaceholder')}
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="create-bggId">BGG ID</Label>
+                <Input
+                  id="create-bggId"
+                  type="number"
+                  value={formBggId}
+                  onChange={(e) => setFormBggId(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="e.g. 2040"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-bggName">BGG Name</Label>
+                <Input
+                  id="create-bggName"
+                  value={formBggName}
+                  onChange={(e) => setFormBggName(e.target.value)}
+                  placeholder="e.g. Hand Management"
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="create-order">{t('order')}</Label>
               <Input
@@ -561,6 +611,27 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                 value={formIcon}
                 onChange={(e) => setFormIcon(e.target.value)}
               />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-bggId">BGG ID</Label>
+                <Input
+                  id="edit-bggId"
+                  type="number"
+                  value={formBggId}
+                  onChange={(e) => setFormBggId(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="e.g. 2040"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-bggName">BGG Name</Label>
+                <Input
+                  id="edit-bggName"
+                  value={formBggName}
+                  onChange={(e) => setFormBggName(e.target.value)}
+                  placeholder="e.g. Hand Management"
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-order">{t('order')}</Label>

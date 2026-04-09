@@ -1,5 +1,12 @@
 export type BggId = number | string;
 
+export interface BggLink {
+  type: string;
+  id: number;
+  value: string;
+  inbound?: boolean;
+}
+
 export interface BggThing {
   id: string;
   type: "boardgame" | "boardgameexpansion" | string;
@@ -14,9 +21,15 @@ export interface BggThing {
   image?: string;
   thumbnail?: string;
   description?: string;
+  /** All raw links from the BGG XML response */
+  links?: BggLink[];
+  /** Convenience: category names extracted from links */
   categories?: string[];
+  /** Convenience: mechanic names extracted from links */
   mechanics?: string[];
+  /** Convenience: designer names extracted from links */
   designers?: string[];
+  /** Convenience: publisher names extracted from links */
   publishers?: string[];
   stats?: {
     usersRated?: number;

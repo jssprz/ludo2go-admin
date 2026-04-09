@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, slug, description, icon, order, isActive } = body;
+    const { name, slug, description, icon, bggId, bggName, order, isActive } = body;
 
     if (!name || !slug) {
       return NextResponse.json(
@@ -65,6 +65,8 @@ export async function POST(request: Request) {
         slug,
         description: description || null,
         icon: icon || null,
+        bggId: typeof bggId === 'number' ? bggId : null,
+        bggName: bggName || null,
         order: typeof order === 'number' ? order : 0,
         isActive: typeof isActive === 'boolean' ? isActive : true,
       },
