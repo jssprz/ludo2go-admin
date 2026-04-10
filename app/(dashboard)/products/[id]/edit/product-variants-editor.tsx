@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { ProductVariant, Price, Inventory } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ type Props = {
 };
 
 export function ProductVariantsEditor({ productId, productSlug, variants: initialVariants }: Props) {
+  const router = useRouter();
   const [variants, setVariants] = useState(initialVariants);
 
   function formatPrice(amount: number, currency: string) {
@@ -434,7 +436,8 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
             return (
             <div
               key={v.id}
-              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => router.push(`/variants/${v.id}/edit`)}
             >
               <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="text-sm font-medium">
@@ -482,7 +485,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                     <span className="text-muted-foreground">No stock</span>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                   <Button asChild variant="outline" size="sm">
                     <Link href={`/variants/${v.id}/edit`}>
                       Edit variant
