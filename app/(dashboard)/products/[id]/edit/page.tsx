@@ -40,7 +40,15 @@ export default async function EditProductPage({ params }: PageProps) {
         },
         bundle: true,
         bgg: true,
-        variants: true,
+        variants: {
+          include: {
+            prices: {
+              where: { active: true },
+              orderBy: { type: 'asc' },
+            },
+            inventory: true,
+          },
+        },
         brand: true,
       },
     }),
