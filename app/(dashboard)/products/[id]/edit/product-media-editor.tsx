@@ -38,6 +38,7 @@ import {
   ArrowUp,
   ArrowDown,
   Search,
+  Check,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -81,6 +82,8 @@ export function ProductMediaEditor({ productId }: Props) {
   const [availableMedia, setAvailableMedia] = useState<MediaAsset[]>([]);
   const [mediaSearch, setMediaSearch] = useState('');
   const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+  const [selectedPickerIds, setSelectedPickerIds] = useState<Set<string>>(new Set());
+  const [isAddingMedia, setIsAddingMedia] = useState(false);
 
   const fetchProductMedia = useCallback(async () => {
     try {
@@ -141,29 +144,63 @@ export function ProductMediaEditor({ productId }: Props) {
     return () => clearTimeout(timer);
   }, [mediaSearch, showMediaPicker, fetchAvailableMedia]);
 
-  async function handleAddMedia(mediaAsset: MediaAsset) {
-    try {
-      const res = await fetch(`/api/products/${productId}/media`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mediaId: mediaAsset.id,
-          role: 'gallery',
-        }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Failed to add media');
+  function togglePickerSelection(mediaId: string) {
+    setSelectedPickerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(mediaId)) {
+        next.delete(mediaId);
+      } else {
+        next.add(mediaId);
       }
+      return next;
+    });
+  }
 
-      const newProductMedia = await res.json();
-      setMedia([...media, newProductMedia]);
-      setShowMediaPicker(false);
-      router.refresh();
-    } catch (error: any) {
-      alert(error.message || 'Failed to add media');
+  async function handleAddSelectedMedia() {
+    if (selectedPickerIds.size === 0) return;
+
+    setIsAddingMedia(true);
+    const errors: string[] = [];
+    const added: ProductMedia[] = [];
+
+    const idsToAdd = Array.from(selectedPickerIds);
+
+    for (const mediaId of idsToAdd) {
+      try {
+        const res = await fetch(`/api/products/${productId}/media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mediaId,
+            role: 'gallery',
+          }),
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          errors.push(error.message || `Failed to add media ${mediaId}`);
+          continue;
+        }
+
+        const newProductMedia = await res.json();
+        added.push(newProductMedia);
+      } catch (error: any) {
+        errors.push(error.message || `Failed to add media ${mediaId}`);
+      }
     }
+
+    if (added.length > 0) {
+      setMedia((prev) => [...prev, ...added]);
+    }
+
+    if (errors.length > 0) {
+      alert(`Some media could not be added:\n${errors.join('\n')}`);
+    }
+
+    setSelectedPickerIds(new Set());
+    setShowMediaPicker(false);
+    setIsAddingMedia(false);
+    router.refresh();
   }
 
   async function handleRemoveMedia(mediaId: string) {
@@ -425,7 +462,10 @@ export function ProductMediaEditor({ productId }: Props) {
       )}
 
       {/* Media Picker Dialog */}
-      <Dialog open={showMediaPicker} onOpenChange={setShowMediaPicker}>
+      <Dialog open={showMediaPicker} onOpenChange={(open) => {
+        setShowMediaPicker(open);
+        if (!open) setSelectedPickerIds(new Set());
+      }}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Add Media</DialogTitle>
@@ -459,37 +499,78 @@ export function ProductMediaEditor({ productId }: Props) {
               </div>
             ) : (
               <div className="grid grid-cols-4 gap-3 p-1">
-                {availableMedia.map((asset) => (
-                  <div
-                    key={asset.id}
-                    className="relative aspect-square border rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                    onClick={() => handleAddMedia(asset)}
-                  >
-                    {asset.kind === 'image' ? (
-                      <Image
-                        src={asset.thumbUrl || asset.url}
-                        alt={asset.alt || 'Media'}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
-                        {getMediaIcon(asset.kind)}
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Plus className="h-8 w-8 text-white" />
+                {availableMedia.map((asset) => {
+                  const isSelected = selectedPickerIds.has(asset.id);
+                  return (
+                    <div
+                      key={asset.id}
+                      className={`relative aspect-square border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary ring-2 ring-primary/30'
+                          : 'border-transparent hover:border-muted-foreground/30'
+                      }`}
+                      onClick={() => togglePickerSelection(asset.id)}
+                    >
+                      {asset.kind === 'image' ? (
+                        <Image
+                          src={asset.thumbUrl || asset.url}
+                          alt={asset.alt || 'Media'}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+                          {getMediaIcon(asset.kind)}
+                        </div>
+                      )}
+                      {/* Selection overlay */}
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                          <div className="rounded-full bg-primary p-1">
+                            <Check className="h-4 w-4 text-primary-foreground" />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMediaPicker(false)}>
-              Cancel
-            </Button>
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {selectedPickerIds.size > 0
+                ? `${selectedPickerIds.size} item${selectedPickerIds.size > 1 ? 's' : ''} selected`
+                : 'Click to select media'}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedPickerIds(new Set());
+                  setShowMediaPicker(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={selectedPickerIds.size === 0 || isAddingMedia}
+                onClick={handleAddSelectedMedia}
+              >
+                {isAddingMedia ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adding…
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add {selectedPickerIds.size > 0 ? `(${selectedPickerIds.size})` : ''}
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
