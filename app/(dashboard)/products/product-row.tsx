@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +15,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { deleteProduct } from './actions';
 import { ProductStatus } from '@prisma/client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export interface SelectProduct {
   id: string, name: string, status: ProductStatus, shortDescription: string | null,
@@ -22,8 +25,13 @@ export interface SelectProduct {
 }
 
 export function ProductRow({ product }: { product: SelectProduct }) {
+  const router = useRouter();
+
   return (
-    <TableRow>
+    <TableRow
+      className="cursor-pointer"
+      onClick={() => router.push(`/products/${product.id}/edit`)}
+    >
       <TableCell className="hidden sm:table-cell">
         {product.mediaLinks.length > 0 ? (
           <Image
@@ -52,7 +60,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}
       </TableCell>
-      <TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button aria-haspopup="true" size="icon" variant="ghost">
