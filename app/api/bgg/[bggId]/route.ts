@@ -65,6 +65,13 @@ export async function GET(
       avgRating: thing.stats?.average,
       bayesAverageRating: thing.stats?.bayesAverage,
       averageWeightRating: thing.stats?.averageWeight,
+      // All parsed ranks from BGG (boardgame rank, subcategory ranks, etc.)
+      ranks: thing.stats?.ranks ?? [],
+      // Extract the overall boardgame rank value for convenience
+      boardgameRank: (() => {
+        const bgRank = (thing.stats?.ranks ?? []).find(r => r.name === 'boardgame');
+        return bgRank && bgRank.value !== 'Not Ranked' ? Number(bgRank.value) : null;
+      })(),
       categories: thing.categories ?? [],
       designers: thing.designers ?? [],
       publishers: thing.publishers ?? [],

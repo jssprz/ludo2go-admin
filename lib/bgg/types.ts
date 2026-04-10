@@ -36,7 +36,14 @@ export interface BggThing {
     average?: number;
     bayesAverage?: number;
     averageWeight?: number;
-    ranks?: Array<{ id: string; name: string; value: number | "Not Ranked" }>;
+    ranks?: Array<{
+      type: string;
+      id: number;
+      name: string;
+      friendlyName: string;
+      value: number | "Not Ranked";
+      bayesAverage?: number;
+    }>;
   };
 }
 

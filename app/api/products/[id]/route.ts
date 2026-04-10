@@ -81,6 +81,8 @@ export async function PUT(request: Request, { params }: RouteContext) {
       isStandalone,
       isMajor,
       editionNumber,
+      // BGG data
+      bgg,
     } = body;
 
     const { id } = await params;
@@ -200,6 +202,84 @@ export async function PUT(request: Request, { params }: RouteContext) {
               : {}),
             ...(gameMechanicIds?.length
               ? { mechanics: { connect: gameMechanicIds.map((mId: string) => ({ id: mId })) } }
+              : {}),
+          },
+        });
+      }
+    }
+
+    // Upsert BGG details if provided
+    if (bgg && bgg.bggId) {
+      const existingBgg = await prisma.bGGDetails.findUnique({
+        where: { productId: id },
+      });
+
+      if (existingBgg) {
+        // Update existing BGG details
+        await prisma.bGGDetails.update({
+          where: { productId: id },
+          data: {
+            id: Number(bgg.bggId),
+            avgRating: typeof bgg.avgRating === 'number' ? bgg.avgRating : null,
+            bayesAverageRating: typeof bgg.bayesAverageRating === 'number' ? bgg.bayesAverageRating : null,
+            averageWeightRating: typeof bgg.averageWeightRating === 'number' ? bgg.averageWeightRating : null,
+            boardgameRank: typeof bgg.boardgameRank === 'number' ? bgg.boardgameRank : null,
+          },
+        });
+
+        // Replace ranks if provided
+        if (bgg.ranks && Array.isArray(bgg.ranks) && bgg.ranks.length > 0) {
+          // Delete existing ranks
+          await prisma.bGGRank.deleteMany({
+            where: { bggDetailsId: existingBgg.productId },
+          });
+          // Create new ranks
+          await prisma.bGGRank.createMany({
+            data: bgg.ranks
+              .filter((r: any) => r.value !== 'Not Ranked')
+              .map((r: any) => ({
+                bggDetailsId: existingBgg.productId,
+                type: r.type,
+                bggId: Number(r.id),
+                name: r.name,
+                friendlyName: r.friendlyName,
+                value: typeof r.value === 'number' ? r.value : null,
+                bayesAverage: typeof r.bayesAverage === 'number' ? r.bayesAverage : null,
+              })),
+          });
+        }
+      } else {
+        // Create new BGG details
+        const trackingEntry = await prisma.bGGDetailsTrakingTable.create({
+          data: {
+            apiURL: `https://boardgamegeek.com/xmlapi2/thing?id=${bgg.bggId}`,
+          },
+        });
+
+        await prisma.bGGDetails.create({
+          data: {
+            productId: id,
+            id: Number(bgg.bggId),
+            sourceApiRequestId: trackingEntry.id,
+            avgRating: typeof bgg.avgRating === 'number' ? bgg.avgRating : null,
+            bayesAverageRating: typeof bgg.bayesAverageRating === 'number' ? bgg.bayesAverageRating : null,
+            averageWeightRating: typeof bgg.averageWeightRating === 'number' ? bgg.averageWeightRating : null,
+            boardgameRank: typeof bgg.boardgameRank === 'number' ? bgg.boardgameRank : null,
+            ...(bgg.ranks && Array.isArray(bgg.ranks) && bgg.ranks.length > 0
+              ? {
+                ranks: {
+                  create: bgg.ranks
+                    .filter((r: any) => r.value !== 'Not Ranked')
+                    .map((r: any) => ({
+                      type: r.type,
+                      bggId: Number(r.id),
+                      name: r.name,
+                      friendlyName: r.friendlyName,
+                      value: typeof r.value === 'number' ? r.value : null,
+                      bayesAverage: typeof r.bayesAverage === 'number' ? r.bayesAverage : null,
+                    })),
+                },
+              }
               : {}),
           },
         });

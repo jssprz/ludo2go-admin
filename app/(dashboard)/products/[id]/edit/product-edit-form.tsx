@@ -93,6 +93,15 @@ type BaseGameOption = {
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
 
+type BGGRankData = {
+  type: string;
+  id: number;
+  name: string;
+  friendlyName: string;
+  value: number | 'Not Ranked';
+  bayesAverage?: number;
+};
+
 type BGGGameData = {
   id: number;
   name: string;
@@ -111,6 +120,8 @@ type BGGGameData = {
   avgRating?: number;
   bayesAverageRating?: number;
   averageWeightRating?: number;
+  ranks?: BGGRankData[];
+  boardgameRank?: number | null;
   image?: string;
   thumbnail?: string;
   categories?: string[];
@@ -186,6 +197,8 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   const [avgRating, setAvgRating] = useState<number | ''>(product.bgg?.avgRating ?? '');
   const [bayesAverageRating, setBayesAverageRating] = useState<number | ''>(product.bgg?.bayesAverageRating ?? '');
   const [averageWeightRating, setAverageWeightRating] = useState<number | ''>(product.bgg?.averageWeightRating ?? '');
+  const [boardgameRank, setBoardgameRank] = useState<number | ''>(product.bgg?.boardgameRank ?? '');
+  const [bggRanks, setBggRanks] = useState<BGGRankData[]>([]);
   const [isFetchingBGG, setIsFetchingBGG] = useState(false);
 
   // Expansion-specific fields
@@ -285,6 +298,10 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
         setBayesAverageRating(data.bayesAverageRating);
       if (typeof data.averageWeightRating === 'number')
         setAverageWeightRating(data.averageWeightRating);
+      if (typeof data.boardgameRank === 'number')
+        setBoardgameRank(data.boardgameRank);
+      if (data.ranks && data.ranks.length > 0)
+        setBggRanks(data.ranks);
 
       let msg = 'BGG data fetched successfully.';
       if (data.matchedMechanics?.length) {
@@ -349,6 +366,17 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             isMajor,
             editionNumber: editionNumber !== '' ? Number(editionNumber) : null,
           } : {}),
+          // BGG data
+          bgg: bggId.trim() !== ''
+            ? {
+              bggId: Number(bggId),
+              avgRating: avgRating || null,
+              bayesAverageRating: bayesAverageRating || null,
+              averageWeightRating: averageWeightRating || null,
+              boardgameRank: boardgameRank || null,
+              ranks: bggRanks.length > 0 ? bggRanks : null,
+            }
+            : null,
         }),
       });
 
@@ -941,7 +969,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
           {/* BGG Metrics */}
           <div className="border rounded-md p-4 space-y-3">
             <h2 className="text-sm font-medium">BGG Ratings</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="avgRating">Avg rating</Label>
                 <Input
@@ -982,8 +1010,42 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                   }
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="boardgameRank">Board Game Rank</Label>
+                <Input
+                  id="boardgameRank"
+                  type="number"
+                  step="1"
+                  value={boardgameRank}
+                  onChange={(e) =>
+                    setBoardgameRank(e.target.value ? Number(e.target.value) : '')
+                  }
+                />
+              </div>
             </div>
           </div>
+
+          {/* BGG Ranks */}
+          {bggRanks.length > 0 && (
+            <div className="border rounded-md p-4 space-y-3">
+              <h2 className="text-sm font-medium">BGG Ranks</h2>
+              <div className="divide-y text-sm">
+                {bggRanks.map((rank) => (
+                  <div key={rank.id} className="flex items-center justify-between py-1.5">
+                    <span className="text-muted-foreground">{rank.friendlyName}</span>
+                    <span className="font-medium">
+                      {rank.value === 'Not Ranked' ? 'Not Ranked' : `#${rank.value}`}
+                      {rank.bayesAverage != null && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          (bayes: {rank.bayesAverage.toFixed(2)})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

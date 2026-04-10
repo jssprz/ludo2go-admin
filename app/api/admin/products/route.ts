@@ -146,6 +146,23 @@ export async function POST(request: Request) {
           avgRating: typeof bgg.avgRating === 'number' ? bgg.avgRating : null,
           bayesAverageRating: typeof bgg.bayesAverageRating === 'number' ? bgg.bayesAverageRating : null,
           averageWeightRating: typeof bgg.averageWeightRating === 'number' ? bgg.averageWeightRating : null,
+          boardgameRank: typeof bgg.boardgameRank === 'number' ? bgg.boardgameRank : null,
+          ...(bgg.ranks && Array.isArray(bgg.ranks) && bgg.ranks.length > 0
+            ? {
+              ranks: {
+                create: bgg.ranks
+                  .filter((r: any) => r.value !== 'Not Ranked')
+                  .map((r: any) => ({
+                    type: r.type,
+                    bggId: Number(r.id),
+                    name: r.name,
+                    friendlyName: r.friendlyName,
+                    value: typeof r.value === 'number' ? r.value : null,
+                    bayesAverage: typeof r.bayesAverage === 'number' ? r.bayesAverage : null,
+                  })),
+              },
+            }
+            : {}),
         },
       });
     }
