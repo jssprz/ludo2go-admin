@@ -168,8 +168,8 @@ export class BggClient {
           ranks: (ratings.ranks?.rank ?? []).map((r:any)=>({
             type: r.type as string,
             id: Number(r.id),
-            name: r.name as string,
-            friendlyName: r.friendlyname as string,
+            name: Array.isArray(r.name) ? r.name[0] : (r.name as string),
+            friendlyName: Array.isArray(r.friendlyname) ? r.friendlyname[0] : (r.friendlyname as string),
             value: r.value === "Not Ranked" ? ("Not Ranked" as const) : Number(r.value),
             bayesAverage: r.bayesaverage && r.bayesaverage !== "Not Ranked" ? Number(r.bayesaverage) : undefined,
           })),
