@@ -155,8 +155,8 @@ export async function POST(request: Request) {
                   .map((r: any) => ({
                     type: r.type,
                     bggId: Number(r.id),
-                    name: r.name,
-                    friendlyName: r.friendlyName,
+                    name: Array.isArray(r.name) ? r.name[0] : String(r.name),
+                    friendlyName: Array.isArray(r.friendlyName) ? r.friendlyName[0] : String(r.friendlyName),
                     value: typeof r.value === 'number' ? r.value : null,
                     bayesAverage: typeof r.bayesAverage === 'number' ? r.bayesAverage : null,
                   })),
