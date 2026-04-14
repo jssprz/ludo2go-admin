@@ -33,10 +33,18 @@ export async function getProducts(
   const where: any = {};
 
   if (search) {
-    where.OR = [
+    const orConditions: any[] = [
       { name: { contains: search, mode: 'insensitive' } },
       { slug: { contains: search, mode: 'insensitive' } },
     ];
+
+    // If the search term is a pure integer, also match on bggId
+    const parsed = parseInt(search, 10);
+    if (!isNaN(parsed) && String(parsed) === search.trim()) {
+      orConditions.push({ bggId: { equals: parsed } });
+    }
+
+    where.OR = orConditions;
   }
 
   if (status) {

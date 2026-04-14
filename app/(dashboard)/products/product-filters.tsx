@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProductKind } from '@prisma/client';
 import { SortableProductColumn, SortOrder } from '@/lib/db';
-import { Filter, X } from 'lucide-react';
+import { Filter, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/icons';
 
 const PRODUCT_KINDS: { value: string; label: string }[] = [
   { value: '', label: 'All Types' },
@@ -39,6 +42,8 @@ export function ProductFiltersBar({
   currentSortOrder: SortOrder;
 }) {
   const router = useRouter();
+  const [searchValue, setSearchValue] = useState(currentSearch);
+  const [isPending, startTransition] = useTransition();
 
   function buildUrl(overrides: Record<string, string>) {
     const params = new URLSearchParams({
@@ -57,10 +62,34 @@ export function ProductFiltersBar({
     return `/products?${params.toString()}`;
   }
 
-  const hasActiveFilters = currentKind || currentBrandId;
+  const hasActiveFilters = currentKind || currentBrandId || currentSearch;
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(() => {
+      router.push(buildUrl({ q: searchValue, offset: '' }));
+    });
+  }
 
   return (
     <div className="flex items-center gap-3 py-3 flex-wrap">
+      {/* Search by name */}
+      <form onSubmit={handleSearch} className="relative">
+        <Search className="absolute left-2.5 top-[0.45rem] h-4 w-4 text-muted-foreground" />
+        <Input
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          type="search"
+          placeholder="Search by name or BGG ID…"
+          className="h-8 w-[200px] lg:w-[280px] rounded-md pl-8 text-sm"
+        />
+        {isPending && (
+          <div className="absolute right-2.5 top-[0.45rem]">
+            <Spinner />
+          </div>
+        )}
+      </form>
+
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Filter className="h-4 w-4" />
         <span>Filters:</span>
@@ -99,7 +128,10 @@ export function ProductFiltersBar({
           variant="ghost"
           size="sm"
           className="h-8 gap-1 text-muted-foreground"
-          onClick={() => router.push(buildUrl({ kind: '', brandId: '', offset: '' }))}
+          onClick={() => {
+            setSearchValue('');
+            router.push(buildUrl({ kind: '', brandId: '', q: '', offset: '' }));
+          }}
         >
           <X className="h-3.5 w-3.5" />
           Clear filters
