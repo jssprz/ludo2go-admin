@@ -20,7 +20,9 @@ import {
   Puzzle,
   Palette,
   Wrench,
-  Store
+  Store,
+  Truck,
+  ClipboardList,
 } from 'lucide-react';
 
 import {
@@ -135,6 +137,14 @@ async function DesktopNav() {
 
         <NavItem href="/stores" label={t('stores')}>
           <Store className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/suppliers" label="Suppliers">
+          <Truck className="h-5 w-5" />
+        </NavItem>
+
+        <NavItem href="/purchase-orders" label="Purchase Orders">
+          <ClipboardList className="h-5 w-5" />
         </NavItem>
 
         <NavItem href="/customers" label={t('customers')}>
@@ -287,6 +297,20 @@ function MobileNav() {
           >
             <Store className="h-5 w-5" />
             Stores
+          </Link>
+          <Link
+            href="/suppliers"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Truck className="h-5 w-5" />
+            Suppliers
+          </Link>
+          <Link
+            href="/purchase-orders"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <ClipboardList className="h-5 w-5" />
+            Purchase Orders
           </Link>
           <Link
             href="#"
