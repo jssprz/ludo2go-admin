@@ -13,19 +13,30 @@ import {
 import { MoreHorizontal, ImageOff } from 'lucide-react';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { deleteProduct } from './actions';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, ProductKind } from '@prisma/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export interface SelectProduct {
-  id: string, name: string, status: ProductStatus, shortDescription: string | null,
-  description: string | null, tags: string[], brand: { name: string, slug: string } | null, createdAt: Date,
-  mediaLinks: { media: { url: string } }[],
-  variants: any[]
+  id: string;
+  name: string;
+  kind: ProductKind;
+  status: ProductStatus;
+  shortDescription: string | null;
+  description: string | null;
+  tags: string[];
+  brand: { name: string; slug: string } | null;
+  createdAt: Date;
+  mediaLinks: { media: { url: string } }[];
+  variants: any[];
 }
 
 export function ProductRow({ product }: { product: SelectProduct }) {
   const router = useRouter();
+  const totalStock = product.variants.reduce(
+    (sum: number, v: any) => sum + (v.stock ?? 0),
+    0
+  );
 
   return (
     <TableRow
@@ -53,10 +64,14 @@ export function ProductRow({ product }: { product: SelectProduct }) {
           {product.status}
         </Badge>
       </TableCell>
-      {/* <TableCell className="hidden md:table-cell">{`$${product.price}`}</TableCell> */}
+      <TableCell className="hidden md:table-cell">
+        <Badge variant="secondary" className="capitalize">
+          {product.kind}
+        </Badge>
+      </TableCell>
       <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
       <TableCell className="hidden md:table-cell">0</TableCell>
-      <TableCell className="hidden md:table-cell">0</TableCell>
+      <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}
       </TableCell>

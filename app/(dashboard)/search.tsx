@@ -1,18 +1,22 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/icons';
 import { Search } from 'lucide-react';
 
 export function SearchInput() {
   const router = useRouter();
+  const currentParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   function searchAction(formData: FormData) {
     let value = formData.get('q') as string;
-    let params = new URLSearchParams({ q: value });
+    // Preserve existing filter/sort params when searching
+    const params = new URLSearchParams(currentParams.toString());
+    params.set('q', value);
+    params.delete('offset'); // Reset pagination on new search
     startTransition(() => {
       router.replace(`/products/?${params.toString()}`);
     });
