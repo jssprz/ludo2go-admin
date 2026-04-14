@@ -22,6 +22,7 @@ export interface SelectProduct {
   name: string;
   kind: ProductKind;
   bggId: number | null;
+  bgg: { id: number | null } | null;
   status: ProductStatus;
   shortDescription: string | null;
   description: string | null;
@@ -61,7 +62,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       </TableCell>
       <TableCell className="font-medium">{product.name}</TableCell>
       <TableCell className="hidden md:table-cell text-muted-foreground tabular-nums">
-        {product.bggId ?? '—'}
+        {product.bgg?.id ?? product.bggId ?? '—'}
       </TableCell>
       <TableCell>
         <Badge variant="outline" className="capitalize">
@@ -72,6 +73,9 @@ export function ProductRow({ product }: { product: SelectProduct }) {
         <Badge variant="secondary" className="capitalize">
           {product.kind}
         </Badge>
+      </TableCell>
+      <TableCell className="hidden md:table-cell text-muted-foreground">
+        {product.brand?.name ?? '—'}
       </TableCell>
       <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
       <TableCell className="hidden md:table-cell">0</TableCell>

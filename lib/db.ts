@@ -8,6 +8,7 @@ export type SortableProductColumn =
   | 'bggId'
   | 'status'
   | 'kind'
+  | 'brand'
   | 'createdAt'
   | 'updatedAt'
   | 'variants'
@@ -39,10 +40,11 @@ export async function getProducts(
       { slug: { contains: search, mode: 'insensitive' } },
     ];
 
-    // If the search term is a pure integer, also match on bggId
+    // If the search term is a pure integer, also match on bggId and bgg.id
     const parsed = parseInt(search, 10);
     if (!isNaN(parsed) && String(parsed) === search.trim()) {
       orConditions.push({ bggId: { equals: parsed } });
+      orConditions.push({ bgg: { id: { equals: parsed } } });
     }
 
     where.OR = orConditions;
@@ -72,6 +74,10 @@ export async function getProducts(
     // Stock is a sum of variant stock – fall back to createdAt for DB ordering
     // (we can't easily sort by aggregate sum in Prisma without raw SQL)
     orderBy = { createdAt: sortOrder };
+  } else if (sortBy === 'bggId') {
+    orderBy = { bgg: { id: sortOrder } };
+  } else if (sortBy === 'brand') {
+    orderBy = { brand: { name: sortOrder } };
   } else {
     orderBy = { [sortBy]: sortOrder };
   }
@@ -80,6 +86,7 @@ export async function getProducts(
   let moreProducts = await prisma.product.findMany({
     include: {
       brand: true,
+      bgg: { select: { id: true } },
       mediaLinks: {
         include: {
           media: true

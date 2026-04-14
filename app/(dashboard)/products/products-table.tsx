@@ -161,6 +161,14 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
+                label="Brand"
+                column="brand"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden md:table-cell"
+                onSort={handleSort}
+              />
+              <SortableHeader
                 label="Variants"
                 column="variants"
                 currentSortBy={sortBy}
