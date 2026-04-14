@@ -11,7 +11,7 @@ import { ProductFiltersBar } from './product-filters';
 type StatusTab = 'all' | 'active' | 'draft' | 'archived';
 
 const VALID_SORT_COLUMNS: SortableProductColumn[] = [
-  'name', 'status', 'kind', 'createdAt', 'updatedAt', 'variants', 'stock'
+  'name', 'bggId', 'status', 'kind', 'createdAt', 'updatedAt', 'variants', 'stock'
 ];
 
 function mapStatusTabToPrisma(

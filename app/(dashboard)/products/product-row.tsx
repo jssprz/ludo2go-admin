@@ -21,6 +21,7 @@ export interface SelectProduct {
   id: string;
   name: string;
   kind: ProductKind;
+  bggId: number | null;
   status: ProductStatus;
   shortDescription: string | null;
   description: string | null;
@@ -59,6 +60,9 @@ export function ProductRow({ product }: { product: SelectProduct }) {
         )}
       </TableCell>
       <TableCell className="font-medium">{product.name}</TableCell>
+      <TableCell className="hidden md:table-cell text-muted-foreground tabular-nums">
+        {product.bggId ?? '—'}
+      </TableCell>
       <TableCell>
         <Badge variant="outline" className="capitalize">
           {product.status}

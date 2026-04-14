@@ -5,6 +5,7 @@ import { ProductStatus, ProductKind } from '@prisma/client';
 
 export type SortableProductColumn =
   | 'name'
+  | 'bggId'
   | 'status'
   | 'kind'
   | 'createdAt'
