@@ -24,6 +24,7 @@ import {
   Truck,
   ClipboardList,
   CalendarPlus,
+  TrendingUp,
 } from 'lucide-react';
 
 import {
@@ -174,6 +175,10 @@ async function DesktopNav() {
 
         <NavItem href="/media" label={t('mediaGallery')}>
           <Images className="h-4 w-4" />
+        </NavItem>
+
+        <NavItem href="/external-trending" label="Trending">
+          <TrendingUp className="h-4 w-4" />
         </NavItem>
 
         <NavItem href="#" label={t('analytics')}>
@@ -365,6 +370,13 @@ function MobileNav() {
           >
             <Images className="h-4 w-4" />
             Media Gallery
+          </Link>
+          <Link
+            href="/external-trending"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <TrendingUp className="h-4 w-4" />
+            Trending
           </Link>
           <Link
             href="/admin-users"
