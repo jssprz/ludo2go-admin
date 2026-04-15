@@ -2,7 +2,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { NewProductForm } from './new-product-form';
 
 export default async function NewProductPage() {
-  const [brands, timelines, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities] = await Promise.all([
+  const [brands, timelines, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames] = await Promise.all([
     prisma.brand.findMany({
       orderBy: { name: 'asc' },
       select: { id: true, name: true, slug: true },
@@ -39,7 +39,18 @@ export default async function NewProductPage() {
       where: { isActive: true },
       orderBy: { order: 'asc' },
       select: { id: true, name: true, slug: true },
-    })
+    }),
+    // Fetch all game products that have gameDetails (to use as base games for expansions)
+    prisma.product.findMany({
+      where: { kind: 'game', game: { isNot: null } },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        game: { select: { productId: true } },
+      },
+    }),
   ]);
 
   return (
@@ -63,6 +74,7 @@ export default async function NewProductPage() {
         gameThemes={gameThemes}
         gameMechanics={gameMechanics}
         gameComplexities={gameComplexities}
+        baseGames={baseGames.map(g => ({ id: g.game!.productId, name: g.name, slug: g.slug }))}
       />
     </div>
   );

@@ -12,12 +12,34 @@ export default async function LocationsPage() {
 
   const locations = await prisma.location.findMany({
     orderBy: { name: 'asc' },
-    include: {
-      _count: {
-        select: { inventories: true },
-      },
+  });
+
+  const locationStats = await prisma.inventory.groupBy({
+    by: ['locationId'],
+    where: { onHand: { gt: 0 } },
+    _sum: {
+      onHand: true,
+    },
+    _count: {
+      variantId: true,
     },
   });
+
+  const locationStatsMap = new Map(
+    locationStats.map((row) => [
+      row.locationId,
+      {
+        totalItems: row._sum.onHand,
+        variantsCount: row._count.variantId,
+      },
+    ])
+  );
+
+  const ordersWithStats = locations.map((location) => ({
+    ...location,
+    totalItems: locationStatsMap.get(location.id)?.totalItems ?? 0,
+    variantsCount: locationStatsMap.get(location.id)?.variantsCount ?? 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -30,7 +52,7 @@ export default async function LocationsPage() {
         </div>
       </div>
 
-      <LocationsTable initialLocations={locations as any} />
+      <LocationsTable initialLocations={ordersWithStats as any} />
     </div>
   );
 }

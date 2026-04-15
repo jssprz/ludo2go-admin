@@ -17,17 +17,19 @@ const prisma = new PrismaClient();
 const PRICE_SELECTORS = {
   'www.wargaming.cl': ['.bs-product__final-price'],
   'www.gatoarcano.cl': [
-    'p.price :not(del) .woocommerce-Price-amount bdi',
-    'p.price :not(del) .woocommerce-Price-amount',
-    'p.price :not(del) .price'
+    'p.price ins .woocommerce-Price-amount bdi',
+    'p.price > span.woocommerce-Price-amount bdi',
+    'p.price ins .woocommerce-Price-amount',
+    'p.price > span.woocommerce-Price-amount'
   ],
   'www.magicsur.cl': [
     '.product-prices .current-price .product-price.current-price-value'
   ],
   'www.updown.cl': [
-    'p.price :not(del) .woocommerce-Price-amount bdi',
-    'p.price :not(del) .woocommerce-Price-amount',
-    'p.price :not(del) .price'
+    'p.price ins .woocommerce-Price-amount bdi',
+    'p.price > span.woocommerce-Price-amount bdi',
+    'p.price ins .woocommerce-Price-amount',
+    'p.price > span.woocommerce-Price-amount'
   ],
   'buhojuegosdemesa.cl': [
     '#ProductPrice-product-template'

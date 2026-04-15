@@ -6,6 +6,7 @@ import type {
   Product,
   Brand,
   GameDetails,
+  GameExpansionDetails,
   AccessoryDetails,
   BundleDetails,
   BGGDetails,
@@ -29,9 +30,15 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 
 type GameDetailsWithCategories = GameDetails & {
+  categories: GameCategory[];
+  themes: GameTheme[];
+  mechanics: GameMechanic[];
+};
+
+type ExpansionDetailsWithCategories = GameExpansionDetails & {
   categories: GameCategory[];
   themes: GameTheme[];
   mechanics: GameMechanic[];
@@ -43,6 +50,7 @@ type AccessoryDetailsWithCategories = AccessoryDetails & {
 
 type ProductWithDetails = Product & {
   game: GameDetailsWithCategories | null;
+  expansion: ExpansionDetailsWithCategories | null;
   accessory: AccessoryDetailsWithCategories | null;
   bundle: BundleDetails | null;
   bgg: BGGDetails | null;
@@ -69,9 +77,57 @@ type CategoryOption = {
   slug: string;
 };
 
+type ComplexityOption = {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+type BaseGameOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 // Si quieres, puedes mover esto a un archivo de tipos compartidos
 type ProductStatus = 'draft' | 'active' | 'archived';
 type ProductKind = Product['kind'];
+
+type BGGRankData = {
+  type: string;
+  id: number;
+  name: string;
+  friendlyName: string;
+  value: number | 'Not Ranked';
+  bayesAverage?: number;
+};
+
+type BGGGameData = {
+  id: number;
+  name: string;
+  description?: string;
+  yearPublished?: number;
+  minPlayers?: number;
+  maxPlayers?: number;
+  minAge?: number;
+  playingTime?: number;
+  minPlayTime?: number;
+  maxPlayTime?: number;
+  mechanics?: string[];
+  matchedMechanics?: Array<{ id: string; name: string; slug: string; bggId: number | null }>;
+  unmatchedMechanics?: Array<{ bggId: number; name: string }>;
+  links?: Array<{ type: string; id: number; value: string; inbound?: boolean }>;
+  avgRating?: number;
+  bayesAverageRating?: number;
+  averageWeightRating?: number;
+  ranks?: BGGRankData[];
+  boardgameRank?: number | null;
+  image?: string;
+  thumbnail?: string;
+  categories?: string[];
+  designers?: string[];
+  publishers?: string[];
+};
 
 type Props = {
   product: ProductWithDetails;
@@ -81,9 +137,11 @@ type Props = {
   accessoryCategories: CategoryOption[];
   gameThemes: CategoryOption[];
   gameMechanics: CategoryOption[];
+  gameComplexities: ComplexityOption[];
+  baseGames: BaseGameOption[];
 };
 
-export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics }: Props) {
+export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
@@ -101,18 +159,21 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
     product.description ?? ''
   );
   const [timelineId, setTimelineId] = useState<string>(
-    product.game?.timelineId ?? ''
+    product.game?.timelineId ?? product.expansion?.timelineId ?? ''
   );
-  const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? '');
-  const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? '');
-  const [maxPlayers, setMaxPlayers] = useState<number | ''>(product.game?.maxPlayers ?? '');
-  const [minAge, setMinAge] = useState<number | ''>(product.game?.minAge ?? '');
-  const [playtimeMin, setPlaytimeMin] = useState<number | ''>(product.game?.playtimeMin ?? '');
-  const [playtimeMax, setPlaytimeMax] = useState<number | ''>(product.game?.playtimeMax ?? '');
+  const [complexityTierId, setComplexityTierId] = useState<string>(
+    product.game?.complexityId ?? product.expansion?.complexityId ?? ''
+  );
+  const [yearPublished, setYearPublished] = useState<number | ''>(product.game?.yearPublished ?? product.expansion?.yearPublished ?? '');
+  const [minPlayers, setMinPlayers] = useState<number | ''>(product.game?.minPlayers ?? product.expansion?.minPlayers ?? '');
+  const [maxPlayers, setMaxPlayers] = useState<number | ''>(product.game?.maxPlayers ?? product.expansion?.maxPlayers ?? '');
+  const [minAge, setMinAge] = useState<number | ''>(product.game?.minAge ?? product.expansion?.minAge ?? '');
+  const [playtimeMin, setPlaytimeMin] = useState<number | ''>(product.game?.playtimeMin ?? product.expansion?.playtimeMin ?? '');
+  const [playtimeMax, setPlaytimeMax] = useState<number | ''>(product.game?.playtimeMax ?? product.expansion?.playtimeMax ?? '');
 
   // Category state
   const [selectedGameCategoryIds, setSelectedGameCategoryIds] = useState<string[]>(
-    product.game?.categories?.map(c => c.id) ?? []
+    product.game?.categories?.map(c => c.id) ?? product.expansion?.categories?.map(c => c.id) ?? []
   );
   const [selectedAccessoryCategoryIds, setSelectedAccessoryCategoryIds] = useState<string[]>(
     product.accessory?.categories?.map(c => c.id) ?? []
@@ -120,11 +181,12 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
 
   // Themes & Mechanics state
   const [selectedGameThemeIds, setSelectedGameThemeIds] = useState<string[]>(
-    product.game?.themes?.map(t => t.id) ?? []
+    product.game?.themes?.map(t => t.id) ?? product.expansion?.themes?.map(t => t.id) ?? []
   );
   const [selectedGameMechanicIds, setSelectedGameMechanicIds] = useState<string[]>(
-    product.game?.mechanics?.map(m => m.id) ?? []
+    product.game?.mechanics?.map(m => m.id) ?? product.expansion?.mechanics?.map(m => m.id) ?? []
   );
+  
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -135,8 +197,20 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
   const [avgRating, setAvgRating] = useState<number | ''>(product.bgg?.avgRating ?? '');
   const [bayesAverageRating, setBayesAverageRating] = useState<number | ''>(product.bgg?.bayesAverageRating ?? '');
   const [averageWeightRating, setAverageWeightRating] = useState<number | ''>(product.bgg?.averageWeightRating ?? '');
+  const [boardgameRank, setBoardgameRank] = useState<number | ''>(product.bgg?.boardgameRank ?? '');
+  const [bggRanks, setBggRanks] = useState<BGGRankData[]>([]);
+  const [isFetchingBGG, setIsFetchingBGG] = useState(false);
+
+  // Expansion-specific fields
+  const [baseGameId, setBaseGameId] = useState(product.expansion?.baseGameId ?? '');
+  const [addedComponents, setAddedComponents] = useState(product.expansion?.addedComponents ?? '');
+  const [isStandalone, setIsStandalone] = useState(product.expansion?.isStandalone ?? false);
+  const [isMajor, setIsMajor] = useState(product.expansion?.isMajor ?? false);
+  const [editionNumber, setEditionNumber] = useState<number | ''>(product.expansion?.editionNumber ?? '');
 
   const isGameProduct = kind === 'game';
+  const isExpansionProduct = kind === 'expansion';
+  const isGameOrExpansion = isGameProduct || isExpansionProduct;
   const isAccessoryProduct = kind === 'accessory';
 
   function addGameCategory(categoryId: string) {
@@ -179,6 +253,71 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
     setSelectedGameMechanicIds(selectedGameMechanicIds.filter(id => id !== mechanicId));
   }
 
+  async function handleFetchFromBGG() {
+    if (!bggId.trim()) return;
+
+    setIsFetchingBGG(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await fetch(`/api/bgg/${bggId.trim()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to fetch from BGG');
+      }
+
+      const data: BGGGameData = await res.json();
+
+      // Prefill game fields — intentionally NOT touching description/shortDescription
+      if (data.name && !name) setName(data.name);
+      if (data.yearPublished) setYearPublished(data.yearPublished);
+      if (data.minPlayers) setMinPlayers(data.minPlayers);
+      if (data.maxPlayers) setMaxPlayers(data.maxPlayers);
+      if (data.minAge) setMinAge(data.minAge);
+
+      if (data.minPlayTime) setPlaytimeMin(data.minPlayTime);
+      if (data.maxPlayTime) setPlaytimeMax(data.maxPlayTime);
+      else if (data.playingTime) {
+        if (!playtimeMin) setPlaytimeMin(data.playingTime);
+        if (!playtimeMax) setPlaytimeMax(data.playingTime);
+      }
+
+      // Auto-select matched mechanics from our DB
+      if (data.matchedMechanics && data.matchedMechanics.length > 0) {
+        const matchedIds = data.matchedMechanics.map(m => m.id);
+        setSelectedGameMechanicIds(prev => {
+          const combined = new Set([...prev, ...matchedIds]);
+          return Array.from(combined);
+        });
+      }
+
+      // BGG rating fields
+      if (typeof data.avgRating === 'number') setAvgRating(data.avgRating);
+      if (typeof data.bayesAverageRating === 'number')
+        setBayesAverageRating(data.bayesAverageRating);
+      if (typeof data.averageWeightRating === 'number')
+        setAverageWeightRating(data.averageWeightRating);
+      if (typeof data.boardgameRank === 'number')
+        setBoardgameRank(data.boardgameRank);
+      if (data.ranks && data.ranks.length > 0)
+        setBggRanks(data.ranks);
+
+      let msg = 'BGG data fetched successfully.';
+      if (data.matchedMechanics?.length) {
+        msg += ` ${data.matchedMechanics.length} mechanic(s) auto-selected.`;
+      }
+      if (data.unmatchedMechanics?.length) {
+        msg += ` ${data.unmatchedMechanics.length} BGG mechanic(s) not in DB: ${data.unmatchedMechanics.map(m => m.name).join(', ')}.`;
+      }
+      setSuccessMsg(msg);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error calling BGG API');
+    } finally {
+      setIsFetchingBGG(false);
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setIsSaving(true);
@@ -206,18 +345,38 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
           tags: normalizedTags,
           shortDescription: shortDescription || null,
           description: description || null,
-          timelineId: isGameProduct && timelineId ? timelineId : null,
-          gameCategoryIds: isGameProduct ? selectedGameCategoryIds : [],
-          gameThemeIds: isGameProduct ? selectedGameThemeIds : [],
-          gameMechanicIds: isGameProduct ? selectedGameMechanicIds : [],
+          timelineId: isGameOrExpansion && timelineId ? timelineId : null,
+          complexityId: isGameOrExpansion && complexityTierId ? complexityTierId : null,
+          gameCategoryIds: isGameOrExpansion ? selectedGameCategoryIds : [],
+          gameThemeIds: isGameOrExpansion ? selectedGameThemeIds : [],
+          gameMechanicIds: isGameOrExpansion ? selectedGameMechanicIds : [],
           accessoryCategoryIds: isAccessoryProduct ? selectedAccessoryCategoryIds : [],
-          // GameDetails fields
-          yearPublished: isGameProduct ? (yearPublished !== '' ? Number(yearPublished) : null) : undefined,
-          minPlayers: isGameProduct ? (minPlayers !== '' ? Number(minPlayers) : null) : undefined,
-          maxPlayers: isGameProduct ? (maxPlayers !== '' ? Number(maxPlayers) : null) : undefined,
-          minAge: isGameProduct ? (minAge !== '' ? Number(minAge) : null) : undefined,
-          playtimeMin: isGameProduct ? (playtimeMin !== '' ? Number(playtimeMin) : null) : undefined,
-          playtimeMax: isGameProduct ? (playtimeMax !== '' ? Number(playtimeMax) : null) : undefined,
+          // Game / Expansion shared fields
+          yearPublished: isGameOrExpansion ? (yearPublished !== '' ? Number(yearPublished) : null) : undefined,
+          minPlayers: isGameOrExpansion ? (minPlayers !== '' ? Number(minPlayers) : null) : undefined,
+          maxPlayers: isGameOrExpansion ? (maxPlayers !== '' ? Number(maxPlayers) : null) : undefined,
+          minAge: isGameOrExpansion ? (minAge !== '' ? Number(minAge) : null) : undefined,
+          playtimeMin: isGameOrExpansion ? (playtimeMin !== '' ? Number(playtimeMin) : null) : undefined,
+          playtimeMax: isGameOrExpansion ? (playtimeMax !== '' ? Number(playtimeMax) : null) : undefined,
+          // Expansion-specific fields
+          ...(isExpansionProduct ? {
+            baseGameId: baseGameId || null,
+            addedComponents: addedComponents || null,
+            isStandalone,
+            isMajor,
+            editionNumber: editionNumber !== '' ? Number(editionNumber) : null,
+          } : {}),
+          // BGG data
+          bgg: bggId.trim() !== ''
+            ? {
+              bggId: Number(bggId),
+              avgRating: avgRating || null,
+              bayesAverageRating: bayesAverageRating || null,
+              averageWeightRating: averageWeightRating || null,
+              boardgameRank: boardgameRank || null,
+              ranks: bggRanks.length > 0 ? bggRanks : null,
+            }
+            : null,
         }),
       });
 
@@ -326,6 +485,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="game">Game</SelectItem>
+                  <SelectItem value="expansion">Expansion</SelectItem>
                   <SelectItem value="accessory">Accessory</SelectItem>
                   <SelectItem value="bundle">Bundle</SelectItem>
                 </SelectContent>
@@ -333,7 +493,7 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             </div>
           </div>
 
-          {isGameProduct && (
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Game Categories */}
               <div className="space-y-3 border rounded-md p-4">
@@ -485,6 +645,39 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                 </Select>
               </div>
 
+              {/* Game Complexity Tier */}
+              <div className="space-y-3 border rounded-md p-4">
+                <div>
+                  <h2 className="text-sm font-medium">Game Complexity</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Select the complexity of this game.{' '}
+                    <Link href="/game-complexities" className="text-blue-600 hover:underline">
+                      Manage complexity tiers
+                    </Link>
+                  </p>
+                </div>
+                <Select
+                  value={complexityTierId || 'none'}
+                  onValueChange={(val) => setComplexityTierId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select complexity tier (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {gameComplexities.length === 0 ? (
+                      <SelectItem value="empty" disabled>No complexity tiers available</SelectItem>
+                    ) : (
+                      gameComplexities.map((complexity) => (
+                        <SelectItem key={complexity.id} value={complexity.id}>
+                          {complexity.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Timeline for game products */}
               <div className="space-y-3 border rounded-md p-4">
                 <div>
@@ -520,10 +713,12 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             </div>
           )}
 
-          {/* GameDetails fields for game products */}
-          {isGameProduct && (
+          {/* GameDetails fields for game and expansion products */}
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-3 border rounded-md p-4">
-              <h2 className="text-sm font-medium sm:col-span-3">Game Details</h2>
+              <h2 className="text-sm font-medium sm:col-span-3">
+                {isExpansionProduct ? 'Expansion Details' : 'Game Details'}
+              </h2>
               <div className="space-y-2">
                 <Label htmlFor="yearPublished">Year published</Label>
                 <Input
@@ -577,6 +772,85 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                   value={playtimeMax}
                   onChange={e => setPlaytimeMax(e.target.value ? Number(e.target.value) : '')}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Expansion-specific fields */}
+          {isExpansionProduct && (
+            <div className="grid gap-4 sm:grid-cols-2 border rounded-md p-4">
+              <h2 className="text-sm font-medium sm:col-span-2">Expansion Info</h2>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Base Game *</Label>
+                <Select
+                  value={baseGameId || 'none'}
+                  onValueChange={(val) => setBaseGameId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select base game" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a base game…</SelectItem>
+                    {baseGames.map((game) => (
+                      <SelectItem key={game.id} value={game.id}>
+                        {game.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The base game this expansion extends. Must be an existing game product.
+                </p>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="addedComponents">Added components</Label>
+                <Textarea
+                  id="addedComponents"
+                  value={addedComponents}
+                  onChange={(e) => setAddedComponents(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. 30 new cards, 2 player boards, 10 meeples"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editionNumber">Edition number</Label>
+                <Input
+                  id="editionNumber"
+                  type="number"
+                  value={editionNumber}
+                  onChange={e => setEditionNumber(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="e.g. 1"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 justify-end">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isStandalone"
+                    type="checkbox"
+                    checked={isStandalone}
+                    onChange={(e) => setIsStandalone(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isStandalone" className="text-sm font-normal">
+                    Standalone (can be played without the base game)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isMajor"
+                    type="checkbox"
+                    checked={isMajor}
+                    onChange={(e) => setIsMajor(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isMajor" className="text-sm font-normal">
+                    Major expansion (significant content addition)
+                  </Label>
+                </div>
               </div>
             </div>
           )}
@@ -661,22 +935,41 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
             <h2 className="text-sm font-medium">BoardGameGeek</h2>
             <div className="space-y-2">
               <Label htmlFor="bggId">BGG ID (optional)</Label>
-              <Input
-                id="bggId"
-                value={bggId}
-                onChange={(e) => setBggId(e.target.value)}
-                placeholder="e.g. 174430"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="bggId"
+                  value={bggId}
+                  onChange={(e) => setBggId(e.target.value)}
+                  placeholder="e.g. 174430"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!bggId.trim() || isFetchingBGG}
+                  onClick={handleFetchFromBGG}
+                >
+                  {isFetchingBGG ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      Fetching…
+                    </>
+                  ) : (
+                    'Fetch from BGG'
+                  )}
+                </Button>
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              The BoardGameGeek game ID for this product.
+              Enter a BGG game ID and click &quot;Fetch from BGG&quot; to populate game fields, ratings, and mechanics. Description fields will not be overwritten.
             </p>
           </div>
 
           {/* BGG Metrics */}
           <div className="border rounded-md p-4 space-y-3">
             <h2 className="text-sm font-medium">BGG Ratings</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="avgRating">Avg rating</Label>
                 <Input
@@ -717,8 +1010,42 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
                   }
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="boardgameRank">Board Game Rank</Label>
+                <Input
+                  id="boardgameRank"
+                  type="number"
+                  step="1"
+                  value={boardgameRank}
+                  onChange={(e) =>
+                    setBoardgameRank(e.target.value ? Number(e.target.value) : '')
+                  }
+                />
+              </div>
             </div>
           </div>
+
+          {/* BGG Ranks */}
+          {bggRanks.length > 0 && (
+            <div className="border rounded-md p-4 space-y-3">
+              <h2 className="text-sm font-medium">BGG Ranks</h2>
+              <div className="divide-y text-sm">
+                {bggRanks.map((rank) => (
+                  <div key={rank.id} className="flex items-center justify-between py-1.5">
+                    <span className="text-muted-foreground">{rank.friendlyName}</span>
+                    <span className="font-medium">
+                      {rank.value === 'Not Ranked' ? 'Not Ranked' : `#${rank.value}`}
+                      {rank.bayesAverage != null && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          (bayes: {rank.bayesAverage.toFixed(2)})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

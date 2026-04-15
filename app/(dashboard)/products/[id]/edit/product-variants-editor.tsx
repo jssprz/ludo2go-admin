@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import type { ProductVariant } from '@prisma/client';
+import { useRouter } from 'next/navigation';
+import type { ProductVariant, Price, Inventory } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,16 +23,44 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Trash2, Package, Plus, Wand2, Loader2 } from 'lucide-react';
+
+type VariantWithRelations = ProductVariant & {
+  prices: Price[];
+  inventory: Inventory[];
+};
 
 type Props = {
   productId: string;
   productSlug: string;
-  variants: ProductVariant[];
+  variants: VariantWithRelations[];
 };
 
 export function ProductVariantsEditor({ productId, productSlug, variants: initialVariants }: Props) {
+  const router = useRouter();
   const [variants, setVariants] = useState(initialVariants);
+
+  function formatPrice(amount: number, currency: string) {
+    return new Intl.NumberFormat(currency === 'CLP' ? 'es-CL' : 'en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: currency === 'CLP' ? 0 : 2,
+    }).format(amount);
+  }
+
+  function getTotalStock(inventory: Inventory[]) {
+    const onHand = inventory.reduce((sum, inv) => sum + inv.onHand, 0);
+    const reserved = inventory.reduce((sum, inv) => sum + inv.reserved, 0);
+    return { onHand, reserved, available: onHand - reserved };
+  }
+
+  const PRICE_TYPE_LABELS: Record<string, string> = {
+    msrp: 'MSRP',
+    retail: 'Retail',
+    sale: 'Sale',
+    member: 'Member',
+  };
   const [deletingVariantId, setDeletingVariantId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -45,6 +74,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
   const [newLanguage, setNewLanguage] = useState('es');
   const [newCondition, setNewCondition] = useState('new');
   const [newStatus, setNewStatus] = useState('draft');
+  const [newActiveAtScheduled, setNewActiveAtScheduled] = useState('');
   const [newDisplayTitleShort, setNewDisplayTitleShort] = useState('');
   const [newDisplayTitleLong, setNewDisplayTitleLong] = useState('');
   const [newFormat, setNewFormat] = useState('STD');
@@ -58,6 +88,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
     setNewLanguage('es');
     setNewCondition('new');
     setNewStatus('draft');
+    setNewActiveAtScheduled('');
     setNewDisplayTitleShort('');
     setNewDisplayTitleLong('');
     setNewFormat('STD');
@@ -115,6 +146,9 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
           language: newLanguage,
           condition: newCondition,
           status: newStatus,
+          activeAtScheduled: newStatus === 'scheduled' && newActiveAtScheduled
+            ? new Date(newActiveAtScheduled).toISOString()
+            : null,
           displayTitleShort: newDisplayTitleShort.trim() || null,
           displayTitleLong: newDisplayTitleLong.trim() || null,
         }),
@@ -126,7 +160,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
       }
 
       const created: ProductVariant = await res.json();
-      setVariants([...variants, created]);
+      setVariants([...variants, { ...created, prices: [], inventory: [] }]);
       setSuccessMsg(`Variant "${created.sku}" created successfully.`);
       resetNewVariantForm();
       setDialogOpen(false);
@@ -302,18 +336,44 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                 </div>
                 <div className="space-y-2">
                   <Label>Status</Label>
-                  <Select value={newStatus} onValueChange={setNewStatus}>
+                  <Select
+                    value={newStatus}
+                    onValueChange={(val) => {
+                      setNewStatus(val);
+                      if (val !== 'scheduled') setNewActiveAtScheduled('');
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="pending_review">Pending Review</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="discontinued">Discontinued</SelectItem>
                       <SelectItem value="archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
+
+              {newStatus === 'scheduled' && (
+                <div className="space-y-2">
+                  <Label htmlFor="new-active-at-scheduled">Scheduled activation date</Label>
+                  <Input
+                    id="new-active-at-scheduled"
+                    type="datetime-local"
+                    value={newActiveAtScheduled}
+                    onChange={(e) => setNewActiveAtScheduled(e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    The variant will become active automatically at this date &amp; time.
+                  </p>
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -371,12 +431,15 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
         </div>
       ) : (
         <div className="space-y-2">
-          {variants.map((v) => (
+          {variants.map((v) => {
+            const stock = getTotalStock(v.inventory);
+            return (
             <div
               key={v.id}
-              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border rounded-md px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => router.push(`/variants/${v.id}/edit`)}
             >
-              <div className="space-y-0.5">
+              <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="text-sm font-medium">
                   {v.sku}{' '}
                   {v.edition && (
@@ -388,33 +451,67 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                 <div className="text-xs text-muted-foreground">
                   {v.language ? `${v.language} · ` : ''}
                   {v.status} · {v.condition}
+                  {v.status === 'scheduled' && v.activeAtScheduled && (
+                    <> · activates {new Date(v.activeAtScheduled).toLocaleString()}</>
+                  )}
+                </div>
+                {/* Prices */}
+                {v.prices.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {v.prices.map((p) => (
+                      <Badge key={p.id} variant={p.type === 'sale' ? 'destructive' : 'secondary'} className="text-xs font-normal">
+                        {PRICE_TYPE_LABELS[p.type] ?? p.type}: {formatPrice(p.amount, p.currency)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {v.prices.length === 0 && (
+                  <p className="text-xs text-amber-600 pt-0.5">No prices set</p>
+                )}
+              </div>
+              {/* Stock */}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right text-xs min-w-[80px]">
+                  {v.inventory.length > 0 ? (
+                    <>
+                      <span className={stock.available > 0 ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>
+                        {stock.available} avail
+                      </span>
+                      <span className="text-muted-foreground">
+                        {' '}/ {stock.onHand} on hand
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">No stock</span>
+                  )}
+                </div>
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/variants/${v.id}/edit`}>
+                      Edit variant
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={deletingVariantId === v.id}
+                    onClick={() => handleDeleteVariant(v.id, v.sku)}
+                  >
+                    {deletingVariantId === v.id ? (
+                      'Deleting...'
+                    ) : (
+                      <>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Delete
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/variants/${v.id}/edit`}>
-                    Edit variant
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  disabled={deletingVariantId === v.id}
-                  onClick={() => handleDeleteVariant(v.id, v.sku)}
-                >
-                  {deletingVariantId === v.id ? (
-                    'Deleting...'
-                  ) : (
-                    <>
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Delete
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

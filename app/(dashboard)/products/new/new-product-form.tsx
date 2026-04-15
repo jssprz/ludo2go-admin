@@ -21,7 +21,16 @@ import {
 
 // Usa los mismos tipos que en tu schema
 type ProductStatus = 'draft' | 'active' | 'archived';
-type ProductKind = 'game' | 'accessory' | 'bundle';
+type ProductKind = 'game' | 'expansion' | 'accessory' | 'bundle';
+
+type BGGRankData = {
+  type: string;
+  id: number;
+  name: string;
+  friendlyName: string;
+  value: number | 'Not Ranked';
+  bayesAverage?: number;
+};
 
 type BGGGameData = {
   id: number;
@@ -35,9 +44,19 @@ type BGGGameData = {
   minPlayTime?: number;
   maxPlayTime?: number;
   mechanics?: string[];
+  matchedMechanics?: Array<{ id: string; name: string; slug: string; bggId: number | null }>;
+  unmatchedMechanics?: Array<{ bggId: number; name: string }>;
+  links?: Array<{ type: string; id: number; value: string; inbound?: boolean }>;
   avgRating?: number;
   bayesAverageRating?: number;
   averageWeightRating?: number;
+  ranks?: BGGRankData[];
+  boardgameRank?: number | null;
+  image?: string;
+  thumbnail?: string;
+  categories?: string[];
+  designers?: string[];
+  publishers?: string[];
 };
 
 type BrandOption = {
@@ -66,6 +85,12 @@ type ComplexityOption = {
   slug: string;
 }
 
+type BaseGameOption = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 type Props = {
   brands: BrandOption[];
   timelines: TimelineSummary[];
@@ -74,6 +99,7 @@ type Props = {
   gameThemes: CategoryOption[];
   gameMechanics: CategoryOption[];
   gameComplexities: ComplexityOption[];
+  baseGames: BaseGameOption[];
 };
 
 function slugify(name: string): string {
@@ -85,7 +111,7 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export function NewProductForm({ brands, timelines, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities }: Props) {
+export function NewProductForm({ brands, timelines, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames }: Props) {
   const router = useRouter();
 
   // Core product
@@ -121,6 +147,15 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
   const [avgRating, setAvgRating] = useState<number | ''>('');
   const [bayesAverageRating, setBayesAverageRating] = useState<number | ''>('');
   const [averageWeightRating, setAverageWeightRating] = useState<number | ''>('');
+  const [boardgameRank, setBoardgameRank] = useState<number | ''>('');
+  const [bggRanks, setBggRanks] = useState<BGGRankData[]>([]);
+
+  // Expansion-specific fields
+  const [baseGameId, setBaseGameId] = useState('');
+  const [addedComponents, setAddedComponents] = useState('');
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isMajor, setIsMajor] = useState(false);
+  const [editionNumber, setEditionNumber] = useState<number | ''>('');
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -129,6 +164,8 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const isGameProduct = kind === 'game';
+  const isExpansionProduct = kind === 'expansion';
+  const isGameOrExpansion = isGameProduct || isExpansionProduct;
   const isAccessoryProduct = kind === 'accessory';
 
   function addGameCategory(categoryId: string) {
@@ -218,13 +255,38 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
         if (!tags) setTags(mechStr);
       }
 
+      // Auto-select matched mechanics from our DB
+      if (data.matchedMechanics && data.matchedMechanics.length > 0) {
+        const matchedIds = data.matchedMechanics.map(m => m.id);
+        setSelectedGameMechanicIds(prev => {
+          const combined = new Set([...prev, ...matchedIds]);
+          return Array.from(combined);
+        });
+      }
+
+      // Log unmatched mechanics so the user knows
+      if (data.unmatchedMechanics && data.unmatchedMechanics.length > 0) {
+        console.warn('BGG mechanics not found in DB:', data.unmatchedMechanics);
+      }
+
       if (typeof data.avgRating === 'number') setAvgRating(data.avgRating);
       if (typeof data.bayesAverageRating === 'number')
         setBayesAverageRating(data.bayesAverageRating);
       if (typeof data.averageWeightRating === 'number')
         setAverageWeightRating(data.averageWeightRating);
+      if (typeof data.boardgameRank === 'number')
+        setBoardgameRank(data.boardgameRank);
+      if (data.ranks && data.ranks.length > 0)
+        setBggRanks(data.ranks);
 
-      setSuccessMsg('Fields populated from BGG.');
+      let msg = 'Fields populated from BGG.';
+      if (data.matchedMechanics?.length) {
+        msg += ` ${data.matchedMechanics.length} mechanic(s) auto-selected.`;
+      }
+      if (data.unmatchedMechanics?.length) {
+        msg += ` ${data.unmatchedMechanics.length} BGG mechanic(s) not in DB: ${data.unmatchedMechanics.map(m => m.name).join(', ')}.`;
+      }
+      setSuccessMsg(msg);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error calling BGG API');
     } finally {
@@ -267,6 +329,27 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
               playtimeMin: playtimeMin || null,
               playtimeMax: playtimeMax || null,
               timelineId: timelineId || null,
+              complexityTierId: complexityTierId || null,
+              gameCategoryIds: selectedGameCategoryIds,
+              gameThemeIds: selectedGameThemeIds,
+              gameMechanicIds: selectedGameMechanicIds,
+            }
+            : null,
+          expansion: kind === 'expansion'
+            ? {
+              baseGameId: baseGameId || null,
+              yearPublished: yearPublished || null,
+              minPlayers: minPlayers || null,
+              maxPlayers: maxPlayers || null,
+              minAge: minAge || null,
+              playtimeMin: playtimeMin || null,
+              playtimeMax: playtimeMax || null,
+              timelineId: timelineId || null,
+              complexityTierId: complexityTierId || null,
+              addedComponents: addedComponents || null,
+              isStandalone,
+              isMajor,
+              editionNumber: editionNumber !== '' ? Number(editionNumber) : null,
               gameCategoryIds: selectedGameCategoryIds,
               gameThemeIds: selectedGameThemeIds,
               gameMechanicIds: selectedGameMechanicIds,
@@ -284,6 +367,8 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                 avgRating: avgRating || null,
                 bayesAverageRating: bayesAverageRating || null,
                 averageWeightRating: averageWeightRating || null,
+                boardgameRank: boardgameRank || null,
+                ranks: bggRanks.length > 0 ? bggRanks : null,
               }
               : null,
         }),
@@ -395,12 +480,13 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                   <SelectItem value="game">Game</SelectItem>
                   <SelectItem value="accessory">Accessory</SelectItem>
                   <SelectItem value="bundle">Bundle</SelectItem>
+                  <SelectItem value="expansion">Expansion</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {isGameProduct && (
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Game Categories */}
               <div className="space-y-3 border rounded-md p-4">
@@ -620,10 +706,12 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
             </div>
           )}
 
-          {/* GameDetails fields for game products */}
-          {isGameProduct && (
+          {/* GameDetails fields for game and expansion products */}
+          {isGameOrExpansion && (
             <div className="grid gap-4 sm:grid-cols-3 border rounded-md p-4">
-              <h2 className="text-sm font-medium sm:col-span-3">Game Details</h2>
+              <h2 className="text-sm font-medium sm:col-span-3">
+                {isExpansionProduct ? 'Expansion Details' : 'Game Details'}
+              </h2>
               <div className="space-y-2">
                 <Label htmlFor="yearPublished">Year published</Label>
                 <Input
@@ -677,6 +765,85 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                   value={playtimeMax}
                   onChange={e => setPlaytimeMax(e.target.value ? Number(e.target.value) : '')}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Expansion-specific fields */}
+          {isExpansionProduct && (
+            <div className="grid gap-4 sm:grid-cols-2 border rounded-md p-4">
+              <h2 className="text-sm font-medium sm:col-span-2">Expansion Info</h2>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Base Game *</Label>
+                <Select
+                  value={baseGameId || 'none'}
+                  onValueChange={(val) => setBaseGameId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select base game" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a base game…</SelectItem>
+                    {baseGames.map((game) => (
+                      <SelectItem key={game.id} value={game.id}>
+                        {game.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The base game this expansion extends. Must be an existing game product.
+                </p>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="addedComponents">Added components</Label>
+                <Textarea
+                  id="addedComponents"
+                  value={addedComponents}
+                  onChange={(e) => setAddedComponents(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. 30 new cards, 2 player boards, 10 meeples"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editionNumber">Edition number</Label>
+                <Input
+                  id="editionNumber"
+                  type="number"
+                  value={editionNumber}
+                  onChange={e => setEditionNumber(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="e.g. 1"
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 justify-end">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isStandalone"
+                    type="checkbox"
+                    checked={isStandalone}
+                    onChange={(e) => setIsStandalone(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isStandalone" className="text-sm font-normal">
+                    Standalone (can be played without the base game)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isMajor"
+                    type="checkbox"
+                    checked={isMajor}
+                    onChange={(e) => setIsMajor(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="isMajor" className="text-sm font-normal">
+                    Major expansion (significant content addition)
+                  </Label>
+                </div>
               </div>
             </div>
           )}
@@ -775,9 +942,8 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                 type="button"
                 variant="outline"
                 onClick={handleFetchFromBGG}
-                disabled={true}
               >
-                {isFetchingBGG ? 'Fetching...' : 'Fetch (Coming soon)'}
+                {isFetchingBGG ? 'Fetching...' : 'Fetch'}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -788,7 +954,7 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
           {/* BGG Metrics */}
           <div className="border rounded-md p-4 space-y-3">
             <h2 className="text-sm font-medium">BGG Ratings</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="avgRating">Avg rating</Label>
                 <Input
@@ -829,8 +995,42 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
                   }
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="boardgameRank">Board Game Rank</Label>
+                <Input
+                  id="boardgameRank"
+                  type="number"
+                  step="1"
+                  value={boardgameRank}
+                  onChange={(e) =>
+                    setBoardgameRank(e.target.value ? Number(e.target.value) : '')
+                  }
+                />
+              </div>
             </div>
           </div>
+
+          {/* BGG Ranks */}
+          {bggRanks.length > 0 && (
+            <div className="border rounded-md p-4 space-y-3">
+              <h2 className="text-sm font-medium">BGG Ranks</h2>
+              <div className="divide-y text-sm">
+                {bggRanks.map((rank) => (
+                  <div key={rank.id} className="flex items-center justify-between py-1.5">
+                    <span className="text-muted-foreground">{rank.friendlyName}</span>
+                    <span className="font-medium">
+                      {rank.value === 'Not Ranked' ? 'Not Ranked' : `#${rank.value}`}
+                      {rank.bayesAverage != null && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          (bayes: {rank.bayesAverage.toFixed(2)})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

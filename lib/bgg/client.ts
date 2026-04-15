@@ -3,13 +3,21 @@ import { XMLParser } from "fast-xml-parser";
 import type {
   BggId,
   BggThing,
+  BggLink,
   BggSearchResult,
   BggCollectionItem,
   BggUser,
   BggPlay,
 } from "./types";
 
-const XML = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "" });
+const XML = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "",
+  isArray: (name: string) => {
+    // These elements can appear 1..N times; always treat as array
+    return ["item", "name", "link", "rank", "result", "results"].includes(name);
+  },
+});
 
 type Fetcher = typeof fetch;
 
@@ -21,11 +29,12 @@ export interface BggClientOptions {
   rateMs?: number;       // per-call delay to be polite
   maxRetries202?: number;
   cacheTtlMs?: number;
+  token?: string;        // BGG API Bearer token
 }
 
 const DEFAULTS: Required<Pick<
   BggClientOptions,
-  "xmlBase" | "jsonBase" | "bggJsonBase" | "fetch" | "rateMs" | "maxRetries202" | "cacheTtlMs"
+  "xmlBase" | "jsonBase" | "bggJsonBase" | "fetch" | "rateMs" | "maxRetries202" | "cacheTtlMs" | "token"
 >> = {
   xmlBase: "https://boardgamegeek.com/xmlapi2",
   jsonBase: "https://boardgamegeek.com/api",
@@ -34,6 +43,7 @@ const DEFAULTS: Required<Pick<
   rateMs: 1100,          // be nice to BGG
   maxRetries202: 10,     // collection endpoints often queue
   cacheTtlMs: 60_000,    // 1 min
+  token: "",             // will be overridden from env
 };
 
 type CacheEntry<T> = { expires: number; data: T };
@@ -54,7 +64,11 @@ export class BggClient {
   private o: typeof DEFAULTS;
 
   constructor(opts: BggClientOptions = {}) {
-    this.o = { ...DEFAULTS, ...opts };
+    this.o = {
+      ...DEFAULTS,
+      ...opts,
+      token: process.env.BGG_TOKEN || opts.token || DEFAULTS.token,
+    };
   }
 
   /** Low-level GET with politeness, 202-retry, and optional cache */
@@ -65,14 +79,19 @@ export class BggClient {
       if (cached) return cached.clone();
     }
 
+    const headers: Record<string, string> = {};
+    if (this.o.token) {
+      headers["Authorization"] = `Bearer ${this.o.token}`;
+    }
+
     await sleep(this.o.rateMs);
-    let resp = await this.o.fetch(url, { method: "GET" });
+    let resp = await this.o.fetch(url, { method: "GET", headers });
 
     // 202 means "queued" on XML endpoints (esp. /collection). Retry.
     let tries = 0;
     while (resp.status === 202 && tries < this.o.maxRetries202) {
       await sleep(Math.max(this.o.rateMs, 2000));
-      resp = await this.o.fetch(url, { method: "GET" });
+      resp = await this.o.fetch(url, { method: "GET", headers });
       tries++;
     }
 
@@ -115,6 +134,13 @@ export class BggClient {
     return arr.map((it: any) => {
       const primary = (Array.isArray(it.name) ? it.name.find((n:any)=>n.type==="primary") : it.name);
       const ratings = it.statistics?.ratings;
+      const rawLinks: any[] = Array.isArray(it.link) ? it.link : (it.link ? [it.link] : []);
+      const links: BggLink[] = rawLinks.map((l: any) => ({
+        type: l.type as string,
+        id: Number(l.id),
+        value: l.value as string,
+        ...(l.inbound === "true" ? { inbound: true } : {}),
+      }));
       return {
         id: String(it.id),
         type: it.type,
@@ -122,24 +148,30 @@ export class BggClient {
         yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
         minPlayers: it.minplayers?.value ? Number(it.minplayers.value) : undefined,
         maxPlayers: it.maxplayers?.value ? Number(it.maxplayers.value) : undefined,
+        minAge: it.minage?.value ? Number(it.minage.value) : undefined,
         minPlayTime: it.minplaytime?.value ? Number(it.minplaytime.value) : undefined,
         maxPlayTime: it.maxplaytime?.value ? Number(it.maxplaytime.value) : undefined,
         playingTime: it.playingtime?.value ? Number(it.playingtime.value) : undefined,
         image: it.image,
         thumbnail: it.thumbnail,
         description: it.description,
-        categories: (it.link || []).filter((l:any)=>l.type==="boardgamecategory").map((l:any)=>l.value),
-        mechanics: (it.link || []).filter((l:any)=>l.type==="boardgamemechanic").map((l:any)=>l.value),
-        designers: (it.link || []).filter((l:any)=>l.type==="boardgamedesigner").map((l:any)=>l.value),
-        publishers: (it.link || []).filter((l:any)=>l.type==="boardgamepublisher").map((l:any)=>l.value),
+        links,
+        categories: links.filter(l=>l.type==="boardgamecategory").map(l=>l.value),
+        mechanics: links.filter(l=>l.type==="boardgamemechanic").map(l=>l.value),
+        designers: links.filter(l=>l.type==="boardgamedesigner").map(l=>l.value),
+        publishers: links.filter(l=>l.type==="boardgamepublisher").map(l=>l.value),
         stats: ratings ? {
           usersRated: ratings.usersrated?.value ? Number(ratings.usersrated.value) : undefined,
           average: ratings.average?.value ? Number(ratings.average.value) : undefined,
           bayesAverage: ratings.bayesaverage?.value ? Number(ratings.bayesaverage.value) : undefined,
+          averageWeight: ratings.averageweight?.value ? Number(ratings.averageweight.value) : undefined,
           ranks: (ratings.ranks?.rank ?? []).map((r:any)=>({
-            id: String(r.id),
-            name: r.name,
-            value: r.value === "Not Ranked" ? "Not Ranked" : Number(r.value),
+            type: r.type as string,
+            id: Number(r.id),
+            name: Array.isArray(r.name) ? r.name[0] : (r.name as string),
+            friendlyName: Array.isArray(r.friendlyname) ? r.friendlyname[0] : (r.friendlyname as string),
+            value: r.value === "Not Ranked" ? ("Not Ranked" as const) : Number(r.value),
+            bayesAverage: r.bayesaverage && r.bayesaverage !== "Not Ranked" ? Number(r.bayesaverage) : undefined,
           })),
         } : undefined,
       } as BggThing;
@@ -155,7 +187,7 @@ export class BggClient {
     const arr = Array.isArray(items) ? items : [items];
     return arr.map((it:any)=>({
       id: String(it.id),
-      name: it.name?.value ?? "",
+      name: (Array.isArray(it.name) ? it.name[0] : it.name)?.value ?? "",
       yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
       thumbnail: it.thumbnail,
     }));
@@ -171,7 +203,7 @@ export class BggClient {
     const arr = Array.isArray(items) ? items : [items].filter(Boolean);
     return arr.map((it:any)=>({
       id: String(it.objectid),
-      name: it.name?.value ?? "",
+      name: (Array.isArray(it.name) ? it.name[0] : it.name)?.value ?? "",
       yearPublished: it.yearpublished?.value ? Number(it.yearpublished.value) : undefined,
       image: it.image,
       thumbnail: it.thumbnail,
@@ -220,4 +252,6 @@ export class BggClient {
   }
 }
 
-export const bgg = new BggClient();
+export const bgg = new BggClient({
+  token: process.env.BGG_TOKEN ?? "",
+});

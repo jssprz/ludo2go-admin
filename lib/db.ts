@@ -1,43 +1,103 @@
 import 'server-only';
 
 import { prisma } from '@jssprz/ludo2go-database';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus, ProductKind } from '@prisma/client';
+
+export type SortableProductColumn =
+  | 'name'
+  | 'bggId'
+  | 'status'
+  | 'kind'
+  | 'brand'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'variants'
+  | 'stock';
+
+export type SortOrder = 'asc' | 'desc';
+
+export interface ProductFilters {
+  search?: string;
+  status?: ProductStatus;
+  kind?: ProductKind;
+  brandId?: string;
+  tags?: string[];
+}
 
 export async function getProducts(
   search: string,
   offset: number,
-  status: ProductStatus | undefined
+  status: ProductStatus | undefined,
+  sortBy: SortableProductColumn = 'createdAt',
+  sortOrder: SortOrder = 'desc',
+  filters?: { kind?: ProductKind; brandId?: string; tags?: string[] }
 ) {
-  // Always search the full table, not per page
-
   const where: any = {};
 
   if (search) {
-    where.OR = [
+    const orConditions: any[] = [
       { name: { contains: search, mode: 'insensitive' } },
       { slug: { contains: search, mode: 'insensitive' } },
     ];
+
+    // If the search term is a pure integer, also match on bggId and bgg.id
+    const parsed = parseInt(search, 10);
+    if (!isNaN(parsed) && String(parsed) === search.trim()) {
+      orConditions.push({ bggId: { equals: parsed } });
+      orConditions.push({ bgg: { id: { equals: parsed } } });
+    }
+
+    where.OR = orConditions;
   }
 
   if (status) {
     where.status = status;
   }
 
+  if (filters?.kind) {
+    where.kind = filters.kind;
+  }
+
+  if (filters?.brandId) {
+    where.brandId = filters.brandId;
+  }
+
+  if (filters?.tags && filters.tags.length > 0) {
+    where.tags = { hasSome: filters.tags };
+  }
+
+  // Build orderBy – some columns map to relations / aggregates
+  let orderBy: any;
+  if (sortBy === 'variants') {
+    orderBy = { variants: { _count: sortOrder } };
+  } else if (sortBy === 'stock') {
+    // Stock is a sum of variant stock – fall back to createdAt for DB ordering
+    // (we can't easily sort by aggregate sum in Prisma without raw SQL)
+    orderBy = { createdAt: sortOrder };
+  } else if (sortBy === 'bggId') {
+    orderBy = { bgg: { id: sortOrder } };
+  } else if (sortBy === 'brand') {
+    orderBy = { brand: { name: sortOrder } };
+  } else {
+    orderBy = { [sortBy]: sortOrder };
+  }
+
   let totalProducts = await prisma.product.count({ where });
   let moreProducts = await prisma.product.findMany({
     include: {
       brand: true,
+      bgg: { select: { id: true } },
       mediaLinks: {
         include: {
           media: true
         }
       },
       variants: true
-    }, 
-    where, 
-    take: 10, 
+    },
+    where,
+    take: 10,
     skip: offset,
-    orderBy: { createdAt: 'desc' }
+    orderBy
   });
   let newOffset = moreProducts.length + offset;
 
@@ -57,4 +117,11 @@ export async function updateProduct(product: any){
     where: {id: product.id},
     data: product
   })
+}
+
+export async function getAllBrands() {
+  return prisma.brand.findMany({
+    select: { id: true, name: true, slug: true },
+    orderBy: { name: 'asc' },
+  });
 }

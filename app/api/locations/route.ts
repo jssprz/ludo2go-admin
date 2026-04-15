@@ -38,11 +38,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { code, name, address, region } = body;
+    const { code, name, description, addressLine1, addressLine2, city, region, postalCode, country, lat, lng, phone, isActive } = body;
 
-    if (!code || !name) {
+    if (!code || !name || !addressLine1 || !city || !country) {
       return NextResponse.json(
-        { error: 'Code and name are required' },
+        { error: 'Code, name, address line 1, city, and country are required' },
         { status: 400 }
       );
     }
@@ -62,8 +62,17 @@ export async function POST(request: Request) {
       data: {
         code,
         name,
-        address: address || null,
+        description: description || null,
+        addressLine1,
+        addressLine2: addressLine2 || null,
+        city,
         region: region || null,
+        postalCode: postalCode || null,
+        country,
+        lat: lat != null ? parseFloat(lat) : null,
+        lng: lng != null ? parseFloat(lng) : null,
+        phone: phone || null,
+        isActive: isActive ?? true,
       },
     });
 

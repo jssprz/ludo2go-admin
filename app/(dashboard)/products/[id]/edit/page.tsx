@@ -12,7 +12,7 @@ type PageProps = {
 export default async function EditProductPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics] = await Promise.all([
+  const [product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames] = await Promise.all([
     prisma.product.findUnique({
       where: { id: id },
       include: {
@@ -28,9 +28,27 @@ export default async function EditProductPage({ params }: PageProps) {
             categories: true,
           },
         },
+        expansion: {
+          include: {
+            categories: true,
+            themes: true,
+            mechanics: true,
+            baseGame: {
+              include: { product: { select: { name: true } } },
+            },
+          },
+        },
         bundle: true,
         bgg: true,
-        variants: true,
+        variants: {
+          include: {
+            prices: {
+              where: { active: true },
+              orderBy: { type: 'asc' },
+            },
+            inventory: true,
+          },
+        },
         brand: true,
       },
     }),
@@ -86,6 +104,22 @@ export default async function EditProductPage({ params }: PageProps) {
         slug: true,
       },
     }),
+    prisma.gameComplexity.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, slug: true },
+    }),
+    // Fetch all game products as potential base games for expansions
+    prisma.product.findMany({
+      where: { kind: 'game', game: { isNot: null } },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        game: { select: { productId: true } },
+      },
+    }),
   ]);
 
   if (!product) {
@@ -113,14 +147,16 @@ export default async function EditProductPage({ params }: PageProps) {
         </TabsList>
 
         <TabsContent value="details">
-          <ProductEditForm 
-            product={product} 
-            timelines={timelines} 
+          <ProductEditForm
+            product={product}
+            timelines={timelines}
             brands={brands}
             gameCategories={gameCategories}
             accessoryCategories={accessoryCategories}
             gameThemes={gameThemes}
             gameMechanics={gameMechanics}
+            gameComplexities={gameComplexities}
+            baseGames={baseGames.map(g => ({ id: g.game!.productId, name: g.name, slug: g.slug }))}
           />
         </TabsContent>
 

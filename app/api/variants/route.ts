@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       language,
       condition,
       status,
+      activeAtScheduled,
       displayTitleShort,
       displayTitleLong,
     } = body;
@@ -71,6 +72,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const now = new Date();
+    const isActive = (status || 'draft') === 'active';
+
     const variant = await prisma.productVariant.create({
       data: {
         productId,
@@ -80,6 +84,11 @@ export async function POST(request: NextRequest) {
         language: language || 'es',
         condition: condition || 'new',
         status: status || 'draft',
+        activeAtScheduled: status === 'scheduled' && activeAtScheduled
+          ? new Date(activeAtScheduled)
+          : null,
+        activedAt: isActive ? now : null,
+        firstActivedAt: isActive ? now : null,
         displayTitleShort: displayTitleShort || null,
         displayTitleLong: displayTitleLong || null,
       },

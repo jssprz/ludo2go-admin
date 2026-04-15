@@ -3,11 +3,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { File, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductsTable } from './products-table';
-import { getProducts } from '@/lib/db';
-import { ProductStatus } from '@prisma/client'
+import { getProducts, getAllBrands, SortableProductColumn, SortOrder } from '@/lib/db';
+import { ProductStatus, ProductKind } from '@prisma/client';
 import { GoogleMerchantSyncButton } from './google-merchant-sync-button';
+import { ProductFiltersBar } from './product-filters';
 
 type StatusTab = 'all' | 'active' | 'draft' | 'archived';
+
+const VALID_SORT_COLUMNS: SortableProductColumn[] = [
+  'name', 'bggId', 'status', 'kind', 'brand', 'createdAt', 'updatedAt', 'variants', 'stock'
+];
 
 function mapStatusTabToPrisma(
   tab?: string
@@ -20,14 +25,27 @@ function mapStatusTabToPrisma(
     case 'archived':
       return ProductStatus.archived;
     default:
-      // 'all' or anything unknown => no filter
       return undefined;
   }
 }
 
+function isValidKind(value?: string): ProductKind | undefined {
+  if (!value) return undefined;
+  const kinds = Object.values(ProductKind);
+  return kinds.includes(value as ProductKind) ? (value as ProductKind) : undefined;
+}
+
 export default async function ProductsPage(
   props: {
-    searchParams: Promise<{ q: string; offset: string; status?: string; }>;
+    searchParams: Promise<{
+      q: string;
+      offset: string;
+      status?: string;
+      sortBy?: string;
+      sortOrder?: string;
+      kind?: string;
+      brandId?: string;
+    }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -35,11 +53,23 @@ export default async function ProductsPage(
   const offset = searchParams.offset ?? 0;
   const tabStatus: StatusTab = (searchParams.status as StatusTab) ?? 'all';
   const prismaStatus = mapStatusTabToPrisma(searchParams.status);
-  const { products, newOffset, totalProducts } = await getProducts(
-    search,
-    Number(offset),
-    prismaStatus
-  );
+
+  // Sorting
+  const sortBy: SortableProductColumn =
+    VALID_SORT_COLUMNS.includes(searchParams.sortBy as SortableProductColumn)
+      ? (searchParams.sortBy as SortableProductColumn)
+      : 'createdAt';
+  const sortOrder: SortOrder =
+    searchParams.sortOrder === 'asc' ? 'asc' : 'desc';
+
+  // Filtering
+  const kind = isValidKind(searchParams.kind);
+  const brandId = searchParams.brandId || undefined;
+
+  const [{ products, newOffset, totalProducts }, brands] = await Promise.all([
+    getProducts(search, Number(offset), prismaStatus, sortBy, sortOrder, { kind, brandId }),
+    getAllBrands(),
+  ]);
 
   return (
     <Tabs defaultValue="all" value={tabStatus}>
@@ -49,7 +79,7 @@ export default async function ProductsPage(
             <Link
               href={{
                 pathname: '/products',
-                query: { q: search, status: 'all' },
+                query: { q: search, status: 'all', sortBy, sortOrder, kind: searchParams.kind ?? '', brandId: searchParams.brandId ?? '' },
               }}
             >
               All
@@ -59,7 +89,7 @@ export default async function ProductsPage(
             <Link
               href={{
                 pathname: '/products',
-                query: { q: search, status: 'active' },
+                query: { q: search, status: 'active', sortBy, sortOrder, kind: searchParams.kind ?? '', brandId: searchParams.brandId ?? '' },
               }}
             >
               Active
@@ -69,7 +99,7 @@ export default async function ProductsPage(
             <Link
               href={{
                 pathname: '/products',
-                query: { q: search, status: 'draft' },
+                query: { q: search, status: 'draft', sortBy, sortOrder, kind: searchParams.kind ?? '', brandId: searchParams.brandId ?? '' },
               }}
             >
               Draft
@@ -79,7 +109,7 @@ export default async function ProductsPage(
             <Link
               href={{
                 pathname: '/products',
-                query: { q: search, status: 'archived' },
+                query: { q: search, status: 'archived', sortBy, sortOrder, kind: searchParams.kind ?? '', brandId: searchParams.brandId ?? '' },
               }}
             >
               Archived
@@ -102,6 +132,15 @@ export default async function ProductsPage(
           </Button>
         </div>
       </div>
+      <ProductFiltersBar
+        brands={brands}
+        currentKind={searchParams.kind ?? ''}
+        currentBrandId={searchParams.brandId ?? ''}
+        currentSearch={search}
+        currentStatus={tabStatus}
+        currentSortBy={sortBy}
+        currentSortOrder={sortOrder}
+      />
       <TabsContent value={tabStatus}>
         <ProductsTable
           products={products}
@@ -109,6 +148,10 @@ export default async function ProductsPage(
           totalProducts={totalProducts}
           q={search}
           status={searchParams.status}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          currentKind={searchParams.kind ?? ''}
+          currentBrandId={searchParams.brandId ?? ''}
         />
       </TabsContent>
     </Tabs>

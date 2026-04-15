@@ -23,6 +23,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       include: {
         game: true,
         accessory: true,
+        expansion: true,
         bundle: true,
         bgg: true,
         variants: true,
@@ -61,19 +62,27 @@ export async function PUT(request: Request, { params }: RouteContext) {
       tags,
       shortDescription,
       description,
+      complexityId,
       timelineId,
       gameCategoryIds,
       gameThemeIds,
       gameMechanicIds,
       accessoryCategoryIds,
-      // GameDetails fields
+      // Game / Expansion shared fields
       yearPublished,
       minPlayers,
       maxPlayers,
       minAge,
       playtimeMin,
       playtimeMax,
-      mechanics,
+      // Expansion-specific fields
+      baseGameId,
+      addedComponents,
+      isStandalone,
+      isMajor,
+      editionNumber,
+      // BGG data
+      bgg,
     } = body;
 
     const { id } = await params;
@@ -94,6 +103,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
       include: {
         game: true,
         accessory: true,
+        expansion: true,
       },
     });
 
@@ -103,6 +113,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
         where: { productId: id },
         data: {
           timelineId: timelineId || null,
+          complexityId: complexityId || null,
           categories: {
             set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
           },
@@ -132,6 +143,147 @@ export async function PUT(request: Request, { params }: RouteContext) {
           },
         },
       });
+    }
+
+    // If it's an expansion product, upsert expansion details
+    if (kind === 'expansion') {
+      const expansionData = {
+        baseGameId: baseGameId || product.expansion?.baseGameId,
+        timelineId: timelineId || null,
+        complexityId: complexityId || null,
+        yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
+        minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
+        maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
+        minAge: typeof minAge === 'number' ? minAge : null,
+        playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
+        playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+        addedComponents: addedComponents || null,
+        isStandalone: isStandalone ?? false,
+        isMajor: isMajor ?? false,
+        editionNumber: typeof editionNumber === 'number' ? editionNumber : null,
+        categories: {
+          set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
+        },
+        themes: {
+          set: (gameThemeIds || []).map((themeId: string) => ({ id: themeId })),
+        },
+        mechanics: {
+          set: (gameMechanicIds || []).map((mechanicId: string) => ({ id: mechanicId })),
+        },
+      };
+
+      if (product.expansion) {
+        await prisma.gameExpansionDetails.update({
+          where: { productId: id },
+          data: expansionData,
+        });
+      } else if (baseGameId) {
+        await prisma.gameExpansionDetails.create({
+          data: {
+            productId: id,
+            baseGameId,
+            timelineId: timelineId || null,
+            complexityId: complexityId || null,
+            yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
+            minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
+            maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
+            minAge: typeof minAge === 'number' ? minAge : null,
+            playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
+            playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+            addedComponents: addedComponents || null,
+            isStandalone: isStandalone ?? false,
+            isMajor: isMajor ?? false,
+            editionNumber: typeof editionNumber === 'number' ? editionNumber : null,
+            ...(gameCategoryIds?.length
+              ? { categories: { connect: gameCategoryIds.map((cId: string) => ({ id: cId })) } }
+              : {}),
+            ...(gameThemeIds?.length
+              ? { themes: { connect: gameThemeIds.map((tId: string) => ({ id: tId })) } }
+              : {}),
+            ...(gameMechanicIds?.length
+              ? { mechanics: { connect: gameMechanicIds.map((mId: string) => ({ id: mId })) } }
+              : {}),
+          },
+        });
+      }
+    }
+
+    // Upsert BGG details if provided
+    if (bgg && bgg.bggId) {
+      const existingBgg = await prisma.bGGDetails.findUnique({
+        where: { productId: id },
+      });
+
+      if (existingBgg) {
+        // Update existing BGG details
+        await prisma.bGGDetails.update({
+          where: { productId: id },
+          data: {
+            id: Number(bgg.bggId),
+            avgRating: typeof bgg.avgRating === 'number' ? bgg.avgRating : null,
+            bayesAverageRating: typeof bgg.bayesAverageRating === 'number' ? bgg.bayesAverageRating : null,
+            averageWeightRating: typeof bgg.averageWeightRating === 'number' ? bgg.averageWeightRating : null,
+            boardgameRank: typeof bgg.boardgameRank === 'number' ? bgg.boardgameRank : null,
+          },
+        });
+
+        // Replace ranks if provided
+        if (bgg.ranks && Array.isArray(bgg.ranks) && bgg.ranks.length > 0) {
+          // Delete existing ranks
+          await prisma.bGGRank.deleteMany({
+            where: { bggDetailsId: existingBgg.productId },
+          });
+          // Create new ranks
+          await prisma.bGGRank.createMany({
+            data: bgg.ranks
+              .filter((r: any) => r.value !== 'Not Ranked')
+              .map((r: any) => ({
+                bggDetailsId: existingBgg.productId,
+                type: r.type,
+                bggId: Number(r.id),
+                name: Array.isArray(r.name) ? r.name[0] : String(r.name),
+                friendlyName: Array.isArray(r.friendlyName) ? r.friendlyName[0] : String(r.friendlyName),
+                value: typeof r.value === 'number' ? r.value : null,
+                bayesAverage: typeof r.bayesAverage === 'number' ? r.bayesAverage : null,
+              })),
+          });
+        }
+      } else {
+        // Create new BGG details
+        const trackingEntry = await prisma.bGGDetailsTrakingTable.create({
+          data: {
+            apiURL: `https://boardgamegeek.com/xmlapi2/thing?id=${bgg.bggId}`,
+          },
+        });
+
+        await prisma.bGGDetails.create({
+          data: {
+            productId: id,
+            id: Number(bgg.bggId),
+            sourceApiRequestId: trackingEntry.id,
+            avgRating: typeof bgg.avgRating === 'number' ? bgg.avgRating : null,
+            bayesAverageRating: typeof bgg.bayesAverageRating === 'number' ? bgg.bayesAverageRating : null,
+            averageWeightRating: typeof bgg.averageWeightRating === 'number' ? bgg.averageWeightRating : null,
+            boardgameRank: typeof bgg.boardgameRank === 'number' ? bgg.boardgameRank : null,
+            ...(bgg.ranks && Array.isArray(bgg.ranks) && bgg.ranks.length > 0
+              ? {
+                ranks: {
+                  create: bgg.ranks
+                    .filter((r: any) => r.value !== 'Not Ranked')
+                    .map((r: any) => ({
+                      type: r.type,
+                      bggId: Number(r.id),
+                      name: Array.isArray(r.name) ? r.name[0] : String(r.name),
+                      friendlyName: Array.isArray(r.friendlyName) ? r.friendlyName[0] : String(r.friendlyName),
+                      value: typeof r.value === 'number' ? r.value : null,
+                      bayesAverage: typeof r.bayesAverage === 'number' ? r.bayesAverage : null,
+                    })),
+                },
+              }
+              : {}),
+          },
+        });
+      }
     }
 
     return NextResponse.json(product);
