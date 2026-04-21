@@ -16,6 +16,8 @@ type SyncResult = {
   synced: number;
   errors: { offerId: string; error: string }[];
   total: number;
+  productsFound?: number;
+  variantsFound?: number;
 };
 
 export function GoogleMerchantSyncButton() {
@@ -106,6 +108,14 @@ export function GoogleMerchantSyncButton() {
                   <div className="text-xs text-muted-foreground">Errors</div>
                 </div>
               </div>
+
+              {(result.productsFound != null || result.variantsFound != null) && (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 space-y-0.5">
+                  <div>Products found (active/scheduled/paused): <strong>{result.productsFound ?? '?'}</strong></div>
+                  <div>Variants found (active/scheduled/paused): <strong>{result.variantsFound ?? '?'}</strong></div>
+                  <div>Entries sent to Google: <strong>{result.total}</strong></div>
+                </div>
+              )}
 
               {result.errors.length > 0 && (
                 <div className="space-y-2">

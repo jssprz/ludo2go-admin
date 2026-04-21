@@ -55,8 +55,9 @@ function mapAvailability(
   variantStatus: string,
   totalStock: number
 ): string {
-  if (variantStatus === 'archived') return 'out of stock';
-  if (variantStatus === 'draft') return 'out of stock';
+  if (variantStatus === 'archived' || variantStatus === 'draft') return 'out of stock';
+  if (variantStatus === 'scheduled') return 'preorder';
+  if (variantStatus === 'paused') return 'out of stock';
   return totalStock > 0 ? 'in stock' : 'out of stock';
 }
 
@@ -92,8 +93,11 @@ export async function POST() {
     });
 
     // Fetch all active products with their variants, prices, media, brand, and game details
+    // Include scheduled products as "preorder" and paused variants as "out of stock"
     const products = await prisma.product.findMany({
-      where: { status: 'active' },
+      where: {
+        status: { in: ['active', 'scheduled', 'paused'] },
+      },
       include: {
         brand: true,
         mediaLinks: {
@@ -101,7 +105,7 @@ export async function POST() {
           orderBy: { sort: 'asc' },
         },
         variants: {
-          where: { status: 'active' },
+          where: { status: { in: ['active', 'scheduled', 'paused'] } },
           include: {
             prices: {
               where: { active: true },
@@ -195,6 +199,11 @@ export async function POST() {
           productTypes: product.tags.length > 0 ? product.tags : undefined,
         };
 
+        // Add availability date for scheduled / preorder variants
+        if (variant.status === 'scheduled' && variant.activeAtScheduled) {
+          merchantProduct.availabilityDate = variant.activeAtScheduled.toISOString();
+        }
+
         // Add sale price if present and different from retail
         if (salePrice && salePrice.amount < retailPrice.amount) {
           merchantProduct.salePrice = {
@@ -276,11 +285,16 @@ export async function POST() {
       }
     }
 
+    const totalVariantsInDb = products.reduce((s, p) => s + p.variants.length, 0);
+
     if (entries.length === 0) {
       return NextResponse.json({
-        message: 'No active products with active variants and prices to sync.',
+        message: 'No eligible products with variants and prices to sync.',
         synced: 0,
         errors: results.errors,
+        productsFound: products.length,
+        variantsFound: totalVariantsInDb,
+        skippedNoPrice: results.errors.length,
       });
     }
 
@@ -316,6 +330,8 @@ export async function POST() {
       synced: results.synced.length,
       errors: results.errors,
       total: entries.length,
+      productsFound: products.length,
+      variantsFound: totalVariantsInDb,
     });
   } catch (error: any) {
     console.error('Google Merchant sync error:', error);
