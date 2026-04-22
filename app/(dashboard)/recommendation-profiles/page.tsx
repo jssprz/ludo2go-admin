@@ -73,8 +73,10 @@ interface ProductWithProfile {
   recommendationProfile: RecommendationProfile | null;
 }
 
+const UNSET_VALUE = '__none__';
+
 const LEVEL_OPTIONS = [
-  { value: '', label: '—' },
+  { value: UNSET_VALUE, label: '—' },
   { value: 'none', label: 'None' },
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
@@ -82,7 +84,7 @@ const LEVEL_OPTIONS = [
 ];
 
 const EXPLANATION_EASE_OPTIONS = [
-  { value: '', label: '—' },
+  { value: UNSET_VALUE, label: '—' },
   { value: 'very_easy', label: 'Very Easy' },
   { value: 'easy', label: 'Easy' },
   { value: 'medium', label: 'Medium' },
@@ -397,7 +399,7 @@ function LevelSelect({
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs w-28 shrink-0">{label}</span>
-      <Select value={value || ''} onValueChange={onChange}>
+      <Select value={value || UNSET_VALUE} onValueChange={(v) => onChange(v === UNSET_VALUE ? '' : v)}>
         <SelectTrigger className="h-7 text-xs">
           <SelectValue placeholder="—" />
         </SelectTrigger>
