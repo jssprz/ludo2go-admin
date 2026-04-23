@@ -48,7 +48,8 @@
     "gameMechanics": "Game Mechanics",
     "gameComplexities": "Game Complexities",
     "locations": "Storage Locations",
-    "stores": "Stores"
+    "stores": "Stores",
+    "recommendationProfiles": "Recommendation Profiles"
   },
   "auth": {
     "signIn": "Sign In",

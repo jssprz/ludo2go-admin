@@ -47,7 +47,8 @@
     "gameThemes": "Temáticas de Juegos",
     "gameMechanics": "Mecánicas de Juegos",
     "locations": "Lugares de Almacenamiento",
-    "stores": "Tiendas"
+    "stores": "Tiendas",
+    "recommendationProfiles": "Perfiles de Recommendación"
   },
   "auth": {
     "signIn": "Iniciar Sesión",

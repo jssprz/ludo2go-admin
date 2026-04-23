@@ -7,6 +7,7 @@ import {
   Settings,
   ShoppingCart,
   Users2,
+  UserCheck,
   UserCog,
   Clock,
   Boxes,
@@ -115,6 +116,10 @@ async function DesktopNav() {
 
         <NavItem href="/brands" label={t('brands')}>
           <Tag className="h-4 w-4" />
+        </NavItem>
+
+        <NavItem href="/recommendation-profiles" label={t('recommendationProfiles')}>
+          <UserCheck className="h-4 w-4" />
         </NavItem>
 
         <NavItem href="/game-categories" label={t('gameCategories')}>
