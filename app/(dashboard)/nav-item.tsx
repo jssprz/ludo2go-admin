@@ -26,7 +26,7 @@ export function NavItem({
         <Link
           href={href}
           className={clsx(
-            'flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8',
+            'flex h-6 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-5 md:w-8',
             {
               'bg-accent text-black': pathname === href
             }
