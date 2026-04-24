@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (pathname) => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user) {
           throw new Error('Unauthorized');
@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
             'audio/mpeg',
             'audio/wav',
           ],
-          maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
+          maximumSizeInBytes: 50 * 1024 * 1024,
+          tokenPayload: clientPayload,
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
@@ -48,6 +49,10 @@ export async function POST(request: NextRequest) {
         const filename = blob.pathname.split('/').pop() || 'untitled';
         const alt = filename.replace(/\.[^/.]+$/, '').replace(/^\d+-/, '');
 
+        const payload = tokenPayload ? JSON.parse(tokenPayload) : {};
+
+        const sizeBytes = typeof payload.sizeBytes === 'number' ? payload.sizeBytes : null;
+
         await prisma.mediaAsset.create({
           data: {
             kind,
@@ -55,8 +60,8 @@ export async function POST(request: NextRequest) {
             thumbUrl: kind === 'image' ? blob.url : null,
             width: null,
             height: null,
-            sizeBytes: blob.size,
-            mime: blob.contentType || 'application/octet-stream',
+            sizeBytes: sizeBytes,
+            mime: blob.contentType || payload.mime || 'application/octet-stream',
             locale: null,
             alt,
             copyright: null,

@@ -166,6 +166,10 @@ export function MediaGallery() {
         await upload(`media/${kind}/${timestamp}-${file.name}`, file, {
           access: 'public',
           handleUploadUrl: '/api/media/upload',
+          clientPayload: JSON.stringify({
+            sizeBytes: file.size,
+            mime: file.type,
+          }),
         });
       }
 
