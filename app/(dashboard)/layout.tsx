@@ -26,6 +26,7 @@ import {
   ClipboardList,
   CalendarPlus,
   TrendingUp,
+  Sigma,
 } from 'lucide-react';
 
 import {
@@ -119,7 +120,7 @@ async function DesktopNav() {
         </NavItem>
 
         <NavItem href="/recommendation-profiles" label={t('recommendationProfiles')}>
-          <UserCheck className="h-4 w-4" />
+          <Sigma className="h-4 w-4" />
         </NavItem>
 
         <NavItem href="/game-categories" label={t('gameCategories')}>
