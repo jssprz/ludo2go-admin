@@ -61,12 +61,14 @@ export async function POST(request: NextRequest) {
             width: null,
             height: null,
             sizeBytes: sizeBytes,
-            mime: blob.contentType || payload.mime || 'application/octet-stream',
+            mime: blob.contentType || 'application/octet-stream',
             locale: null,
             alt,
             copyright: null,
           },
         });
+
+        console.log('Media asset created:', created.id);
       },
     });
 
