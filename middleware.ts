@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Don't invoke Middleware on static files and API auth routes
+// Don't invoke Middleware on static files and all API routes
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)']
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 };
