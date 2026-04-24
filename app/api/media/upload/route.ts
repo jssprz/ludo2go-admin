@@ -36,6 +36,9 @@ export async function POST(request: NextRequest) {
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('Upload completed:', blob);
+        console.log('Token payload:', tokenPayload);
+
         // Determine media kind from content type
         let kind: 'image' | 'video' | 'pdf' | 'audio' | 'model3d' = 'image';
         if (blob.contentType?.startsWith('video/')) {
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
 
         const sizeBytes = typeof payload.sizeBytes === 'number' ? payload.sizeBytes : null;
 
-        await prisma.mediaAsset.create({
+        const created = await prisma.mediaAsset.create({
           data: {
             kind,
             url: blob.url,
