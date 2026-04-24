@@ -36,43 +36,47 @@ export async function POST(request: NextRequest) {
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('Upload completed:', blob);
-        console.log('Token payload:', tokenPayload);
+        try {
+          console.log('Upload completed:', blob);
 
-        // Determine media kind from content type
-        let kind: 'image' | 'video' | 'pdf' | 'audio' | 'model3d' = 'image';
-        if (blob.contentType?.startsWith('video/')) {
-          kind = 'video';
-        } else if (blob.contentType === 'application/pdf') {
-          kind = 'pdf';
-        } else if (blob.contentType?.startsWith('audio/')) {
-          kind = 'audio';
+          const payload = tokenPayload ? JSON.parse(tokenPayload) : {};
+
+          const sizeBytes =
+            typeof payload.sizeBytes === 'number' ? payload.sizeBytes : null;
+
+          let kind: 'image' | 'video' | 'pdf' | 'audio' | 'model3d' = 'image';
+
+          if (blob.contentType?.startsWith('video/')) {
+            kind = 'video';
+          } else if (blob.contentType === 'application/pdf') {
+            kind = 'pdf';
+          } else if (blob.contentType?.startsWith('audio/')) {
+            kind = 'audio';
+          }
+
+          const filename = blob.pathname.split('/').pop() || 'untitled';
+          const alt = filename.replace(/\.[^/.]+$/, '').replace(/^\d+-/, '');
+
+          const created = await prisma.mediaAsset.create({
+            data: {
+              kind,
+              url: blob.url,
+              thumbUrl: kind === 'image' ? blob.url : null,
+              width: null,
+              height: null,
+              sizeBytes,
+              mime: blob.contentType || payload.mime || 'application/octet-stream',
+              locale: null,
+              alt,
+              copyright: null,
+            },
+          });
+
+          console.log('Media asset created:', created.id);
+        } catch (error) {
+          console.error('Failed to save media asset:', error);
         }
-
-        const filename = blob.pathname.split('/').pop() || 'untitled';
-        const alt = filename.replace(/\.[^/.]+$/, '').replace(/^\d+-/, '');
-
-        const payload = tokenPayload ? JSON.parse(tokenPayload) : {};
-
-        const sizeBytes = typeof payload.sizeBytes === 'number' ? payload.sizeBytes : null;
-
-        const created = await prisma.mediaAsset.create({
-          data: {
-            kind,
-            url: blob.url,
-            thumbUrl: kind === 'image' ? blob.url : null,
-            width: null,
-            height: null,
-            sizeBytes: sizeBytes,
-            mime: blob.contentType || 'application/octet-stream',
-            locale: null,
-            alt,
-            copyright: null,
-          },
-        });
-
-        console.log('Media asset created:', created.id);
-      },
+      }
     });
 
     return NextResponse.json(jsonResponse);
