@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { upload } from '@vercel/blob/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -153,18 +154,19 @@ export function MediaGallery() {
         const file = files[i];
         setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}`);
 
-        const formData = new FormData();
-        formData.append('file', file);
+        const timestamp = Date.now();
+        const kind = file.type.startsWith('video/')
+          ? 'video'
+          : file.type === 'application/pdf'
+            ? 'pdf'
+            : file.type.startsWith('audio/')
+              ? 'audio'
+              : 'image';
 
-        const res = await fetch('/api/media', {
-          method: 'POST',
-          body: formData,
+        await upload(`media/${kind}/${timestamp}-${file.name}`, file, {
+          access: 'public',
+          handleUploadUrl: '/api/media/upload',
         });
-
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.message || 'Upload failed');
-        }
       }
 
       // Refresh the gallery
