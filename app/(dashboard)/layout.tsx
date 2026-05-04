@@ -21,6 +21,7 @@ import {
   Puzzle,
   Palette,
   Wrench,
+  BookOpen,
   Store,
   Truck,
   ClipboardList,
@@ -137,6 +138,14 @@ async function DesktopNav() {
 
         <NavItem href="/game-mechanics" label={t('gameMechanics')}>
           <Wrench className="h-4 w-4" />
+        </NavItem>
+
+        <NavItem href="/guide-categories" label={t('guideCategories')}>
+          <Tag className="h-4 w-4" />
+        </NavItem>
+
+        <NavItem href="/guides" label={t('guides')}>
+          <BookOpen className="h-4 w-4" />
         </NavItem>
 
         <NavItem href="/inventory" label={t('inventory')}>
