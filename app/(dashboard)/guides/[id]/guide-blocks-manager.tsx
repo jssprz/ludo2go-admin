@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Select,
   SelectContent,
@@ -299,9 +299,10 @@ export function GuideBlocksManager({ guide }: Props) {
                         {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
                       </div>
                       {block.body && (
-                        <div className="text-sm mt-2 line-clamp-2 text-muted-foreground">
-                          {block.body}
-                        </div>
+                        <div
+                          className="text-sm mt-2 line-clamp-2 prose prose-sm dark:prose-invert text-muted-foreground"
+                          dangerouslySetInnerHTML={{ __html: block.body }}
+                        />
                       )}
                     </div>
                   </div>
@@ -370,12 +371,11 @@ export function GuideBlocksManager({ guide }: Props) {
             </div>
             <div>
               <Label htmlFor="create-body">{t('body')}</Label>
-              <Textarea
-                id="create-body"
+              <RichTextEditor
                 value={formBody}
-                onChange={(e) => setFormBody(e.target.value)}
+                onValueChange={setFormBody}
                 placeholder={t('blockBodyPlaceholder')}
-                rows={4}
+                className="min-h-[180px]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -475,12 +475,11 @@ export function GuideBlocksManager({ guide }: Props) {
             </div>
             <div>
               <Label htmlFor="edit-body">{t('body')}</Label>
-              <Textarea
-                id="edit-body"
+              <RichTextEditor
                 value={formBody}
-                onChange={(e) => setFormBody(e.target.value)}
+                onValueChange={setFormBody}
                 placeholder={t('blockBodyPlaceholder')}
-                rows={4}
+                className="min-h-[180px]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">

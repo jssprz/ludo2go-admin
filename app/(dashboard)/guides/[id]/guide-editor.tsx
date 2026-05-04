@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Select,
   SelectContent,
@@ -258,23 +259,21 @@ export function GuideEditor({ guide, categories }: Props) {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="intro">{t('intro')}</Label>
-            <Textarea
-              id="intro"
+            <RichTextEditor
               value={formData.intro}
-              onChange={(e) => handleInputChange('intro', e.target.value)}
+              onValueChange={(value) => handleInputChange('intro', value)}
               placeholder={t('introPlaceholder')}
-              rows={4}
+              className="min-h-[180px]"
             />
           </div>
 
           <div>
             <Label htmlFor="content">{t('mainContent')}</Label>
-            <Textarea
-              id="content"
+            <RichTextEditor
               value={formData.content}
-              onChange={(e) => handleInputChange('content', e.target.value)}
+              onValueChange={(value) => handleInputChange('content', value)}
               placeholder={t('contentPlaceholder')}
-              rows={6}
+              className="min-h-[260px]"
             />
           </div>
         </CardContent>
