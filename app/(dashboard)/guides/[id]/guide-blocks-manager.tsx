@@ -1,0 +1,575 @@
+'use client';
+
+import { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Plus,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Loader2,
+  GripVertical,
+} from 'lucide-react';
+import { GuideBlockType } from '@prisma/client';
+
+type GuideBlock = {
+  id: string;
+  guideId: string;
+  type: GuideBlockType;
+  sortOrder: number;
+  title: string | null;
+  body: string | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  buttonText: string | null;
+  buttonUrl: string | null;
+  data: any;
+};
+
+type Guide = {
+  id: string;
+  title: string;
+  blocks: GuideBlock[];
+};
+
+type Props = {
+  guide: Guide;
+};
+
+export function GuideBlocksManager({ guide }: Props) {
+  const t = useTranslations('guides');
+  const tc = useTranslations('common');
+  const [blocks, setBlocks] = useState<GuideBlock[]>(guide.blocks);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Dialog states
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedBlock, setSelectedBlock] = useState<GuideBlock | null>(null);
+
+  // Form states
+  const [formType, setFormType] = useState<GuideBlockType>(GuideBlockType.rich_text);
+  const [formTitle, setFormTitle] = useState('');
+  const [formBody, setFormBody] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [formImageAlt, setFormImageAlt] = useState('');
+  const [formButtonText, setFormButtonText] = useState('');
+  const [formButtonUrl, setFormButtonUrl] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function resetForm() {
+    setFormType(GuideBlockType.rich_text);
+    setFormTitle('');
+    setFormBody('');
+    setFormImageUrl('');
+    setFormImageAlt('');
+    setFormButtonText('');
+    setFormButtonUrl('');
+    setFormError(null);
+  }
+
+  function openCreateDialog() {
+    resetForm();
+    setSelectedBlock(null);
+    setShowCreateDialog(true);
+  }
+
+  function openEditDialog(block: GuideBlock) {
+    setSelectedBlock(block);
+    setFormType(block.type);
+    setFormTitle(block.title || '');
+    setFormBody(block.body || '');
+    setFormImageUrl(block.imageUrl || '');
+    setFormImageAlt(block.imageAlt || '');
+    setFormButtonText(block.buttonText || '');
+    setFormButtonUrl(block.buttonUrl || '');
+    setFormError(null);
+    setShowEditDialog(true);
+  }
+
+  function openDeleteDialog(block: GuideBlock) {
+    setSelectedBlock(block);
+    setShowDeleteDialog(true);
+  }
+
+  async function handleCreate() {
+    if (!formType) {
+      setFormError(tc('required'));
+      return;
+    }
+
+    setIsLoading(true);
+    setFormError(null);
+
+    try {
+      const res = await fetch('/api/guide-blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          guideId: guide.id,
+          type: formType,
+          sortOrder: blocks.length,
+          title: formTitle.trim() || null,
+          body: formBody.trim() || null,
+          imageUrl: formImageUrl.trim() || null,
+          imageAlt: formImageAlt.trim() || null,
+          buttonText: formButtonText.trim() || null,
+          buttonUrl: formButtonUrl.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || tc('error'));
+      }
+
+      const newBlock = await res.json();
+      setBlocks([...blocks, newBlock]);
+      setShowCreateDialog(false);
+      resetForm();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : tc('error'));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleUpdate() {
+    if (!selectedBlock || !formType) {
+      setFormError(tc('required'));
+      return;
+    }
+
+    setIsLoading(true);
+    setFormError(null);
+
+    try {
+      const res = await fetch(`/api/guide-blocks/${selectedBlock.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: formType,
+          title: formTitle.trim() || null,
+          body: formBody.trim() || null,
+          imageUrl: formImageUrl.trim() || null,
+          imageAlt: formImageAlt.trim() || null,
+          buttonText: formButtonText.trim() || null,
+          buttonUrl: formButtonUrl.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || tc('error'));
+      }
+
+      const updatedBlock = await res.json();
+      setBlocks(blocks.map((b) => (b.id === selectedBlock.id ? updatedBlock : b)));
+      setShowEditDialog(false);
+      resetForm();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : tc('error'));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedBlock) return;
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(`/api/guide-blocks/${selectedBlock.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || tc('error'));
+      }
+
+      setBlocks(blocks.filter((b) => b.id !== selectedBlock.id));
+      setShowDeleteDialog(false);
+      setSelectedBlock(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tc('error'));
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function getBlockTypeLabel(type: GuideBlockType): string {
+    switch (type) {
+      case GuideBlockType.rich_text:
+        return t('blockTypeRichText');
+      case GuideBlockType.heading:
+        return t('blockTypeHeading');
+      case GuideBlockType.image:
+        return t('blockTypeImage');
+      case GuideBlockType.quote:
+        return t('blockTypeQuote');
+      case GuideBlockType.faq:
+        return t('blockTypeFaq');
+      case GuideBlockType.product_list:
+        return t('blockTypeProductList');
+      case GuideBlockType.cta:
+        return t('blockTypeCta');
+      default:
+        return type;
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('guideBlocks')}</CardTitle>
+          <CardDescription>
+            {t('guideBlocksDescription')}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('addBlock')}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {blocks.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground text-center">
+                {t('noBlocks')}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          blocks.map((block) => (
+            <Card key={block.id}>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 flex items-start gap-4">
+                    <GripVertical className="h-5 w-5 text-muted-foreground mt-1 cursor-move" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{block.title || getBlockTypeLabel(block.type)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
+                      </div>
+                      {block.body && (
+                        <div className="text-sm mt-2 line-clamp-2 text-muted-foreground">
+                          {block.body}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEditDialog(block)}>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        {tc('edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => openDeleteDialog(block)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {tc('delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Create Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('addBlock')}</DialogTitle>
+            <DialogDescription>
+              {t('addBlockDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="create-type">{t('blockType')} *</Label>
+              <Select value={formType} onValueChange={(value: GuideBlockType) => setFormType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={GuideBlockType.rich_text}>{t('blockTypeRichText')}</SelectItem>
+                  <SelectItem value={GuideBlockType.heading}>{t('blockTypeHeading')}</SelectItem>
+                  <SelectItem value={GuideBlockType.image}>{t('blockTypeImage')}</SelectItem>
+                  <SelectItem value={GuideBlockType.quote}>{t('blockTypeQuote')}</SelectItem>
+                  <SelectItem value={GuideBlockType.faq}>{t('blockTypeFaq')}</SelectItem>
+                  <SelectItem value={GuideBlockType.product_list}>{t('blockTypeProductList')}</SelectItem>
+                  <SelectItem value={GuideBlockType.cta}>{t('blockTypeCta')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="create-title">{t('title')}</Label>
+              <Input
+                id="create-title"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                placeholder={t('blockTitlePlaceholder')}
+              />
+            </div>
+            <div>
+              <Label htmlFor="create-body">{t('body')}</Label>
+              <Textarea
+                id="create-body"
+                value={formBody}
+                onChange={(e) => setFormBody(e.target.value)}
+                placeholder={t('blockBodyPlaceholder')}
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create-imageUrl">{t('imageUrl')}</Label>
+                <Input
+                  id="create-imageUrl"
+                  value={formImageUrl}
+                  onChange={(e) => setFormImageUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-imageAlt">{t('imageAlt')}</Label>
+                <Input
+                  id="create-imageAlt"
+                  value={formImageAlt}
+                  onChange={(e) => setFormImageAlt(e.target.value)}
+                  placeholder={t('imageAltPlaceholder')}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="create-buttonText">{t('buttonText')}</Label>
+                <Input
+                  id="create-buttonText"
+                  value={formButtonText}
+                  onChange={(e) => setFormButtonText(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="create-buttonUrl">{t('buttonUrl')}</Label>
+                <Input
+                  id="create-buttonUrl"
+                  value={formButtonUrl}
+                  onChange={(e) => setFormButtonUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            {formError && (
+              <div className="text-sm text-destructive">{formError}</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateDialog(false)}
+              disabled={isLoading}
+            >
+              {tc('cancel')}
+            </Button>
+            <Button onClick={handleCreate} disabled={isLoading}>
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {tc('create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('editBlock')}</DialogTitle>
+            <DialogDescription>
+              {t('editBlockDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-type">{t('blockType')} *</Label>
+              <Select value={formType} onValueChange={(value: GuideBlockType) => setFormType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={GuideBlockType.rich_text}>{t('blockTypeRichText')}</SelectItem>
+                  <SelectItem value={GuideBlockType.heading}>{t('blockTypeHeading')}</SelectItem>
+                  <SelectItem value={GuideBlockType.image}>{t('blockTypeImage')}</SelectItem>
+                  <SelectItem value={GuideBlockType.quote}>{t('blockTypeQuote')}</SelectItem>
+                  <SelectItem value={GuideBlockType.faq}>{t('blockTypeFaq')}</SelectItem>
+                  <SelectItem value={GuideBlockType.product_list}>{t('blockTypeProductList')}</SelectItem>
+                  <SelectItem value={GuideBlockType.cta}>{t('blockTypeCta')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-title">{t('title')}</Label>
+              <Input
+                id="edit-title"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                placeholder={t('blockTitlePlaceholder')}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-body">{t('body')}</Label>
+              <Textarea
+                id="edit-body"
+                value={formBody}
+                onChange={(e) => setFormBody(e.target.value)}
+                placeholder={t('blockBodyPlaceholder')}
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-imageUrl">{t('imageUrl')}</Label>
+                <Input
+                  id="edit-imageUrl"
+                  value={formImageUrl}
+                  onChange={(e) => setFormImageUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-imageAlt">{t('imageAlt')}</Label>
+                <Input
+                  id="edit-imageAlt"
+                  value={formImageAlt}
+                  onChange={(e) => setFormImageAlt(e.target.value)}
+                  placeholder={t('imageAltPlaceholder')}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-buttonText">{t('buttonText')}</Label>
+                <Input
+                  id="edit-buttonText"
+                  value={formButtonText}
+                  onChange={(e) => setFormButtonText(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-buttonUrl">{t('buttonUrl')}</Label>
+                <Input
+                  id="edit-buttonUrl"
+                  value={formButtonUrl}
+                  onChange={(e) => setFormButtonUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            {formError && (
+              <div className="text-sm text-destructive">{formError}</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditDialog(false)}
+              disabled={isLoading}
+            >
+              {tc('cancel')}
+            </Button>
+            <Button onClick={handleUpdate} disabled={isLoading}>
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {tc('save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('deleteBlock')}</DialogTitle>
+            <DialogDescription>
+              {t('deleteBlockDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isLoading}
+            >
+              {tc('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isLoading}
+            >
+              {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {tc('delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
