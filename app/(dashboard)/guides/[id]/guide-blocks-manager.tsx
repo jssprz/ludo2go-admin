@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Select,
@@ -89,6 +90,7 @@ export function GuideBlocksManager({ guide }: Props) {
   const [formImageAlt, setFormImageAlt] = useState('');
   const [formButtonText, setFormButtonText] = useState('');
   const [formButtonUrl, setFormButtonUrl] = useState('');
+  const [formDataJson, setFormDataJson] = useState('{}');
   const [formError, setFormError] = useState<string | null>(null);
 
   function resetForm() {
@@ -99,6 +101,7 @@ export function GuideBlocksManager({ guide }: Props) {
     setFormImageAlt('');
     setFormButtonText('');
     setFormButtonUrl('');
+    setFormDataJson('{}');
     setFormError(null);
   }
 
@@ -117,6 +120,7 @@ export function GuideBlocksManager({ guide }: Props) {
     setFormImageAlt(block.imageAlt || '');
     setFormButtonText(block.buttonText || '');
     setFormButtonUrl(block.buttonUrl || '');
+    setFormDataJson(JSON.stringify(block.data || {}, null, 2));
     setFormError(null);
     setShowEditDialog(true);
   }
@@ -135,6 +139,15 @@ export function GuideBlocksManager({ guide }: Props) {
     setIsLoading(true);
     setFormError(null);
 
+    let parsedData: any = {};
+    try {
+      parsedData = formDataJson.trim() ? JSON.parse(formDataJson) : {};
+    } catch (jsonError) {
+      setFormError('Invalid JSON in data field.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/guide-blocks', {
         method: 'POST',
@@ -149,6 +162,7 @@ export function GuideBlocksManager({ guide }: Props) {
           imageAlt: formImageAlt.trim() || null,
           buttonText: formButtonText.trim() || null,
           buttonUrl: formButtonUrl.trim() || null,
+          data: parsedData,
         }),
       });
 
@@ -177,6 +191,15 @@ export function GuideBlocksManager({ guide }: Props) {
     setIsLoading(true);
     setFormError(null);
 
+    let parsedData: any = {};
+    try {
+      parsedData = formDataJson.trim() ? JSON.parse(formDataJson) : {};
+    } catch (jsonError) {
+      setFormError('Invalid JSON in data field.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/guide-blocks/${selectedBlock.id}`, {
         method: 'PUT',
@@ -189,6 +212,7 @@ export function GuideBlocksManager({ guide }: Props) {
           imageAlt: formImageAlt.trim() || null,
           buttonText: formButtonText.trim() || null,
           buttonUrl: formButtonUrl.trim() || null,
+          data: parsedData,
         }),
       });
 
@@ -239,16 +263,30 @@ export function GuideBlocksManager({ guide }: Props) {
         return t('blockTypeRichText');
       case GuideBlockType.heading:
         return t('blockTypeHeading');
+      case GuideBlockType.hero:
+        return t('blockTypeHero');
+      case GuideBlockType.intro:
+        return t('blockTypeIntro');
       case GuideBlockType.image:
         return t('blockTypeImage');
+      case GuideBlockType.criteria:
+        return t('blockTypeCriteria');
       case GuideBlockType.quote:
         return t('blockTypeQuote');
       case GuideBlockType.faq:
         return t('blockTypeFaq');
       case GuideBlockType.product_list:
         return t('blockTypeProductList');
+      case GuideBlockType.product_recommendation:
+        return t('blockTypeProductRecommendation');
+      case GuideBlockType.comparison:
+        return t('blockTypeComparison');
+      case GuideBlockType.product_grid:
+        return t('blockTypeProductGrid');
       case GuideBlockType.cta:
         return t('blockTypeCta');
+      case GuideBlockType.final_cta:
+        return t('blockTypeFinalCta');
       default:
         return type;
     }
@@ -298,12 +336,16 @@ export function GuideBlocksManager({ guide }: Props) {
                       <div className="text-sm text-muted-foreground">
                         {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
                       </div>
-                      {block.body && (
+                      {block.body ? (
                         <div
                           className="text-sm mt-2 line-clamp-2 prose prose-sm dark:prose-invert text-muted-foreground"
                           dangerouslySetInnerHTML={{ __html: block.body }}
                         />
-                      )}
+                      ) : block.data ? (
+                        <pre className="text-xs mt-2 line-clamp-2 overflow-hidden text-muted-foreground">
+                          {JSON.stringify(block.data, null, 2)}
+                        </pre>
+                      ) : null}
                     </div>
                   </div>
                   <DropdownMenu>
@@ -352,11 +394,18 @@ export function GuideBlocksManager({ guide }: Props) {
                 <SelectContent>
                   <SelectItem value={GuideBlockType.rich_text}>{t('blockTypeRichText')}</SelectItem>
                   <SelectItem value={GuideBlockType.heading}>{t('blockTypeHeading')}</SelectItem>
+                  <SelectItem value={GuideBlockType.hero}>{t('blockTypeHero')}</SelectItem>
+                  <SelectItem value={GuideBlockType.intro}>{t('blockTypeIntro')}</SelectItem>
                   <SelectItem value={GuideBlockType.image}>{t('blockTypeImage')}</SelectItem>
+                  <SelectItem value={GuideBlockType.criteria}>{t('blockTypeCriteria')}</SelectItem>
                   <SelectItem value={GuideBlockType.quote}>{t('blockTypeQuote')}</SelectItem>
                   <SelectItem value={GuideBlockType.faq}>{t('blockTypeFaq')}</SelectItem>
                   <SelectItem value={GuideBlockType.product_list}>{t('blockTypeProductList')}</SelectItem>
+                  <SelectItem value={GuideBlockType.product_recommendation}>{t('blockTypeProductRecommendation')}</SelectItem>
+                  <SelectItem value={GuideBlockType.comparison}>{t('blockTypeComparison')}</SelectItem>
+                  <SelectItem value={GuideBlockType.product_grid}>{t('blockTypeProductGrid')}</SelectItem>
                   <SelectItem value={GuideBlockType.cta}>{t('blockTypeCta')}</SelectItem>
+                  <SelectItem value={GuideBlockType.final_cta}>{t('blockTypeFinalCta')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -417,6 +466,16 @@ export function GuideBlocksManager({ guide }: Props) {
                 />
               </div>
             </div>
+            <div>
+              <Label htmlFor="create-data">{t('blockDataJson')}</Label>
+              <Textarea
+                id="create-data"
+                value={formDataJson}
+                onChange={(e) => setFormDataJson(e.target.value)}
+                placeholder={t('blockDataDescription')}
+                rows={8}
+              />
+            </div>
             {formError && (
               <div className="text-sm text-destructive">{formError}</div>
             )}
@@ -456,11 +515,18 @@ export function GuideBlocksManager({ guide }: Props) {
                 <SelectContent>
                   <SelectItem value={GuideBlockType.rich_text}>{t('blockTypeRichText')}</SelectItem>
                   <SelectItem value={GuideBlockType.heading}>{t('blockTypeHeading')}</SelectItem>
+                  <SelectItem value={GuideBlockType.hero}>{t('blockTypeHero')}</SelectItem>
+                  <SelectItem value={GuideBlockType.intro}>{t('blockTypeIntro')}</SelectItem>
                   <SelectItem value={GuideBlockType.image}>{t('blockTypeImage')}</SelectItem>
+                  <SelectItem value={GuideBlockType.criteria}>{t('blockTypeCriteria')}</SelectItem>
                   <SelectItem value={GuideBlockType.quote}>{t('blockTypeQuote')}</SelectItem>
                   <SelectItem value={GuideBlockType.faq}>{t('blockTypeFaq')}</SelectItem>
                   <SelectItem value={GuideBlockType.product_list}>{t('blockTypeProductList')}</SelectItem>
+                  <SelectItem value={GuideBlockType.product_recommendation}>{t('blockTypeProductRecommendation')}</SelectItem>
+                  <SelectItem value={GuideBlockType.comparison}>{t('blockTypeComparison')}</SelectItem>
+                  <SelectItem value={GuideBlockType.product_grid}>{t('blockTypeProductGrid')}</SelectItem>
                   <SelectItem value={GuideBlockType.cta}>{t('blockTypeCta')}</SelectItem>
+                  <SelectItem value={GuideBlockType.final_cta}>{t('blockTypeFinalCta')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -520,6 +586,16 @@ export function GuideBlocksManager({ guide }: Props) {
                   placeholder="https://..."
                 />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="edit-data">{t('blockDataJson')}</Label>
+              <Textarea
+                id="edit-data"
+                value={formDataJson}
+                onChange={(e) => setFormDataJson(e.target.value)}
+                placeholder={t('blockDataDescription')}
+                rows={8}
+              />
             </div>
             {formError && (
               <div className="text-sm text-destructive">{formError}</div>
