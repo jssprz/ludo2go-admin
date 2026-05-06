@@ -23,12 +23,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Card,
   CardContent,
   CardDescription,
@@ -37,12 +31,30 @@ import {
 } from '@/components/ui/card';
 import {
   Plus,
-  MoreVertical,
   Pencil,
   Trash2,
   Loader2,
   GripVertical,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { GuideBlockType } from '@prisma/client';
 
 type GuideBlock = {
@@ -69,6 +81,68 @@ type Props = {
   guide: Guide;
 };
 
+interface SortableItemProps {
+  block: GuideBlock;
+  onEdit: (block: GuideBlock) => void;
+  onDelete: (block: GuideBlock) => void;
+  getBlockTypeLabel: (type: GuideBlockType) => string;
+  t: any;
+}
+
+function SortableItem({ block, onEdit, onDelete, getBlockTypeLabel, t }: SortableItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: block.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 flex items-start gap-4">
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+              <GripVertical className="h-5 w-5 text-muted-foreground mt-1" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium">{block.title || getBlockTypeLabel(block.type)}</div>
+              <div className="text-sm text-muted-foreground">
+                {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
+              </div>
+              {block.body ? (
+                <div
+                  className="text-sm mt-2 line-clamp-2 prose prose-sm dark:prose-invert text-muted-foreground"
+                  dangerouslySetInnerHTML={{ __html: block.body }}
+                />
+              ) : block.data ? (
+                <pre className="text-xs mt-2 line-clamp-2 overflow-hidden text-muted-foreground">
+                  {JSON.stringify(block.data, null, 2)}
+                </pre>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => onEdit(block)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => onDelete(block)} className="text-destructive">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function GuideBlocksManager({ guide }: Props) {
   const t = useTranslations('guides');
   const tc = useTranslations('common');
@@ -92,6 +166,13 @@ export function GuideBlocksManager({ guide }: Props) {
   const [formButtonUrl, setFormButtonUrl] = useState('');
   const [formDataJson, setFormDataJson] = useState('{}');
   const [formError, setFormError] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   function resetForm() {
     setFormType(GuideBlockType.rich_text);
@@ -128,6 +209,51 @@ export function GuideBlocksManager({ guide }: Props) {
   function openDeleteDialog(block: GuideBlock) {
     setSelectedBlock(block);
     setShowDeleteDialog(true);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setBlocks((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        const newItems = arrayMove(items, oldIndex, newIndex);
+
+        // Update sortOrder for all items
+        const updatedItems = newItems.map((item, index) => ({
+          ...item,
+          sortOrder: index,
+        }));
+
+        // Update sort orders on the server
+        updateSortOrders(updatedItems);
+
+        return updatedItems;
+      });
+    }
+  }
+
+  async function updateSortOrders(updatedBlocks: GuideBlock[]) {
+    try {
+      const updates = updatedBlocks.map((block, index) => ({
+        id: block.id,
+        sortOrder: index,
+      }));
+
+      const res = await fetch(`/api/guide-blocks/sort`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update sort orders');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reorder blocks');
+    }
   }
 
   async function handleCreate() {
@@ -325,53 +451,24 @@ export function GuideBlocksManager({ guide }: Props) {
             </CardContent>
           </Card>
         ) : (
-          blocks.map((block) => (
-            <Card key={block.id}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 flex items-start gap-4">
-                    <GripVertical className="h-5 w-5 text-muted-foreground mt-1 cursor-move" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{block.title || getBlockTypeLabel(block.type)}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
-                      </div>
-                      {block.body ? (
-                        <div
-                          className="text-sm mt-2 line-clamp-2 prose prose-sm dark:prose-invert text-muted-foreground"
-                          dangerouslySetInnerHTML={{ __html: block.body }}
-                        />
-                      ) : block.data ? (
-                        <pre className="text-xs mt-2 line-clamp-2 overflow-hidden text-muted-foreground">
-                          {JSON.stringify(block.data, null, 2)}
-                        </pre>
-                      ) : null}
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditDialog(block)}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        {tc('edit')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => openDeleteDialog(block)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        {tc('delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+              {blocks.map((block) => (
+                <SortableItem
+                  key={block.id}
+                  block={block}
+                  onEdit={openEditDialog}
+                  onDelete={openDeleteDialog}
+                  getBlockTypeLabel={getBlockTypeLabel}
+                  t={t}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
@@ -497,7 +594,7 @@ export function GuideBlocksManager({ guide }: Props) {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog key={`edit-${showEditDialog}`} open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('editBlock')}</DialogTitle>

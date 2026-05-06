@@ -10,6 +10,9 @@
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@jssprz/ludo2go-database": "^0.2.23",
     "@neondatabase/serverless": "^0.9.5",
     "@prisma/client": "^6.19.0",
