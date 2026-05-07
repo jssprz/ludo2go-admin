@@ -457,7 +457,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         {/* Physical Attrs */}
 
         {status === 'scheduled' && (
-          <div className="space-y-2 sm:col-span-2">
+          <div className="space-y-2 sm:col-span-1">
             <Label htmlFor="activeAtScheduled">Scheduled activation date</Label>
             <Input
               id="activeAtScheduled"

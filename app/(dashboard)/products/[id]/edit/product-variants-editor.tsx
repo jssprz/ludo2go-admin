@@ -69,30 +69,14 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newSku, setNewSku] = useState('');
-  const [newEanUpc, setNewEanUpc] = useState('');
-  const [newEdition, setNewEdition] = useState('');
   const [newLanguage, setNewLanguage] = useState('es');
   const [newCondition, setNewCondition] = useState('new');
-  const [newStatus, setNewStatus] = useState('draft');
-  const [newActiveAtScheduled, setNewActiveAtScheduled] = useState('');
-  const [newDisplayTitleShort, setNewDisplayTitleShort] = useState('');
-  const [newDisplayTitleLong, setNewDisplayTitleLong] = useState('');
-  const [newFormat, setNewFormat] = useState('STD');
-  const [newBundle, setNewBundle] = useState('');
   const [isGeneratingSku, setIsGeneratingSku] = useState(false);
 
   function resetNewVariantForm() {
     setNewSku('');
-    setNewEanUpc('');
-    setNewEdition('');
     setNewLanguage('es');
     setNewCondition('new');
-    setNewStatus('draft');
-    setNewActiveAtScheduled('');
-    setNewDisplayTitleShort('');
-    setNewDisplayTitleLong('');
-    setNewFormat('STD');
-    setNewBundle('');
   }
 
   async function handleGenerateSku() {
@@ -106,9 +90,6 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
         body: JSON.stringify({
           productId,
           language: newLanguage,
-          edition: newEdition.trim() || null,
-          format: newFormat,
-          bundle: (newBundle && newBundle !== 'none') ? newBundle : null,
           condition: newCondition,
         }),
       });
@@ -132,7 +113,6 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
 
     setIsCreating(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
     try {
       const res = await fetch('/api/variants', {
@@ -141,16 +121,8 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
         body: JSON.stringify({
           productId,
           sku: newSku.trim(),
-          eanUpc: newEanUpc.trim() || null,
-          edition: newEdition.trim() || null,
           language: newLanguage,
           condition: newCondition,
-          status: newStatus,
-          activeAtScheduled: newStatus === 'scheduled' && newActiveAtScheduled
-            ? new Date(newActiveAtScheduled).toISOString()
-            : null,
-          displayTitleShort: newDisplayTitleShort.trim() || null,
-          displayTitleLong: newDisplayTitleLong.trim() || null,
         }),
       });
 
@@ -160,10 +132,11 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
       }
 
       const created: ProductVariant = await res.json();
-      setVariants([...variants, { ...created, prices: [], inventory: [] }]);
-      setSuccessMsg(`Variant "${created.sku}" created successfully.`);
       resetNewVariantForm();
       setDialogOpen(false);
+      
+      // Redirect to edit page
+      router.push(`/variants/${created.id}/edit`);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to create variant');
     } finally {
@@ -220,80 +193,42 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
             <DialogHeader>
               <DialogTitle>New variant</DialogTitle>
               <DialogDescription>
-                Create a new variant for this product. SKU is required and must be unique.
+                Create a new variant for this product. SKU is required and must be unique. You'll be redirected to the edit page after creation.
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="new-sku">SKU *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="new-sku"
-                      value={newSku}
-                      onChange={(e) => setNewSku(e.target.value)}
-                      placeholder="e.g. JBY-CATAN-ESSTDNEW-001"
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleGenerateSku}
-                      disabled={isGeneratingSku}
-                      title="Auto-generate SKU"
-                    >
-                      {isGeneratingSku ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Wand2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    JBY-[SLUG]-[LANG][ED][FMT][BND][COND]-[SEQ]
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-ean">EAN / UPC</Label>
+              <div className="space-y-2">
+                <Label htmlFor="new-sku">SKU *</Label>
+                <div className="flex gap-2">
                   <Input
-                    id="new-ean"
-                    value={newEanUpc}
-                    onChange={(e) => setNewEanUpc(e.target.value)}
-                    placeholder="e.g. 8436017220711"
+                    id="new-sku"
+                    value={newSku}
+                    onChange={(e) => setNewSku(e.target.value)}
+                    placeholder="e.g. JBY-CATAN-ESNEW-001"
+                    className="flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleGenerateSku}
+                    disabled={isGeneratingSku}
+                    title="Auto-generate SKU"
+                  >
+                    {isGeneratingSku ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  JBY-[SLUG]-[LANG][COND]-[SEQ]
+                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="new-edition">Edition / Region</Label>
-                  <Input
-                    id="new-edition"
-                    value={newEdition}
-                    onChange={(e) => setNewEdition(e.target.value)}
-                    placeholder="e.g. 2nd Edition, Chile, US"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Format</Label>
-                  <Select value={newFormat} onValueChange={setNewFormat}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="STD">Standard</SelectItem>
-                      <SelectItem value="DLX">Deluxe</SelectItem>
-                      <SelectItem value="TRV">Travel</SelectItem>
-                      <SelectItem value="MNI">Mini</SelectItem>
-                      <SelectItem value="COL">Collector</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
                   <Label>Language</Label>
                   <Select value={newLanguage} onValueChange={setNewLanguage}>
@@ -319,80 +254,6 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                       <SelectItem value="refurbished">Refurbished</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Bundle</Label>
-                  <Select value={newBundle} onValueChange={setNewBundle}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="None" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="BND">Bundle</SelectItem>
-                      <SelectItem value="B2">Bundle x2</SelectItem>
-                      <SelectItem value="B3">Bundle x3</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={newStatus}
-                    onValueChange={(val) => {
-                      setNewStatus(val);
-                      if (val !== 'scheduled') setNewActiveAtScheduled('');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="pending_review">Pending Review</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="paused">Paused</SelectItem>
-                      <SelectItem value="discontinued">Discontinued</SelectItem>
-                      <SelectItem value="archived">Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {newStatus === 'scheduled' && (
-                <div className="space-y-2">
-                  <Label htmlFor="new-active-at-scheduled">Scheduled activation date</Label>
-                  <Input
-                    id="new-active-at-scheduled"
-                    type="datetime-local"
-                    value={newActiveAtScheduled}
-                    onChange={(e) => setNewActiveAtScheduled(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    The variant will become active automatically at this date &amp; time.
-                  </p>
-                </div>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="new-title-short">Display title (short)</Label>
-                  <Input
-                    id="new-title-short"
-                    value={newDisplayTitleShort}
-                    onChange={(e) => setNewDisplayTitleShort(e.target.value)}
-                    placeholder="Short display title"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-title-long">Display title (long)</Label>
-                  <Input
-                    id="new-title-long"
-                    value={newDisplayTitleLong}
-                    onChange={(e) => setNewDisplayTitleLong(e.target.value)}
-                    placeholder="Full display title"
-                  />
                 </div>
               </div>
             </div>
