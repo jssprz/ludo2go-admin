@@ -31,6 +31,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { X, Loader2 } from 'lucide-react';
+import { mapBggWeightToComplexityTierId } from '@/lib/utils';
 
 type GameDetailsWithCategories = GameDetails & {
   categories: GameCategory[];
@@ -296,8 +297,20 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
       if (typeof data.avgRating === 'number') setAvgRating(data.avgRating);
       if (typeof data.bayesAverageRating === 'number')
         setBayesAverageRating(data.bayesAverageRating);
-      if (typeof data.averageWeightRating === 'number')
+      let autoSelectedComplexityMsg = '';
+      if (typeof data.averageWeightRating === 'number') {
         setAverageWeightRating(data.averageWeightRating);
+        if (!complexityTierId) {
+          const inferredTierId = mapBggWeightToComplexityTierId(
+            data.averageWeightRating,
+            gameComplexities
+          );
+          if (inferredTierId) {
+            setComplexityTierId(inferredTierId);
+            autoSelectedComplexityMsg = ` Complexity tier auto-selected based on weight ${data.averageWeightRating}.`;
+          }
+        }
+      }
       if (typeof data.boardgameRank === 'number')
         setBoardgameRank(data.boardgameRank);
       if (data.ranks && data.ranks.length > 0)
@@ -309,6 +322,9 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
       }
       if (data.unmatchedMechanics?.length) {
         msg += ` ${data.unmatchedMechanics.length} BGG mechanic(s) not in DB: ${data.unmatchedMechanics.map(m => m.name).join(', ')}.`;
+      }
+      if (autoSelectedComplexityMsg) {
+        msg += autoSelectedComplexityMsg;
       }
       setSuccessMsg(msg);
     } catch (err: any) {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { mapBggWeightToComplexityTierId } from '@/lib/utils';
 
 type RouteContext = {
   params: Promise<{
@@ -85,6 +86,15 @@ export async function PUT(request: Request, { params }: RouteContext) {
       bgg,
     } = body;
 
+    const complexities = await prisma.gameComplexity.findMany({
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, slug: true },
+    });
+
+    const inferredComplexityId = (!complexityId && typeof bgg?.averageWeightRating === 'number')
+      ? mapBggWeightToComplexityTierId(bgg.averageWeightRating, complexities)
+      : null;
+
     const { id } = await params;
 
     // Update product
@@ -113,7 +123,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
         where: { productId: id },
         data: {
           timelineId: timelineId || null,
-          complexityId: complexityId || null,
+          complexityId: complexityId || inferredComplexityId || null,
           categories: {
             set: (gameCategoryIds || []).map((catId: string) => ({ id: catId })),
           },
@@ -150,7 +160,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
       const expansionData = {
         baseGameId: baseGameId || product.expansion?.baseGameId,
         timelineId: timelineId || null,
-        complexityId: complexityId || null,
+        complexityId: complexityId || inferredComplexityId || null,
         yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
         minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
         maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,
@@ -183,7 +193,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
             productId: id,
             baseGameId,
             timelineId: timelineId || null,
-            complexityId: complexityId || null,
+            complexityId: complexityId || inferredComplexityId || null,
             yearPublished: typeof yearPublished === 'number' ? yearPublished : null,
             minPlayers: typeof minPlayers === 'number' ? minPlayers : null,
             maxPlayers: typeof maxPlayers === 'number' ? maxPlayers : null,

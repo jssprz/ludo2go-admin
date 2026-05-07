@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { mapBggWeightToComplexityTierId } from '@/lib/utils';
 
 // POST /api/admin/products - Create a new product
 export async function POST(request: Request) {
@@ -12,6 +13,19 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { product: productData, game, expansion, accessory, bgg } = body;
+
+    const complexities = await prisma.gameComplexity.findMany({
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, slug: true },
+    });
+
+    const inferredGameComplexityId = (!game?.complexityTierId && typeof bgg?.averageWeightRating === 'number')
+      ? mapBggWeightToComplexityTierId(bgg.averageWeightRating, complexities)
+      : null;
+
+    const inferredExpansionComplexityId = (!expansion?.complexityTierId && typeof bgg?.averageWeightRating === 'number')
+      ? mapBggWeightToComplexityTierId(bgg.averageWeightRating, complexities)
+      : null;
 
     if (!productData?.name) {
       return NextResponse.json(
@@ -65,7 +79,7 @@ export async function POST(request: Request) {
           playtimeMin: typeof game.playtimeMin === 'number' ? game.playtimeMin : null,
           playtimeMax: typeof game.playtimeMax === 'number' ? game.playtimeMax : null,
           timelineId: game.timelineId || null,
-          complexityId: game.complexityTierId || null,
+          complexityId: game.complexityTierId || inferredGameComplexityId || null,
           ...(game.gameCategoryIds?.length
             ? { categories: { connect: game.gameCategoryIds.map((id: string) => ({ id })) } }
             : {}),
@@ -99,7 +113,7 @@ export async function POST(request: Request) {
           playtimeMin: typeof expansion.playtimeMin === 'number' ? expansion.playtimeMin : null,
           playtimeMax: typeof expansion.playtimeMax === 'number' ? expansion.playtimeMax : null,
           timelineId: expansion.timelineId || null,
-          complexityId: expansion.complexityTierId || null,
+          complexityId: expansion.complexityTierId || inferredExpansionComplexityId || null,
           addedComponents: expansion.addedComponents || null,
           isStandalone: expansion.isStandalone ?? false,
           isMajor: expansion.isMajor ?? false,

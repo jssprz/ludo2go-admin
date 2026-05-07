@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { mapBggWeightToComplexityTierId } from '@/lib/utils';
 
 // Usa los mismos tipos que en tu schema
 type ProductStatus = 'draft' | 'active' | 'archived';
@@ -272,8 +273,20 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
       if (typeof data.avgRating === 'number') setAvgRating(data.avgRating);
       if (typeof data.bayesAverageRating === 'number')
         setBayesAverageRating(data.bayesAverageRating);
-      if (typeof data.averageWeightRating === 'number')
+      let autoSelectedComplexityMsg = '';
+      if (typeof data.averageWeightRating === 'number') {
         setAverageWeightRating(data.averageWeightRating);
+        if (!complexityTierId) {
+          const inferredTierId = mapBggWeightToComplexityTierId(
+            data.averageWeightRating,
+            gameComplexities
+          );
+          if (inferredTierId) {
+            setComplexityTierId(inferredTierId);
+            autoSelectedComplexityMsg = ` Complexity tier auto-selected based on weight ${data.averageWeightRating}.`;
+          }
+        }
+      }
       if (typeof data.boardgameRank === 'number')
         setBoardgameRank(data.boardgameRank);
       if (data.ranks && data.ranks.length > 0)
@@ -285,6 +298,9 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
       }
       if (data.unmatchedMechanics?.length) {
         msg += ` ${data.unmatchedMechanics.length} BGG mechanic(s) not in DB: ${data.unmatchedMechanics.map(m => m.name).join(', ')}.`;
+      }
+      if (autoSelectedComplexityMsg) {
+        msg += autoSelectedComplexityMsg;
       }
       setSuccessMsg(msg);
     } catch (err: any) {
