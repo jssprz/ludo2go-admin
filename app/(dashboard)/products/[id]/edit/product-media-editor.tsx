@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { upload } from '@vercel/blob/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -39,6 +40,7 @@ import {
   ArrowDown,
   Search,
   Check,
+  Upload,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -84,6 +86,10 @@ export function ProductMediaEditor({ productId }: Props) {
   const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   const [selectedPickerIds, setSelectedPickerIds] = useState<Set<string>>(new Set());
   const [isAddingMedia, setIsAddingMedia] = useState(false);
+
+  // Upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const fetchProductMedia = useCallback(async () => {
     try {
@@ -292,6 +298,50 @@ export function ProductMediaEditor({ productId }: Props) {
     }
   }
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    setUploadProgress(`Uploading 0/${files.length}...`);
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}`);
+
+        const timestamp = Date.now();
+        const kind = file.type.startsWith('video/')
+          ? 'video'
+          : file.type === 'application/pdf'
+            ? 'pdf'
+            : file.type.startsWith('audio/')
+              ? 'audio'
+              : 'image';
+
+        await upload(`media/${kind}/${timestamp}-${file.name}`, file, {
+          access: 'public',
+          handleUploadUrl: '/api/media/upload',
+          clientPayload: JSON.stringify({
+            sizeBytes: file.size,
+            mime: file.type,
+          }),
+        });
+      }
+
+      // Refresh available media
+      fetchAvailableMedia();
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || 'Upload failed');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(null);
+      // Reset the input
+      e.target.value = '';
+    }
+  }
+
   function getMediaIcon(kind: string) {
     switch (kind) {
       case 'image':
@@ -470,9 +520,45 @@ export function ProductMediaEditor({ productId }: Props) {
           <DialogHeader>
             <DialogTitle>Add Media</DialogTitle>
             <DialogDescription>
-              Select media from your library to add to this product
+              Upload new media or select from your library to add to this product
             </DialogDescription>
           </DialogHeader>
+
+          {/* Upload Section */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium">Upload New Media</h4>
+              <label htmlFor="product-media-upload">
+                <Button asChild size="sm" disabled={isUploading}>
+                  <span>
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {uploadProgress || 'Uploading...'}
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload Files
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+              <input
+                id="product-media-upload"
+                type="file"
+                accept="image/*,video/*,application/pdf,audio/*"
+                multiple
+                onChange={handleUpload}
+                className="hidden"
+                disabled={isUploading}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Supported formats: Images, Videos, PDFs, Audio files
+            </p>
+          </div>
 
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
