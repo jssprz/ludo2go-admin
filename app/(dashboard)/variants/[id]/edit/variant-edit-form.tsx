@@ -126,9 +126,16 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [scrapingStoreId, setScrapingStoreId] = useState<string | null>(null);
   const [isScrapingAll, setIsScrapingAll] = useState(false);
+  const [isScrapingPhysical, setIsScrapingPhysical] = useState(false);
   const [isGeneratingSku, setIsGeneratingSku] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  function toNullableNumber(value: string): number | null {
+    if (value.trim() === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
 
   function handleStoreUrlChange(storeId: string, value: string) {
     setStoresState((prev) =>
@@ -302,6 +309,67 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
     } finally {
       setIsScrapingAll(false);
       setScrapingStoreId(null);
+    }
+  }
+
+  async function handleFetchPhysicalFromGatoArcano() {
+    setIsScrapingPhysical(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const gatoArcanoStore = storesState.find((store) => {
+      const value = `${store.storeName} ${store.storeBaseUrl} ${store.fullUrl}`.toLowerCase();
+      return value.includes('gatoarcano.cl');
+    });
+
+    if (!gatoArcanoStore?.fullUrl.trim()) {
+      setErrorMsg('No GatoArcano URL was found in store links for this variant.');
+      setIsScrapingPhysical(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/variants/${variant.id}/scrape-physical`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: gatoArcanoStore.fullUrl.trim() })
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.message || 'Failed to extract physical attributes from GatoArcano');
+      }
+
+      const result = data.result as {
+        weightGrams: number | null;
+        widthMm: number | null;
+        heightMm: number | null;
+        depthMm: number | null;
+        packageType: PackagingType | null;
+      };
+
+      if (result.weightGrams != null) setWeightGrams(result.weightGrams);
+      if (result.widthMm != null) setWidthMm(result.widthMm);
+      if (result.heightMm != null) setHeightMm(result.heightMm);
+      if (result.depthMm != null) setDepthMm(result.depthMm);
+      if (result.packageType != null) setPackageType(result.packageType);
+
+      const updatedLabels: string[] = [];
+      if (result.weightGrams != null) updatedLabels.push('weight');
+      if (result.widthMm != null || result.heightMm != null || result.depthMm != null) {
+        updatedLabels.push('dimensions');
+      }
+      if (result.packageType != null) updatedLabels.push('packaging');
+
+      if (updatedLabels.length > 0) {
+        setSuccessMsg(`Fetched ${updatedLabels.join(', ')} from GatoArcano.`);
+      } else {
+        setErrorMsg('No physical attributes were found on the GatoArcano page.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error fetching physical attributes from GatoArcano');
+    } finally {
+      setIsScrapingPhysical(false);
     }
   }
 
@@ -483,68 +551,90 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="weightGrams">Weight (grams)</Label>
-          <Input
-            id="weightGrams"
-            type="number"
-            step="10"
-            value={weightGrams ? weightGrams : ''}
-            onChange={(e) => setWeightGrams(Number(e.target.value))}
-          />
-        </div>
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="widthMm">Width (mm)</Label>
-          <Input
-            id="widthMm"
-            type="number"
-            step="1"
-            value={widthMm ? widthMm : ''}
-            onChange={(e) => setWidthMm(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="heightMm">Height (mm)</Label>
-          <Input
-            id="heightMm"
-            type="number"
-            step="1"
-            value={heightMm ? heightMm : ''}
-            onChange={(e) => setHeightMm(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="depthMm">Depth (mm)</Label>
-          <Input
-            id="depthMm"
-            type="number"
-            step="1"
-            value={depthMm ? depthMm : ''}
-            onChange={(e) => setDepthMm(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="packageType">Packaging Type</Label>
-          <Select
-            value={packageType ? packageType : ''}
-            onValueChange={(val) => setPackageType(val as typeof packageType)}
+      <div className="space-y-3 border rounded-md p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-medium">Physical attributes</h2>
+            <p className="text-xs text-muted-foreground">
+              Weight, dimensions, and packaging used for shipping and feed integrations.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isScrapingPhysical}
+            onClick={handleFetchPhysicalFromGatoArcano}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select packaging type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="box">Box</SelectItem>
-              <SelectItem value="bag">Bag</SelectItem>
-              <SelectItem value="tube">Tube</SelectItem>
-              <SelectItem value="envelope">Envelope</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-              <SelectItem value="none">None</SelectItem>
-            </SelectContent>
-          </Select>
+            {isScrapingPhysical ? 'Fetching…' : 'Fetch from GatoArcano'}
+          </Button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-5">
+          <div className="space-y-2">
+            <Label htmlFor="weightGrams">Weight (grams)</Label>
+            <Input
+              id="weightGrams"
+              type="number"
+              step="10"
+              value={weightGrams ?? ''}
+              onChange={(e) => setWeightGrams(toNullableNumber(e.target.value))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="widthMm">Width (mm)</Label>
+            <Input
+              id="widthMm"
+              type="number"
+              step="1"
+              value={widthMm ?? ''}
+              onChange={(e) => setWidthMm(toNullableNumber(e.target.value))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="heightMm">Height (mm)</Label>
+            <Input
+              id="heightMm"
+              type="number"
+              step="1"
+              value={heightMm ?? ''}
+              onChange={(e) => setHeightMm(toNullableNumber(e.target.value))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="depthMm">Depth (mm)</Label>
+            <Input
+              id="depthMm"
+              type="number"
+              step="1"
+              value={depthMm ?? ''}
+              onChange={(e) => setDepthMm(toNullableNumber(e.target.value))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="packageType">Packaging Type</Label>
+            <Select
+              value={packageType ? packageType : ''}
+              onValueChange={(val) => setPackageType(val as typeof packageType)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select packaging type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="box">Box</SelectItem>
+                <SelectItem value="bag">Bag</SelectItem>
+                <SelectItem value="tube">Tube</SelectItem>
+                <SelectItem value="envelope">Envelope</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
