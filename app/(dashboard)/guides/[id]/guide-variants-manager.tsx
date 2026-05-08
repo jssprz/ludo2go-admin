@@ -40,7 +40,6 @@ type ProductVariant = {
   product: {
     id: string;
     name: string;
-    slug: string;
   };
 };
 
@@ -65,6 +64,7 @@ export function GuideVariantsManager({ guide }: Props) {
   const tc = useTranslations('common');
   const [variants, setVariants] = useState<GuideProductVariant[]>(guide.variants);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearchingVariants, setIsSearchingVariants] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableVariants, setAvailableVariants] = useState<ProductVariant[]>([]);
   const [variantSearch, setVariantSearch] = useState('');
@@ -79,20 +79,34 @@ export function GuideVariantsManager({ guide }: Props) {
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load available variants when dialog opens
-    if (showAddDialog) {
-      fetchAvailableVariants();
+    if (!showAddDialog) {
+      setAvailableVariants([]);
+      setVariantSearch('');
+      setSelectedVariantId('');
+      setFormError(null);
+      return;
     }
-  }, [showAddDialog]);
+    void fetchAvailableVariants(variantSearch);
+  }, [showAddDialog, variantSearch]);
 
-  async function fetchAvailableVariants() {
+  async function fetchAvailableVariants(search: string) {
+    const query = search.trim();
+    if (!query) {
+      setAvailableVariants([]);
+      return;
+    }
+
+    setIsSearchingVariants(true);
     try {
-      const res = await fetch('/api/variants');
+      const params = new URLSearchParams({ q: query });
+      const res = await fetch(`/api/variants/search?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch variants');
       const data = await res.json();
       setAvailableVariants(data);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : tc('error'));
+    } finally {
+      setIsSearchingVariants(false);
     }
   }
 
@@ -101,13 +115,7 @@ export function GuideVariantsManager({ guide }: Props) {
       const isAlreadyAdded = variants.some((gv) => gv.variantId === v.id);
       if (isAlreadyAdded) return false;
 
-      if (!variantSearch) return true;
-      const searchLower = variantSearch.toLowerCase();
-      return (
-        v.sku.toLowerCase().includes(searchLower) ||
-        v.product.name.toLowerCase().includes(searchLower) ||
-        v.product.slug.toLowerCase().includes(searchLower)
-      );
+      return true;
     });
   }
 
@@ -267,9 +275,18 @@ export function GuideVariantsManager({ guide }: Props) {
                   className="flex-1"
                 />
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Type SKU, product name, or edition to search variants.
+              </p>
             </div>
 
-            {filteredVariants.length > 0 && (
+            {isSearchingVariants && (
+              <div className="text-sm text-muted-foreground text-center py-2">
+                Searching variants...
+              </div>
+            )}
+
+            {!isSearchingVariants && filteredVariants.length > 0 && (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {filteredVariants.map((variant) => (
                   <div
@@ -292,7 +309,7 @@ export function GuideVariantsManager({ guide }: Props) {
               </div>
             )}
 
-            {variantSearch && filteredVariants.length === 0 && (
+            {variantSearch && !isSearchingVariants && filteredVariants.length === 0 && (
               <div className="text-sm text-muted-foreground text-center py-4">
                 {tc('noResults')}
               </div>
