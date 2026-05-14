@@ -478,8 +478,8 @@
     "nameUrlRequired": "Name and URL are required"
   },
   "guideCategories": {
-    "title": "Guide Categories",
-    "description": "Manage guide categories for organizing content.",
+    "pageTitle": "Guide Categories",
+    "pageDescription": "Manage guide categories for organizing content.",
     "categories": "Categories",
     "manageCategories": "Manage and organize guide categories",
     "createCategory": "Create Category",
@@ -497,7 +497,7 @@
     "descriptionPlaceholder": "Brief description of the category"
   },
   "guides": {
-    "title": "Guides",
+    "pageTitle": "Guides",
     "description": "Manage guides and instructional content.",
     "guides": "Guides",
     "manageGuides": "Create and manage guide content",
@@ -508,6 +508,8 @@
     "editGuideDescription": "Update guide content, blocks, and product associations",
     "deleteGuideDescription": "This action cannot be undone.",
     "view": "View",
+    "exportJson": "Export JSON",
+    "duplicate": "Duplicate",
     "content": "Content",
     "title": "Title",
     "subtitle": "Subtitle",
@@ -535,7 +537,7 @@
     "contentDescription": "Write the main content and introduction for this guide",
     "contentPlaceholder": "Main guide content...",
     "seo": "SEO Settings",
-    "seoDescription": "Optimize guide visibility in search engines",
+    "seoSettingsDescription": "Optimize guide visibility in search engines",
     "seoTitle": "SEO Title",
     "seoTitlePlaceholder": "Unique title for search engines",
     "seoDescription": "Meta Description",

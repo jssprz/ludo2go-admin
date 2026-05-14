@@ -283,7 +283,7 @@ export function GuideEditor({ guide, categories }: Props) {
         <CardHeader>
           <CardTitle>{t('seo')}</CardTitle>
           <CardDescription>
-            {t('seoDescription')}
+            {t('seoSettingsDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

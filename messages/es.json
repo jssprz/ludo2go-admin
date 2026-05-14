@@ -477,8 +477,8 @@
     "nameUrlRequired": "El nombre y la URL son requeridos"
   },
   "guideCategories": {
-    "title": "Categorías de Guías",
-    "description": "Gestiona las categorías de guías para organizar el contenido.",
+    "pageTitle": "Categorías de Guías",
+    "pageDescription": "Gestiona las categorías de guías para organizar el contenido.",
     "categories": "Categorías",
     "manageCategories": "Gestiona y organiza las categorías de guías",
     "createCategory": "Crear Categoría",
@@ -496,7 +496,7 @@
     "descriptionPlaceholder": "Breve descripción de la categoría"
   },
   "guides": {
-    "title": "Guías",
+    "pageTitle": "Guías",
     "description": "Gestiona las guías y contenido instructivo.",
     "guides": "Guías",
     "manageGuides": "Crea y gestiona contenido de guías",
@@ -507,6 +507,8 @@
     "editGuideDescription": "Actualizar contenido, bloques y asociaciones de productos de la guía",
     "deleteGuideDescription": "Esta acción no se puede deshacer.",
     "view": "Ver",
+    "exportJson": "Exportar JSON",
+    "duplicate": "Duplicar",
     "content": "Contenido",
     "title": "Título",
     "subtitle": "Subtítulo",
@@ -534,7 +536,7 @@
     "contentDescription": "Escribir el contenido principal e introducción de esta guía",
     "contentPlaceholder": "Contenido principal de la guía...",
     "seo": "Configuración SEO",
-    "seoDescription": "Optimizar la visibilidad de la guía en motores de búsqueda",
+    "seoSettingsDescription": "Optimizar la visibilidad de la guía en motores de búsqueda",
     "seoTitle": "Título SEO",
     "seoTitlePlaceholder": "Título único para motores de búsqueda",
     "seoDescription": "Meta Descripción",

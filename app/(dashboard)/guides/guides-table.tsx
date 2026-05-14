@@ -51,6 +51,8 @@ import {
   Search,
   Loader2,
   ExternalLink,
+  Download,
+  CopyPlus,
 } from 'lucide-react';
 import { GuideStatus } from '@prisma/client';
 
@@ -93,6 +95,8 @@ export function GuidesTable({ initialGuides, categories }: Props) {
   const [statusFilter, setStatusFilter] = useState<GuideStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [activeGuideAction, setActiveGuideAction] = useState<string | null>(null);
+  const [tableError, setTableError] = useState<string | null>(null);
 
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -180,6 +184,26 @@ export function GuidesTable({ initialGuides, categories }: Props) {
       default:
         return 'secondary';
     }
+  }
+
+  async function getErrorMessage(res: Response) {
+    try {
+      const error = await res.json();
+      return error.error || tc('error');
+    } catch {
+      return tc('error');
+    }
+  }
+
+  function getFileNameFromHeader(contentDisposition: string | null) {
+    if (!contentDisposition) return null;
+
+    const match = contentDisposition.match(/filename="?([^\"]+)"?/i);
+    return match?.[1] ?? null;
+  }
+
+  function isGuideActionLoading(guideId: string, action: 'export' | 'duplicate') {
+    return activeGuideAction === `${action}:${guideId}`;
   }
 
   async function handleCreate() {
@@ -285,6 +309,57 @@ export function GuidesTable({ initialGuides, categories }: Props) {
     }
   }
 
+  async function handleExport(guide: Guide) {
+    setActiveGuideAction(`export:${guide.id}`);
+    setTableError(null);
+
+    try {
+      const res = await fetch(`/api/guides/${guide.id}/export`);
+      if (!res.ok) {
+        throw new Error(await getErrorMessage(res));
+      }
+
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const fileName = getFileNameFromHeader(res.headers.get('content-disposition')) || `${guide.slug}.json`;
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      setTableError(error instanceof Error ? error.message : tc('error'));
+    } finally {
+      setActiveGuideAction(null);
+    }
+  }
+
+  async function handleDuplicate(guide: Guide) {
+    setActiveGuideAction(`duplicate:${guide.id}`);
+    setTableError(null);
+
+    try {
+      const res = await fetch(`/api/guides/${guide.id}/duplicate`, {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        throw new Error(await getErrorMessage(res));
+      }
+
+      const duplicatedGuide = await res.json();
+      setGuides((prev) => [duplicatedGuide, ...prev]);
+      router.push(`/guides/${duplicatedGuide.id}`);
+    } catch (error) {
+      setTableError(error instanceof Error ? error.message : tc('error'));
+    } finally {
+      setActiveGuideAction(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -341,6 +416,9 @@ export function GuidesTable({ initialGuides, categories }: Props) {
 
       <Card>
         <CardContent className="p-0">
+          {tableError && (
+            <div className="px-4 pt-4 text-sm text-destructive">{tableError}</div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
@@ -388,6 +466,28 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                         <DropdownMenuItem onClick={() => openEditDialog(guide)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           {tc('edit')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExport(guide)}
+                          disabled={activeGuideAction !== null}
+                        >
+                          {isGuideActionLoading(guide.id, 'export') ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-2" />
+                          )}
+                          {t('exportJson')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDuplicate(guide)}
+                          disabled={activeGuideAction !== null}
+                        >
+                          {isGuideActionLoading(guide.id, 'duplicate') ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <CopyPlus className="h-4 w-4 mr-2" />
+                          )}
+                          {t('duplicate')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => openDeleteDialog(guide)}
