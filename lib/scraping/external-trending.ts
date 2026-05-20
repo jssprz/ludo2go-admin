@@ -145,10 +145,15 @@ async function fetchProductBrand(url: string): Promise<string | null> {
     const $ = cheerio.load(html);
 
     // Try multiple selectors for brand on product detail page
+    // For dementegames: <div class="product-manufacturer" itemprop="brand"><meta itemprop="name" content="Fractal Juegos">
+    // For magicsur: <div class="product-manufacturer-next img alt="...">
     const brand =
+      $('.product-manufacturer meta[itemprop="name"]').attr('content') ||
       $('meta[itemprop="brand"]').attr('content') ||
       $('[itemprop="brand"]').first().text().trim() ||
-      $('.product-manufacturer a').first().text().trim() ||
+      $('.product-manufacturer-next img').attr('alt')?.trim() ||
+      $('.product-manufacturer a img').attr('alt')?.trim() ||
+      $('.product-manufacturer img').attr('alt')?.trim() ||
       $('.product-manufacturer').first().text().trim() ||
       $('.manufacturer').first().text().trim() ||
       $('[class*="brand"]').first().text().trim() || null;
