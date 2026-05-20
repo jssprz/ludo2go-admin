@@ -25,7 +25,18 @@ import {
   TrendingUp,
   AlertCircle,
   ImageOff,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
+
+interface CatalogStatus {
+  inCatalog: boolean;
+  variantId?: string;
+  variantSku?: string;
+  productName?: string;
+  loading?: boolean;
+  error?: string;
+}
 
 interface TrendingProduct {
   rank: number;
@@ -36,6 +47,7 @@ interface TrendingProduct {
   originalPrice: number | null;
   currency: string;
   badge: string | null;
+  catalogStatus?: CatalogStatus;
 }
 
 interface TrendingSource {
@@ -62,7 +74,111 @@ function getTimeSince(isoDate: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+async function checkProductCatalogStatus(
+  url: string,
+  storeKey: string
+): Promise<CatalogStatus> {
+  try {
+    const res = await fetch('/api/trending/check-catalog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, storeKey }),
+    });
+
+    if (!res.ok) {
+      return {
+        inCatalog: false,
+        error: 'Failed to check',
+      };
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error('Error checking catalog:', error);
+    return {
+      inCatalog: false,
+      error: 'Error',
+    };
+  }
+}
+
+function CatalogStatusBadge({ status }: { status: CatalogStatus | undefined }) {
+  if (!status) return null;
+
+  if (status.error) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Circle className="h-3 w-3" />
+        <span>{status.error}</span>
+      </div>
+    );
+  }
+
+  if (status.inCatalog) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <span className="text-xs font-medium text-green-600">In Catalog</span>
+        </div>
+        {status.variantSku && (
+          <div className="text-xs text-muted-foreground">SKU: {status.variantSku}</div>
+        )}
+        {status.productName && (
+          <div className="text-xs text-muted-foreground line-clamp-1">
+            {status.productName}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <Circle className="h-3 w-3" />
+      <span>Not in catalog</span>
+    </div>
+  );
+}
+
 function TrendingStoreCard({ source }: { source: TrendingSource }) {
+  const [products, setProducts] = useState<TrendingProduct[]>(source.products);
+  const [isCheckingCatalog, setIsCheckingCatalog] = useState(false);
+
+  // Fetch catalog status for all products in this store
+  useEffect(() => {
+    async function fetchCatalogStatuses() {
+      setIsCheckingCatalog(true);
+      const updatedProducts = await Promise.all(
+        products.map(async (product) => ({
+          ...product,
+          catalogStatus: {
+            inCatalog: false,
+            loading: true,
+          },
+        }))
+      );
+      setProducts(updatedProducts);
+
+      // Now fetch actual status for each product
+      const finalProducts = await Promise.all(
+        updatedProducts.map(async (product) => {
+          const status = await checkProductCatalogStatus(product.url, source.storeName);
+          return {
+            ...product,
+            catalogStatus: status,
+          };
+        })
+      );
+      setProducts(finalProducts);
+      setIsCheckingCatalog(false);
+    }
+
+    if (products.length > 0) {
+      fetchCatalogStatuses();
+    }
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -92,7 +208,7 @@ function TrendingStoreCard({ source }: { source: TrendingSource }) {
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span>Failed to scrape: {source.error}</span>
           </div>
-        ) : source.products.length === 0 ? (
+        ) : products.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No products found. The page structure may have changed.
           </p>
@@ -108,10 +224,11 @@ function TrendingStoreCard({ source }: { source: TrendingSource }) {
                   Original
                 </TableHead>
                 <TableHead className="hidden md:table-cell">Badge</TableHead>
+                <TableHead>Catalog Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {source.products.map((p) => {
+              {products.map((p) => {
                 const hasDiscount =
                   p.originalPrice !== null &&
                   p.price !== null &&
@@ -185,6 +302,16 @@ function TrendingStoreCard({ source }: { source: TrendingSource }) {
                           {p.badge}
                         </Badge>
                       ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {p.catalogStatus?.loading ? (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Checking…</span>
+                        </div>
+                      ) : (
+                        <CatalogStatusBadge status={p.catalogStatus} />
+                      )}
                     </TableCell>
                   </TableRow>
                 );
