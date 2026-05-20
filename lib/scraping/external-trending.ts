@@ -54,7 +54,7 @@ const SITES: SiteConfig[] = [
     parse($) {
       const products: TrendingProduct[] = [];
       // PrestaShop product list
-      $('article.product-miniature, .js-product-miniature, .product-information').each((i, el) => {
+      $('article.product-miniature, .js-product-miniature').each((i, el) => {
         const $el = $(el);
         const name =
           $el.find('.product-title a, h2.product-title a, .h3.product-title a').text().trim() ||
@@ -69,11 +69,6 @@ const SITES: SiteConfig[] = [
         const originalPriceText = $el.find('.product-price-and-shipping .regular-price').text();
         const badge =
           $el.find('.product-flag, .discount-percentage, .new, .on-sale').first().text().trim() || null;
-        const brand =
-          $el.find('.product-manufacturer meta[itemprop="name"]').attr('content') ||
-          $el.find('[itemprop="brand"] meta[itemprop="name"]').attr('content') ||
-          $el.find('.product-manufacturer img').attr('alt')?.trim() ||
-          $el.find('[itemprop="brand"] img').attr('alt')?.trim() || null;
 
         if (name) {
           products.push({
@@ -85,7 +80,7 @@ const SITES: SiteConfig[] = [
             originalPrice: normalizePriceText(originalPriceText),
             currency: 'CLP',
             badge,
-            brand,
+            brand: null,
           });
         }
       });
@@ -98,7 +93,7 @@ const SITES: SiteConfig[] = [
     url: 'https://www.magicsur.cl/15-juegos-de-mesa-magicsur-chile?order=product.sales.desc',
     parse($) {
       const products: TrendingProduct[] = [];
-      $('article.product-miniature, .js-product-miniature, .product_header_container').each((i, el) => {
+      $('article.product-miniature, .js-product-miniature').each((i, el) => {
         const $el = $(el);
         const name =
           $el.find('.product-title a, h2.product-title a, .h3.product-title a').text().trim() ||
@@ -113,10 +108,6 @@ const SITES: SiteConfig[] = [
         const originalPriceText = $el.find('.product-price-and-shipping .regular-price').text();
         const badge =
           $el.find('.product-flag, .discount-percentage, .new, .on-sale').first().text().trim() || null;
-        const brand =
-          $el.find('.product-manufacturer-next img').attr('alt')?.trim() ||
-          $el.find('.product-manufacturer img').attr('alt')?.trim() ||
-          $el.find('[class*="manufacturer"] img').attr('alt')?.trim() || null;
 
         if (name) {
           products.push({
@@ -128,7 +119,7 @@ const SITES: SiteConfig[] = [
             originalPrice: normalizePriceText(originalPriceText),
             currency: 'CLP',
             badge,
-            brand: brand || null,
+            brand: null,
           });
         }
       });
@@ -136,6 +127,37 @@ const SITES: SiteConfig[] = [
     },
   },
 ];
+
+// ─── Fetch brand from product detail page ────────────────────
+async function fetchProductBrand(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
+      },
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    // Try multiple selectors for brand on product detail page
+    const brand =
+      $('meta[itemprop="brand"]').attr('content') ||
+      $('[itemprop="brand"]').first().text().trim() ||
+      $('.product-manufacturer a').first().text().trim() ||
+      $('.product-manufacturer').first().text().trim() ||
+      $('.manufacturer').first().text().trim() ||
+      $('[class*="brand"]').first().text().trim() || null;
+
+    return brand && brand.length > 0 ? brand : null;
+  } catch (err) {
+    return null;
+  }
+}
 
 // ─── Fetch + parse one site ────────────────────────────────────
 async function scrapeSite(config: SiteConfig): Promise<TrendingSource> {
@@ -163,11 +185,19 @@ async function scrapeSite(config: SiteConfig): Promise<TrendingSource> {
     const $ = cheerio.load(html);
     const products = config.parse($);
 
+    // Fetch brand from each product's detail page
+    const productsWithBrands = await Promise.all(
+      products.map(async (product) => {
+        const brand = await fetchProductBrand(product.url);
+        return { ...product, brand };
+      })
+    );
+
     return {
       key: config.key,
       storeName: config.storeName,
       url: config.url,
-      products,
+      products: productsWithBrands,
       scrapedAt: new Date().toISOString(),
     };
   } catch (err: any) {
