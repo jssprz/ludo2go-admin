@@ -9,6 +9,7 @@ export interface TrendingProduct {
   originalPrice: number | null;
   currency: string;
   badge: string | null; // e.g. "Nuevo", "Oferta", "-20%"
+  brand?: string | null; // e.g. "Fractal Juegos"
 }
 
 export interface TrendingSource {
@@ -68,6 +69,9 @@ const SITES: SiteConfig[] = [
         const originalPriceText = $el.find('.product-price-and-shipping .regular-price').text();
         const badge =
           $el.find('.product-flag, .discount-percentage, .new, .on-sale').first().text().trim() || null;
+        const brand =
+          $el.find('.product-manufacturer meta[itemprop="name"]').attr('content') ||
+          $el.find('.product-manufacturer img').attr('alt') || null;
 
         if (name) {
           products.push({
@@ -79,6 +83,7 @@ const SITES: SiteConfig[] = [
             originalPrice: normalizePriceText(originalPriceText),
             currency: 'CLP',
             badge,
+            brand,
           });
         }
       });
@@ -106,6 +111,8 @@ const SITES: SiteConfig[] = [
         const originalPriceText = $el.find('.product-price-and-shipping .regular-price').text();
         const badge =
           $el.find('.product-flag, .discount-percentage, .new, .on-sale').first().text().trim() || null;
+        const brandAlt = $el.find('.product-manufacturer-next img, .product-manufacturer img').attr('alt');
+        const brand = brandAlt ? brandAlt.trim() : null;
 
         if (name) {
           products.push({
@@ -117,6 +124,7 @@ const SITES: SiteConfig[] = [
             originalPrice: normalizePriceText(originalPriceText),
             currency: 'CLP',
             badge,
+            brand: brand || null,
           });
         }
       });

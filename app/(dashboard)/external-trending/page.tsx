@@ -47,6 +47,7 @@ interface TrendingProduct {
   originalPrice: number | null;
   currency: string;
   badge: string | null;
+  brand?: string | null;
   catalogStatus?: CatalogStatus;
 }
 
@@ -219,6 +220,7 @@ function TrendingStoreCard({ source }: { source: TrendingSource }) {
                 <TableHead className="w-10">#</TableHead>
                 <TableHead className="w-16">Image</TableHead>
                 <TableHead>Product</TableHead>
+                <TableHead className="hidden lg:table-cell">Brand</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right hidden sm:table-cell">
                   Original
@@ -269,6 +271,13 @@ function TrendingStoreCard({ source }: { source: TrendingSource }) {
                       >
                         {p.name}
                       </a>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {p.brand ? (
+                        <span className="text-sm text-muted-foreground">{p.brand}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <span
