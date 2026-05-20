@@ -129,7 +129,7 @@ const SITES: SiteConfig[] = [
   {
     key: 'updown',
     storeName: 'Updown',
-    url: 'https://www.updown.cl/categoria-producto/juegos-de-mesa/?orderby=popularity&per_row=5&per_page=%2060',
+    url: 'https://www.updown.cl/categoria-producto/juegos-de-mesa/?orderby=popularity&paged=1',
     parse($) {
       const products: TrendingProduct[] = [];
       // WooCommerce + Woodmart theme
