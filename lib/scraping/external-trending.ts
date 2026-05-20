@@ -126,6 +126,47 @@ const SITES: SiteConfig[] = [
       return products;
     },
   },
+  {
+    key: 'updown',
+    storeName: 'Updown',
+    url: 'https://www.updown.cl/categoria-producto/juegos-de-mesa/?orderby=popularity&per_row=5&per_page=%2060',
+    parse($) {
+      const products: TrendingProduct[] = [];
+      // WooCommerce + Woodmart theme
+      $('.wd-product.product-grid-item').each((i, el) => {
+        const $el = $(el);
+        const name =
+          $el.find('h3.wd-entities-title a').text().trim() ||
+          $el.find('h2.wd-entities-title a').text().trim();
+        const url =
+          $el.find('.product-image-link').attr('href') ||
+          $el.find('h3.wd-entities-title a').attr('href') || '';
+        const imageUrl =
+          $el.find('.product-image-link noscript img').attr('src') ||
+          $el.find('.product-image-link img').attr('data-lazy-src') ||
+          $el.find('.product-image-link img').attr('src') || null;
+        const priceText = $el.find('.woocommerce-Price-amount.amount').first().text();
+        const originalPriceText = $el.find('.woocommerce-Price-amount.amount').eq(1).text();
+        const badge =
+          $el.find('.onsale.product-label').first().text().trim() || null;
+
+        if (name && url) {
+          products.push({
+            rank: i + 1,
+            name,
+            url: url.startsWith('http') ? url : `https://www.updown.cl${url}`,
+            imageUrl,
+            price: normalizePriceText(priceText),
+            originalPrice: normalizePriceText(originalPriceText),
+            currency: 'CLP',
+            badge,
+            brand: null,
+          });
+        }
+      });
+      return products;
+    },
+  },
 ];
 
 // ─── Fetch brand from product detail page ────────────────────
@@ -145,18 +186,32 @@ async function fetchProductBrand(url: string): Promise<string | null> {
     const $ = cheerio.load(html);
 
     // Try multiple selectors for brand on product detail page
+    // For updown: <li>Marca:Devir</li> inside <div class="woocommerce-product-details__short-description"><ul><li>
     // For dementegames: <div class="product-manufacturer" itemprop="brand"><meta itemprop="name" content="Fractal Juegos">
     // For magicsur: <div class="product-manufacturer-next img alt="...">
-    const brand =
-      $('.product-manufacturer meta[itemprop="name"]').attr('content') ||
-      $('meta[itemprop="brand"]').attr('content') ||
-      $('[itemprop="brand"]').first().text().trim() ||
-      $('.product-manufacturer-next img').attr('alt')?.trim() ||
-      $('.product-manufacturer a img').attr('alt')?.trim() ||
-      $('.product-manufacturer img').attr('alt')?.trim() ||
-      $('.product-manufacturer').first().text().trim() ||
-      $('.manufacturer').first().text().trim() ||
-      $('[class*="brand"]').first().text().trim() || null;
+    
+    // UpDown: extract from "Marca:" in short description
+    let brand =
+      $('.woocommerce-product-details__short-description li')
+        .toArray()
+        .map((el) => $(el).text())
+        .find((text) => text.toLowerCase().startsWith('marca:'))
+        ?.replace(/^marca:\s*/i, '')
+        ?.trim() || null;
+
+    // If not found via updown method, try other stores
+    if (!brand) {
+      brand =
+        $('.product-manufacturer meta[itemprop="name"]').attr('content') ||
+        $('meta[itemprop="brand"]').attr('content') ||
+        $('[itemprop="brand"]').first().text().trim() ||
+        $('.product-manufacturer-next img').attr('alt')?.trim() ||
+        $('.product-manufacturer a img').attr('alt')?.trim() ||
+        $('.product-manufacturer img').attr('alt')?.trim() ||
+        $('.product-manufacturer').first().text().trim() ||
+        $('.manufacturer').first().text().trim() ||
+        $('[class*="brand"]').first().text().trim() || null;
+    }
 
     return brand && brand.length > 0 ? brand : null;
   } catch (err) {
