@@ -48,7 +48,7 @@ function normalizePriceText(text: string | undefined | null): number | null {
 const SITES: SiteConfig[] = [
   {
     key: 'dementegames',
-    storeName: 'Demente Games',
+    storeName: 'Demente games',
     url: 'https://dementegames.cl/10-juegos-de-mesa?order=product.sales.desc',
     parse($) {
       const products: TrendingProduct[] = [];
@@ -87,7 +87,7 @@ const SITES: SiteConfig[] = [
   },
   {
     key: 'magicsur',
-    storeName: 'MagicSur',
+    storeName: 'magicsur',
     url: 'https://www.magicsur.cl/15-juegos-de-mesa-magicsur-chile?order=product.sales.desc',
     parse($) {
       const products: TrendingProduct[] = [];
