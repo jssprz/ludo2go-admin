@@ -54,7 +54,7 @@ const SITES: SiteConfig[] = [
     parse($) {
       const products: TrendingProduct[] = [];
       // PrestaShop product list
-      $('article.product-miniature, .js-product-miniature').each((i, el) => {
+      $('article.product-miniature, .js-product-miniature, .product-information').each((i, el) => {
         const $el = $(el);
         const name =
           $el.find('.product-title a, h2.product-title a, .h3.product-title a').text().trim() ||
@@ -98,7 +98,7 @@ const SITES: SiteConfig[] = [
     url: 'https://www.magicsur.cl/15-juegos-de-mesa-magicsur-chile?order=product.sales.desc',
     parse($) {
       const products: TrendingProduct[] = [];
-      $('article.product-miniature, .js-product-miniature').each((i, el) => {
+      $('article.product-miniature, .js-product-miniature, .product_header_container').each((i, el) => {
         const $el = $(el);
         const name =
           $el.find('.product-title a, h2.product-title a, .h3.product-title a').text().trim() ||
