@@ -71,7 +71,9 @@ const SITES: SiteConfig[] = [
           $el.find('.product-flag, .discount-percentage, .new, .on-sale').first().text().trim() || null;
         const brand =
           $el.find('.product-manufacturer meta[itemprop="name"]').attr('content') ||
-          $el.find('.product-manufacturer img').attr('alt') || null;
+          $el.find('[itemprop="brand"] meta[itemprop="name"]').attr('content') ||
+          $el.find('.product-manufacturer img').attr('alt')?.trim() ||
+          $el.find('[itemprop="brand"] img').attr('alt')?.trim() || null;
 
         if (name) {
           products.push({
@@ -111,8 +113,10 @@ const SITES: SiteConfig[] = [
         const originalPriceText = $el.find('.product-price-and-shipping .regular-price').text();
         const badge =
           $el.find('.product-flag, .discount-percentage, .new, .on-sale').first().text().trim() || null;
-        const brandAlt = $el.find('.product-manufacturer-next img, .product-manufacturer img').attr('alt');
-        const brand = brandAlt ? brandAlt.trim() : null;
+        const brand =
+          $el.find('.product-manufacturer-next img').attr('alt')?.trim() ||
+          $el.find('.product-manufacturer img').attr('alt')?.trim() ||
+          $el.find('[class*="manufacturer"] img').attr('alt')?.trim() || null;
 
         if (name) {
           products.push({
