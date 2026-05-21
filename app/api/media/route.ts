@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { put } from '@vercel/blob';
 
 // GET /api/media - List all media assets
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  const adminUserId = getAdminUserIdFromSession(session);
 
   try {
     const formData = await request.formData();
@@ -148,6 +150,7 @@ export async function POST(request: NextRequest) {
         locale: locale || null,
         alt: alt || file.name.replace(/\.[^/.]+$/, ''),
         copyright: copyright || null,
+        ...buildCreateAuditFields(adminUserId),
       },
     });
 

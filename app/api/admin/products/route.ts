@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { mapBggWeightToComplexityTierId } from '@/lib/utils';
 
 // POST /api/admin/products - Create a new product
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+    const adminUserId = getAdminUserIdFromSession(session);
 
     const body = await request.json();
     const { product: productData, game, expansion, accessory, bgg } = body;
@@ -64,6 +66,7 @@ export async function POST(request: Request) {
         tags: productData.tags || [],
         shortDescription: productData.shortDescription || null,
         description: productData.description || null,
+        ...buildCreateAuditFields(adminUserId),
       },
     });
 
@@ -89,6 +92,7 @@ export async function POST(request: Request) {
           ...(game.gameMechanicIds?.length
             ? { mechanics: { connect: game.gameMechanicIds.map((id: string) => ({ id })) } }
             : {}),
+          ...buildCreateAuditFields(adminUserId),
         },
       });
     }
@@ -127,6 +131,7 @@ export async function POST(request: Request) {
           ...(expansion.gameMechanicIds?.length
             ? { mechanics: { connect: expansion.gameMechanicIds.map((id: string) => ({ id })) } }
             : {}),
+          ...buildCreateAuditFields(adminUserId),
         },
       });
     }
@@ -140,6 +145,7 @@ export async function POST(request: Request) {
           ...(accessory.accessoryCategoryIds?.length
             ? { categories: { connect: accessory.accessoryCategoryIds.map((id: string) => ({ id })) } }
             : {}),
+          ...buildCreateAuditFields(adminUserId),
         },
       });
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    const adminUserId = getAdminUserIdFromSession(session);
 
     const body = await request.json();
 
@@ -91,6 +93,7 @@ export async function POST(request: NextRequest) {
         firstActivedAt: isActive ? now : null,
         displayTitleShort: displayTitleShort || null,
         displayTitleLong: displayTitleLong || null,
+        ...buildCreateAuditFields(adminUserId),
       },
     });
 

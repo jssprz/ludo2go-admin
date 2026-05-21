@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 
 // POST /api/media/upload - Handle client-side Vercel Blob uploads
 export async function POST(request: NextRequest) {
@@ -16,6 +17,22 @@ export async function POST(request: NextRequest) {
         if (!session?.user) {
           throw new Error('Unauthorized');
         }
+
+        const adminUserId = getAdminUserIdFromSession(session);
+        let parsedPayload: Record<string, any> = {};
+
+        if (typeof clientPayload === 'string' && clientPayload.length > 0) {
+          try {
+            parsedPayload = JSON.parse(clientPayload);
+          } catch {
+            parsedPayload = { rawPayload: clientPayload };
+          }
+        }
+
+        const tokenPayload = JSON.stringify({
+          ...parsedPayload,
+          adminUserId,
+        });
 
         return {
           allowedContentTypes: [
@@ -32,7 +49,7 @@ export async function POST(request: NextRequest) {
             'audio/wav',
           ],
           maximumSizeInBytes: 50 * 1024 * 1024,
-          tokenPayload: clientPayload,
+          tokenPayload,
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
@@ -69,6 +86,9 @@ export async function POST(request: NextRequest) {
               locale: null,
               alt,
               copyright: null,
+              ...buildCreateAuditFields(
+                typeof payload.adminUserId === 'string' ? payload.adminUserId : null
+              ),
             },
           });
 

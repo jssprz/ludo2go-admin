@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildUpdateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { del } from '@vercel/blob';
 
 type RouteContext = {
@@ -73,6 +74,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!session?.user) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+  const adminUserId = getAdminUserIdFromSession(session);
 
   const { id } = await context.params;
 
@@ -86,6 +88,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ...(alt !== undefined && { alt }),
         ...(copyright !== undefined && { copyright }),
         ...(locale !== undefined && { locale }),
+        ...buildUpdateAuditFields(adminUserId),
       },
     });
 

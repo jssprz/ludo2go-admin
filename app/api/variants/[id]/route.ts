@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { PriceType, PriceCurrency } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { buildCreateAuditFields, buildUpdateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -20,6 +21,7 @@ export async function PUT(
         { status: 401 }
       );
     }
+    const adminUserId = getAdminUserIdFromSession(session);
 
     const { id } = await context.params;
     const body = await request.json();
@@ -95,6 +97,7 @@ export async function PUT(
         depthMm,
         packageType,
         ...activationData,
+        ...buildUpdateAuditFields(adminUserId),
       },
     });
 
@@ -199,11 +202,11 @@ export async function PUT(
         };
 
         if (isNew) {
-          await prisma.price.create({ data: priceData });
+          await prisma.price.create({ data: { ...priceData, ...buildCreateAuditFields(adminUserId) } });
         } else {
           await prisma.price.update({
             where: { id: price.id },
-            data: priceData,
+            data: { ...priceData, ...buildUpdateAuditFields(adminUserId) },
           });
         }
       }

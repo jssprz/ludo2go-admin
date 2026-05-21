@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildCreateAuditFields, buildUpdateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { mapBggWeightToComplexityTierId } from '@/lib/utils';
 
 type RouteContext = {
@@ -52,6 +53,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
     if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+    const adminUserId = getAdminUserIdFromSession(session);
 
     const body = await request.json();
     const {
@@ -109,6 +111,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
         tags,
         shortDescription,
         description,
+        ...buildUpdateAuditFields(adminUserId),
       },
       include: {
         game: true,
@@ -139,6 +142,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
           minAge: typeof minAge === 'number' ? minAge : null,
           playtimeMin: typeof playtimeMin === 'number' ? playtimeMin : null,
           playtimeMax: typeof playtimeMax === 'number' ? playtimeMax : null,
+          ...buildUpdateAuditFields(adminUserId),
         },
       });
     }
@@ -151,6 +155,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
           categories: {
             set: (accessoryCategoryIds || []).map((catId: string) => ({ id: catId })),
           },
+          ...buildUpdateAuditFields(adminUserId),
         },
       });
     }
@@ -180,6 +185,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
         mechanics: {
           set: (gameMechanicIds || []).map((mechanicId: string) => ({ id: mechanicId })),
         },
+        ...buildUpdateAuditFields(adminUserId),
       };
 
       if (product.expansion) {
@@ -213,6 +219,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
             ...(gameMechanicIds?.length
               ? { mechanics: { connect: gameMechanicIds.map((mId: string) => ({ id: mId })) } }
               : {}),
+            ...buildCreateAuditFields(adminUserId),
           },
         });
       }

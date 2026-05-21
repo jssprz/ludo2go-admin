@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { buildUpdateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -15,6 +16,7 @@ export async function PATCH(
     if (!session?.user) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
+    const adminUserId = getAdminUserIdFromSession(session);
 
     const { id } = await context.params;
     const body = await request.json();
@@ -43,7 +45,10 @@ export async function PATCH(
 
     const updated = await prisma.productVariant.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        ...buildUpdateAuditFields(adminUserId),
+      },
       include: {
         product: {
           select: { id: true, name: true },
