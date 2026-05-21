@@ -181,6 +181,8 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   function handleAddPrice() {
     const newPrice: Price = {
       id: `temp-${Date.now()}`,
+      createdByAdminUserId: null,
+      updatedByAdminUserId: null,
       amount: 0,
       currency: 'CLP',
       type: PriceType.retail,
