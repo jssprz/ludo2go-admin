@@ -17,6 +17,13 @@ import { ProductStatus, ProductKind } from '@prisma/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+type AuditUser = {
+  id: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+} | null;
+
 export interface SelectProduct {
   id: string;
   name: string;
@@ -31,6 +38,8 @@ export interface SelectProduct {
   createdAt: Date;
   mediaLinks: { media: { url: string } }[];
   variants: any[];
+  createdByAdminUser: AuditUser;
+  updatedByAdminUser: AuditUser;
 }
 
 export function ProductRow({ product }: { product: SelectProduct }) {
@@ -82,6 +91,20 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}
+      </TableCell>
+      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+        {product.createdByAdminUser
+          ? (product.createdByAdminUser.firstName && product.createdByAdminUser.lastName
+              ? `${product.createdByAdminUser.firstName} ${product.createdByAdminUser.lastName}`
+              : product.createdByAdminUser.username ?? '—')
+          : '—'}
+      </TableCell>
+      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+        {product.updatedByAdminUser
+          ? (product.updatedByAdminUser.firstName && product.updatedByAdminUser.lastName
+              ? `${product.updatedByAdminUser.firstName} ${product.updatedByAdminUser.lastName}`
+              : product.updatedByAdminUser.username ?? '—')
+          : '—'}
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>

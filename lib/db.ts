@@ -92,7 +92,9 @@ export async function getProducts(
           media: true
         }
       },
-      variants: true
+      variants: true,
+      createdByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
+      updatedByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
     },
     where,
     take: 10,

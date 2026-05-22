@@ -195,6 +195,8 @@ export function ProductsTable({
                 className="hidden md:table-cell"
                 onSort={handleSort}
               />
+              <TableHead className="hidden lg:table-cell">Created by</TableHead>
+              <TableHead className="hidden lg:table-cell">Updated by</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
