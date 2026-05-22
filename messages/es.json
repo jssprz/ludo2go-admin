@@ -90,6 +90,23 @@
     "noProducts": "No se encontraron productos",
     "confirmDelete": "¿Estás seguro de que deseas eliminar este producto?"
   },
+  "productsTable": {
+    "title": "Productos",
+    "description": "Administra los productos y revisa su rendimiento de ventas.",
+    "image": "Imagen",
+    "name": "Nombre",
+    "bggId": "ID BGG",
+    "status": "Estado",
+    "kind": "Tipo",
+    "brand": "Marca",
+    "variants": "Variantes",
+    "totalSales": "Ventas Totales",
+    "stock": "Stock",
+    "createdAt": "Creado el",
+    "createdBy": "Creado por",
+    "updatedBy": "Actualizado por",
+    "showing": "Mostrando {start} - {end} de {total} productos"
+  },
   "brands": {
     "title": "Marcas",
     "description": "Administra las marcas y fabricantes de productos.",
@@ -126,6 +143,171 @@
     "storeLinks": "Enlaces de Tienda",
     "inventory": "Inventario",
     "media": "Medios"
+  },
+  "variantEditPage": {
+    "title": "Editar variante",
+    "tabs": {
+      "details": "Detalles",
+      "media": "Medios"
+    }
+  },
+  "variantEditForm": {
+    "labels": {
+      "sku": "SKU",
+      "autoGenerateSku": "Generar SKU automáticamente",
+      "edition": "Edición",
+      "language": "Idioma",
+      "condition": "Condición",
+      "status": "Estado",
+      "scheduledActivationDate": "Fecha de activación programada",
+      "firstActivated": "Primera activación",
+      "lastActivated": "Última activación",
+      "weightGrams": "Peso (gramos)",
+      "widthMm": "Ancho (mm)",
+      "heightMm": "Alto (mm)",
+      "depthMm": "Profundidad (mm)",
+      "packagingType": "Tipo de empaque",
+      "currentPrice": "Actual",
+      "priceTypeValue": "Precio {type}",
+      "amount": "Monto",
+      "currency": "Moneda",
+      "priceType": "Tipo de precio",
+      "startDateOptional": "Fecha de inicio (opcional)",
+      "endDateOptional": "Fecha de término (opcional)",
+      "available": "Disponible",
+      "onHand": "En mano",
+      "totalPhysicalStock": "Stock físico total",
+      "reserved": "Reservado",
+      "reservedForOrders": "Reservado para pedidos",
+      "weight": "peso",
+      "dimensions": "dimensiones",
+      "packaging": "empaque"
+    },
+    "placeholders": {
+      "selectLanguage": "Selecciona idioma",
+      "selectCondition": "Selecciona condición",
+      "selectStatus": "Selecciona estado",
+      "selectPackagingType": "Selecciona tipo de empaque"
+    },
+    "languageOptions": {
+      "en": "Inglés",
+      "fr": "Francés",
+      "es": "Español"
+    },
+    "conditionOptions": {
+      "new": "Nuevo",
+      "used": "Usado",
+      "refurbished": "Reacondicionado"
+    },
+    "statusOptions": {
+      "draft": "Borrador",
+      "pending_review": "Pendiente de revisión",
+      "scheduled": "Programado",
+      "active": "Activo",
+      "paused": "Pausado",
+      "discontinued": "Descontinuado",
+      "archived": "Archivado"
+    },
+    "status": {
+      "active": "Activo",
+      "inactive": "Inactivo"
+    },
+    "packagingOptions": {
+      "box": "Caja",
+      "bag": "Bolsa",
+      "tube": "Tubo",
+      "envelope": "Sobre",
+      "other": "Otro"
+    },
+    "priceTypeOptions": {
+      "msrp": "MSRP (Precio sugerido por el fabricante)",
+      "retail": "Lista",
+      "sale": "Oferta",
+      "member": "Miembro"
+    },
+    "sections": {
+      "physicalAttributes": {
+        "title": "Atributos físicos",
+        "description": "Peso, dimensiones y empaque usados para envíos e integraciones de feeds."
+      },
+      "storeLinks": {
+        "title": "Enlaces de tienda para esta variante",
+        "description": "Pega la URL completa de esta variante en cada tienda. Guardaremos solo la ruta para scraping."
+      },
+      "variantPrices": {
+        "title": "Precios de la variante",
+        "description": "Administra los precios de esta variante. Marca un precio como activo para usarlo.",
+        "empty": "Aún no hay precios. Haz clic en \"Agregar precio\" para crear uno."
+      },
+      "inventory": {
+        "title": "Stock de inventario",
+        "description": "Administra niveles de stock en diferentes ubicaciones",
+        "noLocations": "No hay ubicaciones disponibles. Crea ubicaciones primero."
+      }
+    },
+    "buttons": {
+      "fetching": "Obteniendo...",
+      "fetchFromGatoArcano": "Obtener desde GatoArcano",
+      "scrapingAll": "Scrapeando todo...",
+      "scrapeAll": "Scrapear todo",
+      "scraping": "Scrapeando...",
+      "scrape": "Scrapear",
+      "addPrice": "Agregar precio",
+      "saveChanges": "Guardar cambios"
+    },
+    "scheduledActivationHelp": "La variante se activará automáticamente en esta fecha y hora.",
+    "messages": {
+      "scrapedPriceForStore": "Precio scrapeado correctamente para {store}.",
+      "scrapedAllStores": "Precios scrapeados para todas las tiendas con URL.",
+      "fetchedFromGatoArcano": "Se obtuvieron {fields} desde GatoArcano.",
+      "variantUpdated": "Variante actualizada correctamente."
+    },
+    "errors": {
+      "generateSku": "No se pudo generar el SKU",
+      "invalidStoreUrl": "Ingresa una URL válida antes de scrapear.",
+      "scrapeFailed": "El scraping falló",
+      "scrapePrice": "Error al scrapear el precio",
+      "scrapeAllStores": "Error al scrapear todas las tiendas",
+      "gatoArcanoUrlMissing": "No se encontró URL de GatoArcano en los enlaces de tienda de esta variante.",
+      "fetchPhysicalAttributes": "No se pudieron extraer atributos físicos de GatoArcano",
+      "noPhysicalAttributes": "No se encontraron atributos físicos en la página de GatoArcano.",
+      "updateVariant": "No se pudo actualizar la variante",
+      "unexpected": "Error inesperado"
+    }
+  },
+  "variantMediaEditor": {
+    "title": "Medios de la variante",
+    "description": "Administra imágenes y videos específicos de esta variante",
+    "saving": "Guardando...",
+    "saveOrderRoles": "Guardar orden y roles",
+    "addMedia": "Agregar medio",
+    "noMediaAttached": "No hay medios asociados",
+    "noMediaAttachedDescription": "Agrega imágenes o videos a esta variante",
+    "mediaAlt": "Medio",
+    "untitled": "Sin título",
+    "selectRole": "Selecciona rol",
+    "noRole": "Sin rol",
+    "viewOriginal": "Ver original",
+    "remove": "Quitar",
+    "mediaPickerDescription": "Selecciona medios de tu biblioteca para agregar a esta variante",
+    "searchMedia": "Buscar medios...",
+    "noMediaAvailable": "No hay medios disponibles",
+    "uploadMediaFirst": "Primero sube medios en la Galería de Medios",
+    "cancel": "Cancelar",
+    "confirmRemoveMedia": "¿Quitar este medio de la variante?",
+    "roles": {
+      "primary": "Principal",
+      "gallery": "Galería",
+      "lifestyle": "Lifestyle",
+      "components": "Componentes",
+      "packaging": "Empaque"
+    },
+    "errors": {
+      "fetchMedia": "No se pudieron cargar los medios",
+      "addMedia": "No se pudo agregar el medio",
+      "removeMedia": "No se pudo quitar el medio",
+      "saveChanges": "No se pudieron guardar los cambios"
+    }
   },
   "inventory": {
     "title": "Inventario",

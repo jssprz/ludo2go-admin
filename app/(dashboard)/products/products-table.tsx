@@ -21,6 +21,7 @@ import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'luci
 import { Button } from '@/components/ui/button';
 import { SelectProduct } from './product-row';
 import { SortableProductColumn, SortOrder } from '@/lib/db';
+import { useTranslations } from 'next-intl';
 
 interface SortableHeaderProps {
   label: string;
@@ -79,6 +80,8 @@ export function ProductsTable({
 }) {
   let router = useRouter();
   let productsPerPage = 10;
+  const t = useTranslations('productsTable');
+  const tc = useTranslations('common');
 
   function buildUrl(overrides: Record<string, string | number>) {
     const params = new URLSearchParams({
@@ -118,9 +121,9 @@ export function ProductsTable({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Products</CardTitle>
+        <CardTitle>{t('title')}</CardTitle>
         <CardDescription>
-          Manage your products and view their sales performance.
+          {t('description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -128,17 +131,17 @@ export function ProductsTable({
           <TableHeader>
             <TableRow>
               <TableHead className="hidden w-[100px] sm:table-cell">
-                <span className="sr-only">Image</span>
+                <span className="sr-only">{t('image')}</span>
               </TableHead>
               <SortableHeader
-                label="Name"
+                label={t('name')}
                 column="name"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 onSort={handleSort}
               />
               <SortableHeader
-                label="BGG ID"
+                label={t('bggId')}
                 column="bggId"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -146,14 +149,14 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Status"
+                label={t('status')}
                 column="status"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Kind"
+                label={t('kind')}
                 column="kind"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -161,7 +164,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Brand"
+                label={t('brand')}
                 column="brand"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -169,7 +172,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Variants"
+                label={t('variants')}
                 column="variants"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -177,10 +180,10 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <TableHead className="hidden md:table-cell">
-                Total Sales
+                {t('totalSales')}
               </TableHead>
               <SortableHeader
-                label="Stock"
+                label={t('stock')}
                 column="stock"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -188,17 +191,17 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Created at"
+                label={t('createdAt')}
                 column="createdAt"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 className="hidden md:table-cell"
                 onSort={handleSort}
               />
-              <TableHead className="hidden lg:table-cell">Created by</TableHead>
-              <TableHead className="hidden lg:table-cell">Updated by</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('createdBy')}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('updatedBy')}</TableHead>
               <TableHead>
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{tc('actions')}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -212,11 +215,11 @@ export function ProductsTable({
       <CardFooter>
         <form className="flex items-center w-full justify-between">
           <div className="text-xs text-muted-foreground">
-            Showing{' '}
-            <strong>
-              {Math.min(offset - products.length + 1, totalProducts)} - {Math.min(offset, totalProducts)}
-            </strong>{' '}
-            of <strong>{totalProducts}</strong> products
+            {t('showing', {
+              start: Math.min(offset - products.length + 1, totalProducts),
+              end: Math.min(offset, totalProducts),
+              total: totalProducts,
+            })}
           </div>
           <div className="flex">
             <Button
@@ -227,7 +230,7 @@ export function ProductsTable({
               disabled={offset === productsPerPage}
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
-              Prev
+              {tc('previous')}
             </Button>
             <Button
               formAction={nextPage}
@@ -236,7 +239,7 @@ export function ProductsTable({
               type="submit"
               disabled={offset >= totalProducts}
             >
-              Next
+              {tc('next')}
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           </div>

@@ -39,6 +39,7 @@ import {
   Search,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { useTranslations } from 'next-intl';
 
 type MediaAsset = {
   id: string;
@@ -62,14 +63,15 @@ type Props = {
 };
 
 const MEDIA_ROLES = [
-  { value: 'primary', label: 'Primary' },
-  { value: 'gallery', label: 'Gallery' },
-  { value: 'lifestyle', label: 'Lifestyle' },
-  { value: 'components', label: 'Components' },
-  { value: 'packaging', label: 'Packaging' },
+  { value: 'primary' },
+  { value: 'gallery' },
+  { value: 'lifestyle' },
+  { value: 'components' },
+  { value: 'packaging' },
 ];
 
 export function VariantMediaEditor({ variantId }: Props) {
+  const t = useTranslations('variantMediaEditor');
   const router = useRouter();
   const [media, setMedia] = useState<VariantMedia[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,7 +87,7 @@ export function VariantMediaEditor({ variantId }: Props) {
   const fetchVariantMedia = useCallback(async () => {
     try {
       const res = await fetch(`/api/variants/${variantId}/media`);
-      if (!res.ok) throw new Error('Failed to fetch media');
+      if (!res.ok) throw new Error(t('errors.fetchMedia'));
       const data = await res.json();
       setMedia(data);
     } catch (error) {
@@ -110,7 +112,7 @@ export function VariantMediaEditor({ variantId }: Props) {
       if (mediaSearch) params.set('search', mediaSearch);
 
       const res = await fetch(`/api/media?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch media');
+      if (!res.ok) throw new Error(t('errors.fetchMedia'));
       const data = await res.json();
 
       // Filter out media already attached to this variant
@@ -154,7 +156,7 @@ export function VariantMediaEditor({ variantId }: Props) {
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || 'Failed to add media');
+        throw new Error(error.message || t('errors.addMedia'));
       }
 
       const newVariantMedia = await res.json();
@@ -162,12 +164,12 @@ export function VariantMediaEditor({ variantId }: Props) {
       setShowMediaPicker(false);
       router.refresh();
     } catch (error: any) {
-      alert(error.message || 'Failed to add media');
+      alert(error.message || t('errors.addMedia'));
     }
   }
 
   async function handleRemoveMedia(variantMediaId: string) {
-    if (!confirm('Remove this media from the variant?')) return;
+    if (!confirm(t('confirmRemoveMedia'))) return;
 
     try {
       const res = await fetch(
@@ -177,13 +179,13 @@ export function VariantMediaEditor({ variantId }: Props) {
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || 'Failed to remove media');
+        throw new Error(error.message || t('errors.removeMedia'));
       }
 
       setMedia(media.filter((m) => m.id !== variantMediaId));
       router.refresh();
     } catch (error: any) {
-      alert(error.message || 'Failed to remove media');
+      alert(error.message || t('errors.removeMedia'));
     }
   }
 
@@ -243,13 +245,13 @@ export function VariantMediaEditor({ variantId }: Props) {
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.message || 'Failed to save changes');
+        throw new Error(error.message || t('errors.saveChanges'));
       }
 
       setHasChanges(false);
       router.refresh();
     } catch (error: any) {
-      alert(error.message || 'Failed to save changes');
+      alert(error.message || t('errors.saveChanges'));
     } finally {
       setIsSaving(false);
     }
@@ -280,9 +282,9 @@ export function VariantMediaEditor({ variantId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium">Variant Media</h3>
+          <h3 className="text-lg font-medium">{t('title')}</h3>
           <p className="text-sm text-muted-foreground">
-            Manage images and videos specific to this variant
+            {t('description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -291,16 +293,16 @@ export function VariantMediaEditor({ variantId }: Props) {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t('saving')}
                 </>
               ) : (
-                'Save Order & Roles'
+                t('saveOrderRoles')
               )}
             </Button>
           )}
           <Button variant="outline" onClick={() => setShowMediaPicker(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Media
+            {t('addMedia')}
           </Button>
         </div>
       </div>
@@ -308,15 +310,15 @@ export function VariantMediaEditor({ variantId }: Props) {
       {media.length === 0 ? (
         <div className="border rounded-lg p-8 text-center text-muted-foreground">
           <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium">No media attached</p>
-          <p className="text-sm">Add images or videos to this variant</p>
+          <p className="text-lg font-medium">{t('noMediaAttached')}</p>
+          <p className="text-sm">{t('noMediaAttachedDescription')}</p>
           <Button
             variant="outline"
             className="mt-4"
             onClick={() => setShowMediaPicker(true)}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Media
+            {t('addMedia')}
           </Button>
         </div>
       ) : (
@@ -353,7 +355,7 @@ export function VariantMediaEditor({ variantId }: Props) {
                 {item.media.kind === 'image' ? (
                   <Image
                     src={item.media.thumbUrl || item.media.url}
-                    alt={item.media.alt || 'Media'}
+                    alt={item.media.alt || t('mediaAlt')}
                     fill
                     className="object-cover"
                   />
@@ -367,7 +369,7 @@ export function VariantMediaEditor({ variantId }: Props) {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">
-                  {item.media.alt || 'Untitled'}
+                  {item.media.alt || t('untitled')}
                 </p>
                 <p className="text-sm text-muted-foreground truncate">
                   {item.media.url}
@@ -380,13 +382,13 @@ export function VariantMediaEditor({ variantId }: Props) {
                 onValueChange={(value) => handleRoleChange(item.id, value === 'none' ? '' : value)}
               >
                 <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder={t('selectRole')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No role</SelectItem>
+                  <SelectItem value="none">{t('noRole')}</SelectItem>
                   {MEDIA_ROLES.map((role) => (
                     <SelectItem key={role.value} value={role.value}>
-                      {role.label}
+                      {t(`roles.${role.value}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -408,14 +410,14 @@ export function VariantMediaEditor({ variantId }: Props) {
                   <DropdownMenuItem
                     onClick={() => window.open(item.media.url, '_blank')}
                   >
-                    View Original
+                    {t('viewOriginal')}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleRemoveMedia(item.id)}
                     className="text-red-600"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Remove
+                    {t('remove')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -428,16 +430,16 @@ export function VariantMediaEditor({ variantId }: Props) {
       <Dialog open={showMediaPicker} onOpenChange={setShowMediaPicker}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Add Media</DialogTitle>
+            <DialogTitle>{t('addMedia')}</DialogTitle>
             <DialogDescription>
-              Select media from your library to add to this variant
+              {t('mediaPickerDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search media..."
+              placeholder={t('searchMedia')}
               value={mediaSearch}
               onChange={(e) => setMediaSearch(e.target.value)}
               className="pl-8"
@@ -452,9 +454,9 @@ export function VariantMediaEditor({ variantId }: Props) {
             ) : availableMedia.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No media available</p>
+                <p>{t('noMediaAvailable')}</p>
                 <p className="text-sm">
-                  Upload media in the Media Gallery first
+                  {t('uploadMediaFirst')}
                 </p>
               </div>
             ) : (
@@ -468,7 +470,7 @@ export function VariantMediaEditor({ variantId }: Props) {
                     {asset.kind === 'image' ? (
                       <Image
                         src={asset.thumbUrl || asset.url}
-                        alt={asset.alt || 'Media'}
+                        alt={asset.alt || t('mediaAlt')}
                         fill
                         className="object-cover"
                       />
@@ -488,7 +490,7 @@ export function VariantMediaEditor({ variantId }: Props) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowMediaPicker(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,12 +3,14 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { VariantEditForm } from './variant-edit-form';
 import { VariantMediaEditor } from './variant-media-editor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getTranslations } from 'next-intl/server';
 
 type PageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function EditVariantPage({ params }: PageProps) {
+  const t = await getTranslations('variantEditPage');
   const { id } = await params;
 
   const [variant, stores, locations] = await Promise.all([
@@ -63,7 +65,7 @@ export default async function EditVariantPage({ params }: PageProps) {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Edit variant
+            {t('title')}
           </h1>
           <p className="text-sm text-muted-foreground">
             {variant.product.name} · {variant.sku}
@@ -73,8 +75,8 @@ export default async function EditVariantPage({ params }: PageProps) {
 
       <Tabs defaultValue="details" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
+          <TabsTrigger value="details">{t('tabs.details')}</TabsTrigger>
+          <TabsTrigger value="media">{t('tabs.media')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">

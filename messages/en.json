@@ -91,6 +91,23 @@
     "noProducts": "No products found",
     "confirmDelete": "Are you sure you want to delete this product?"
   },
+  "productsTable": {
+    "title": "Products",
+    "description": "Manage the products and view their sales performance.",
+    "image": "Image",
+    "name": "Name",
+    "bggId": "BGG ID",
+    "status": "Status",
+    "kind": "Kind",
+    "brand": "Brand",
+    "variants": "Variants",
+    "totalSales": "Total Sales",
+    "stock": "Stock",
+    "createdAt": "Created at",
+    "createdBy": "Created by",
+    "updatedBy": "Updated by",
+    "showing": "Showing {start} - {end} of {total} products"
+  },
   "brands": {
     "title": "Brands",
     "description": "Manage product brands and manufacturers.",
@@ -127,6 +144,171 @@
     "storeLinks": "Store Links",
     "inventory": "Inventory",
     "media": "Media"
+  },
+  "variantEditPage": {
+    "title": "Edit variant",
+    "tabs": {
+      "details": "Details",
+      "media": "Media"
+    }
+  },
+  "variantEditForm": {
+    "labels": {
+      "sku": "SKU",
+      "autoGenerateSku": "Auto-generate SKU",
+      "edition": "Edition",
+      "language": "Language",
+      "condition": "Condition",
+      "status": "Status",
+      "scheduledActivationDate": "Scheduled activation date",
+      "firstActivated": "First activated",
+      "lastActivated": "Last activated",
+      "weightGrams": "Weight (grams)",
+      "widthMm": "Width (mm)",
+      "heightMm": "Height (mm)",
+      "depthMm": "Depth (mm)",
+      "packagingType": "Packaging Type",
+      "currentPrice": "Current",
+      "priceTypeValue": "{type} Price",
+      "amount": "Amount",
+      "currency": "Currency",
+      "priceType": "Price Type",
+      "startDateOptional": "Start Date (optional)",
+      "endDateOptional": "End Date (optional)",
+      "available": "Available",
+      "onHand": "On Hand",
+      "totalPhysicalStock": "Total physical stock",
+      "reserved": "Reserved",
+      "reservedForOrders": "Reserved for orders",
+      "weight": "weight",
+      "dimensions": "dimensions",
+      "packaging": "packaging"
+    },
+    "placeholders": {
+      "selectLanguage": "Select language",
+      "selectCondition": "Select condition",
+      "selectStatus": "Select status",
+      "selectPackagingType": "Select packaging type"
+    },
+    "languageOptions": {
+      "en": "English",
+      "fr": "French",
+      "es": "Spanish"
+    },
+    "conditionOptions": {
+      "new": "New",
+      "used": "Used",
+      "refurbished": "Refurbished"
+    },
+    "statusOptions": {
+      "draft": "Draft",
+      "pending_review": "Pending Review",
+      "scheduled": "Scheduled",
+      "active": "Active",
+      "paused": "Paused",
+      "discontinued": "Discontinued",
+      "archived": "Archived"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "packagingOptions": {
+      "box": "Box",
+      "bag": "Bag",
+      "tube": "Tube",
+      "envelope": "Envelope",
+      "other": "Other"
+    },
+    "priceTypeOptions": {
+      "msrp": "MSRP (Manufacturer's Suggested Retail Price)",
+      "retail": "List",
+      "sale": "Sale",
+      "member": "Member"
+    },
+    "sections": {
+      "physicalAttributes": {
+        "title": "Physical attributes",
+        "description": "Weight, dimensions, and packaging used for shipping and feed integrations."
+      },
+      "storeLinks": {
+        "title": "Store links for this variant",
+        "description": "Paste the full URL of this variant in each store. We'll store only the path for scraping."
+      },
+      "variantPrices": {
+        "title": "Variant Prices",
+        "description": "Manage the pricing for this variant. Mark a price as active to use it.",
+        "empty": "No prices added yet. Click \"Add Price\" to create one."
+      },
+      "inventory": {
+        "title": "Inventory Stock",
+        "description": "Manage stock levels across different locations",
+        "noLocations": "No locations available. Please create locations first."
+      }
+    },
+    "buttons": {
+      "fetching": "Fetching...",
+      "fetchFromGatoArcano": "Fetch from GatoArcano",
+      "scrapingAll": "Scraping all...",
+      "scrapeAll": "Scrape All",
+      "scraping": "Scraping...",
+      "scrape": "Scrape",
+      "addPrice": "Add Price",
+      "saveChanges": "Save changes"
+    },
+    "scheduledActivationHelp": "The variant will become active automatically at this date & time.",
+    "messages": {
+      "scrapedPriceForStore": "Scraped price successfully for {store}.",
+      "scrapedAllStores": "Scraped prices for all stores with URLs.",
+      "fetchedFromGatoArcano": "Fetched {fields} from GatoArcano.",
+      "variantUpdated": "Variant updated successfully."
+    },
+    "errors": {
+      "generateSku": "Failed to generate SKU",
+      "invalidStoreUrl": "Please set a valid URL before scraping.",
+      "scrapeFailed": "Scrape failed",
+      "scrapePrice": "Error scraping price",
+      "scrapeAllStores": "Error scraping all stores",
+      "gatoArcanoUrlMissing": "No GatoArcano URL was found in store links for this variant.",
+      "fetchPhysicalAttributes": "Failed to extract physical attributes from GatoArcano",
+      "noPhysicalAttributes": "No physical attributes were found on the GatoArcano page.",
+      "updateVariant": "Failed to update variant",
+      "unexpected": "Unexpected error"
+    }
+  },
+  "variantMediaEditor": {
+    "title": "Variant Media",
+    "description": "Manage images and videos specific to this variant",
+    "saving": "Saving...",
+    "saveOrderRoles": "Save Order & Roles",
+    "addMedia": "Add Media",
+    "noMediaAttached": "No media attached",
+    "noMediaAttachedDescription": "Add images or videos to this variant",
+    "mediaAlt": "Media",
+    "untitled": "Untitled",
+    "selectRole": "Select role",
+    "noRole": "No role",
+    "viewOriginal": "View Original",
+    "remove": "Remove",
+    "mediaPickerDescription": "Select media from your library to add to this variant",
+    "searchMedia": "Search media...",
+    "noMediaAvailable": "No media available",
+    "uploadMediaFirst": "Upload media in the Media Gallery first",
+    "cancel": "Cancel",
+    "confirmRemoveMedia": "Remove this media from the variant?",
+    "roles": {
+      "primary": "Primary",
+      "gallery": "Gallery",
+      "lifestyle": "Lifestyle",
+      "components": "Components",
+      "packaging": "Packaging"
+    },
+    "errors": {
+      "fetchMedia": "Failed to fetch media",
+      "addMedia": "Failed to add media",
+      "removeMedia": "Failed to remove media",
+      "saveChanges": "Failed to save changes"
+    }
   },
   "inventory": {
     "title": "Inventory",

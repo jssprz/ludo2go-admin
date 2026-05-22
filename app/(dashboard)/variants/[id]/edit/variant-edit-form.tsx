@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import Link from 'next/link';
 import { Trash2, Plus, Check, Wand2, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 type Language = ProductVariant['language'];
 type VariantStatus = ProductVariant['status'];
@@ -86,6 +87,8 @@ function toDatetimeLocalValue(value: Date | string | null | undefined): string {
 
 export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const router = useRouter();
+  const t = useTranslations('variantEditForm');
+  const tc = useTranslations('common');
 
   const [sku, setSku] = useState(variant.sku);
   const [edition, setEdition] = useState(variant.edition ?? '');
@@ -166,12 +169,12 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate SKU');
+        throw new Error(data.error || t('errors.generateSku'));
       }
 
       setSku(data.sku);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to generate SKU');
+      setErrorMsg(err.message || t('errors.generateSku'));
     } finally {
       setIsGeneratingSku(false);
     }
@@ -227,7 +230,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   async function scrapeOne(storeId: string, { silent = false } = {}) {
     const store = storesState.find((s) => s.storeId === storeId);
     if (!store || !store.fullUrl.trim()) {
-      if (!silent) setErrorMsg('Please set a valid URL before scraping.');
+      if (!silent) setErrorMsg(t('errors.invalidStoreUrl'));
       return;
     }
 
@@ -250,7 +253,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(data?.message || 'Scrape failed');
+        throw new Error(data?.message || t('errors.scrapeFailed'));
       }
 
       // Si tu API devuelve result con price/currency/observedAt, úsalo para actualizar el estado.
@@ -276,13 +279,11 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       }
 
       if (!silent) {
-        setSuccessMsg(
-          `Scraped price successfully for ${store.storeName}.`,
-        );
+        setSuccessMsg(t('messages.scrapedPriceForStore', { store: store.storeName }));
       }
     } catch (err: any) {
       if (!silent) {
-        setErrorMsg(err.message || 'Error scraping price');
+        setErrorMsg(err.message || t('errors.scrapePrice'));
       }
     } finally {
       if (!silent) setScrapingStoreId(null);
@@ -304,10 +305,10 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         if (!s.fullUrl.trim()) continue;
         await scrapeOne(s.storeId, { silent: true });
       }
-      setSuccessMsg('Scraped prices for all stores with URLs.');
+      setSuccessMsg(t('messages.scrapedAllStores'));
       router.refresh();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error scraping all stores');
+      setErrorMsg(err.message || t('errors.scrapeAllStores'));
     } finally {
       setIsScrapingAll(false);
       setScrapingStoreId(null);
@@ -325,7 +326,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
     });
 
     if (!gatoArcanoStore?.fullUrl.trim()) {
-      setErrorMsg('No GatoArcano URL was found in store links for this variant.');
+      setErrorMsg(t('errors.gatoArcanoUrlMissing'));
       setIsScrapingPhysical(false);
       return;
     }
@@ -339,7 +340,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
-        throw new Error(data?.message || 'Failed to extract physical attributes from GatoArcano');
+        throw new Error(data?.message || t('errors.fetchPhysicalAttributes'));
       }
 
       const result = data.result as {
@@ -357,19 +358,19 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       if (result.packageType != null) setPackageType(result.packageType);
 
       const updatedLabels: string[] = [];
-      if (result.weightGrams != null) updatedLabels.push('weight');
+      if (result.weightGrams != null) updatedLabels.push(t('labels.weight'));
       if (result.widthMm != null || result.heightMm != null || result.depthMm != null) {
-        updatedLabels.push('dimensions');
+        updatedLabels.push(t('labels.dimensions'));
       }
-      if (result.packageType != null) updatedLabels.push('packaging');
+      if (result.packageType != null) updatedLabels.push(t('labels.packaging'));
 
       if (updatedLabels.length > 0) {
-        setSuccessMsg(`Fetched ${updatedLabels.join(', ')} from GatoArcano.`);
+        setSuccessMsg(t('messages.fetchedFromGatoArcano', { fields: updatedLabels.join(', ') }));
       } else {
-        setErrorMsg('No physical attributes were found on the GatoArcano page.');
+        setErrorMsg(t('errors.noPhysicalAttributes'));
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error fetching physical attributes from GatoArcano');
+      setErrorMsg(err.message || t('errors.fetchPhysicalAttributes'));
     } finally {
       setIsScrapingPhysical(false);
     }
@@ -414,13 +415,13 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.message || 'Failed to update variant');
+        throw new Error(data?.message || t('errors.updateVariant'));
       }
 
-      setSuccessMsg('Variant updated successfully.');
+      setSuccessMsg(t('messages.variantUpdated'));
       router.refresh();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Unexpected error');
+      setErrorMsg(err.message || t('errors.unexpected'));
     } finally {
       setIsSaving(false);
     }
@@ -431,7 +432,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       {/* Variant core fields (simplified) */}
       <div className="grid gap-4 sm:grid-cols-5">
         <div className="space-y-2">
-          <Label htmlFor="sku">SKU</Label>
+          <Label htmlFor="sku">{t('labels.sku')}</Label>
           <div className="flex gap-2">
             <Input
               id="sku"
@@ -446,7 +447,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
               size="icon"
               onClick={handleGenerateSku}
               disabled={isGeneratingSku}
-              title="Auto-generate SKU"
+              title={t('labels.autoGenerateSku')}
             >
               {isGeneratingSku ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -458,7 +459,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="edition">Edition</Label>
+          <Label htmlFor="edition">{t('labels.edition')}</Label>
           <Input
             id="edition"
             value={edition}
@@ -467,41 +468,41 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="language">Language</Label>
+          <Label htmlFor="language">{t('labels.language')}</Label>
           <Select
             value={language}
             onValueChange={(val) => setLanguage(val as typeof language)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select language" />
+              <SelectValue placeholder={t('placeholders.selectLanguage')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="fr">French</SelectItem>
-              <SelectItem value="es">Spanish</SelectItem>
+              <SelectItem value="en">{t('languageOptions.en')}</SelectItem>
+              <SelectItem value="fr">{t('languageOptions.fr')}</SelectItem>
+              <SelectItem value="es">{t('languageOptions.es')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="condition">Condition</Label>
+          <Label htmlFor="condition">{t('labels.condition')}</Label>
           <Select
             value={condition}
             onValueChange={(val) => setCondition(val as Condition)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select condition" />
+              <SelectValue placeholder={t('placeholders.selectCondition')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="used">Used</SelectItem>
-              <SelectItem value="refurbished">Refurbished</SelectItem>
+              <SelectItem value="new">{t('conditionOptions.new')}</SelectItem>
+              <SelectItem value="used">{t('conditionOptions.used')}</SelectItem>
+              <SelectItem value="refurbished">{t('conditionOptions.refurbished')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status">{t('labels.status')}</Label>
           <Select
             value={status}
             onValueChange={(val) => {
@@ -510,16 +511,16 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
             }}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select status" />
+              <SelectValue placeholder={t('placeholders.selectStatus')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="pending_review">Pending Review</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="discontinued">Discontinued</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="draft">{t('statusOptions.draft')}</SelectItem>
+              <SelectItem value="pending_review">{t('statusOptions.pending_review')}</SelectItem>
+              <SelectItem value="scheduled">{t('statusOptions.scheduled')}</SelectItem>
+              <SelectItem value="active">{t('statusOptions.active')}</SelectItem>
+              <SelectItem value="paused">{t('statusOptions.paused')}</SelectItem>
+              <SelectItem value="discontinued">{t('statusOptions.discontinued')}</SelectItem>
+              <SelectItem value="archived">{t('statusOptions.archived')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -528,7 +529,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
         {status === 'scheduled' && (
           <div className="space-y-2 sm:col-span-1">
-            <Label htmlFor="activeAtScheduled">Scheduled activation date</Label>
+            <Label htmlFor="activeAtScheduled">{t('labels.scheduledActivationDate')}</Label>
             <Input
               id="activeAtScheduled"
               type="datetime-local"
@@ -537,7 +538,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
               required
             />
             <p className="text-xs text-muted-foreground">
-              The variant will become active automatically at this date &amp; time.
+              {t('scheduledActivationHelp')}
             </p>
           </div>
         )}
@@ -545,10 +546,10 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         {(variant.activedAt || variant.firstActivedAt) && (
           <div className="sm:col-span-5 flex gap-6 text-xs text-muted-foreground border-t pt-2">
             {variant.firstActivedAt && (
-              <span>First activated: {new Date(variant.firstActivedAt).toLocaleString()}</span>
+              <span>{t('labels.firstActivated')}: {new Date(variant.firstActivedAt).toLocaleString()}</span>
             )}
             {variant.activedAt && (
-              <span>Last activated: {new Date(variant.activedAt).toLocaleString()}</span>
+              <span>{t('labels.lastActivated')}: {new Date(variant.activedAt).toLocaleString()}</span>
             )}
           </div>
         )}
@@ -558,9 +559,9 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       <div className="space-y-3 border rounded-md p-4">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-medium">Physical attributes</h2>
+            <h2 className="text-sm font-medium">{t('sections.physicalAttributes.title')}</h2>
             <p className="text-xs text-muted-foreground">
-              Weight, dimensions, and packaging used for shipping and feed integrations.
+              {t('sections.physicalAttributes.description')}
             </p>
           </div>
           <Button
@@ -570,13 +571,13 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
             disabled={isScrapingPhysical}
             onClick={handleFetchPhysicalFromGatoArcano}
           >
-            {isScrapingPhysical ? 'Fetching…' : 'Fetch from GatoArcano'}
+            {isScrapingPhysical ? t('buttons.fetching') : t('buttons.fetchFromGatoArcano')}
           </Button>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-5">
           <div className="space-y-2">
-            <Label htmlFor="weightGrams">Weight (grams)</Label>
+            <Label htmlFor="weightGrams">{t('labels.weightGrams')}</Label>
             <Input
               id="weightGrams"
               type="number"
@@ -587,7 +588,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="widthMm">Width (mm)</Label>
+            <Label htmlFor="widthMm">{t('labels.widthMm')}</Label>
             <Input
               id="widthMm"
               type="number"
@@ -598,7 +599,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="heightMm">Height (mm)</Label>
+            <Label htmlFor="heightMm">{t('labels.heightMm')}</Label>
             <Input
               id="heightMm"
               type="number"
@@ -609,7 +610,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="depthMm">Depth (mm)</Label>
+            <Label htmlFor="depthMm">{t('labels.depthMm')}</Label>
             <Input
               id="depthMm"
               type="number"
@@ -620,20 +621,20 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="packageType">Packaging Type</Label>
+            <Label htmlFor="packageType">{t('labels.packagingType')}</Label>
             <Select
               value={packageType ? packageType : ''}
               onValueChange={(val) => setPackageType(val as typeof packageType)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select packaging type" />
+                <SelectValue placeholder={t('placeholders.selectPackagingType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="box">Box</SelectItem>
-                <SelectItem value="bag">Bag</SelectItem>
-                <SelectItem value="tube">Tube</SelectItem>
-                <SelectItem value="envelope">Envelope</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="box">{t('packagingOptions.box')}</SelectItem>
+                <SelectItem value="bag">{t('packagingOptions.bag')}</SelectItem>
+                <SelectItem value="tube">{t('packagingOptions.tube')}</SelectItem>
+                <SelectItem value="envelope">{t('packagingOptions.envelope')}</SelectItem>
+                <SelectItem value="other">{t('packagingOptions.other')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -645,7 +646,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         {/* Store URLs section */}
         <div className="space-y-3 border rounded-md p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-medium">Store links for this variant</h2>
+            <h2 className="text-sm font-medium">{t('sections.storeLinks.title')}</h2>
             <Button
               type="button"
               size="sm"
@@ -653,13 +654,12 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
               disabled={isScrapingAll || storesState.every((s) => !s.fullUrl.trim())}
               onClick={handleScrapeAll}
             >
-              {isScrapingAll ? 'Scraping all…' : 'Scrape All'}
+              {isScrapingAll ? t('buttons.scrapingAll') : t('buttons.scrapeAll')}
             </Button>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Paste the full URL of this variant in each store. We&apos;ll store only the
-            path for scraping.
+            {t('sections.storeLinks.description')}
           </p>
 
           <div className="space-y-2">
@@ -668,7 +668,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                 <Label htmlFor={`store-${store.storeId}`}>
                   {store.storeName}{' '}
                   <span className="text-xs text-muted-foreground">
-                    (<Link href={store.storeBaseUrl} target='__blank'>{store.storeBaseUrl}</Link>)
+                    (<Link href={store.storeBaseUrl} target="_blank">{store.storeBaseUrl}</Link>)
                   </span>
                 </Label>
 
@@ -691,13 +691,13 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                     }
                     onClick={() => handleScrape(store.storeId)}
                   >
-                    {scrapingStoreId === store.storeId ? 'Scraping…' : 'Scrape'}
+                    {scrapingStoreId === store.storeId ? t('buttons.scraping') : t('buttons.scrape')}
                   </Button>
                 </div>
 
                 {(store.observedPrice != null || store.observedAt) && (
                   <p className="text-xs text-muted-foreground">
-                    Current:{' '}
+                    {t('labels.currentPrice')}:{' '}
                     {store.observedPrice != null
                       ? `${store.observedPrice.toLocaleString('es-CL')} ${store.currency || 'CLP'
                       }`
@@ -718,7 +718,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           {/* Variant Prices Section */}
           <div className="space-y-3 border rounded-md p-4">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-medium">Variant Prices</h2>
+              <h2 className="text-sm font-medium">{t('sections.variantPrices.title')}</h2>
               <Button
                 type="button"
                 size="sm"
@@ -726,17 +726,17 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                 onClick={handleAddPrice}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Add Price
+                {t('buttons.addPrice')}
               </Button>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Manage the pricing for this variant. Mark a price as active to use it.
+              {t('sections.variantPrices.description')}
             </p>
 
             {prices.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No prices added yet. Click &quot;Add Price&quot; to create one.
+                {t('sections.variantPrices.empty')}
               </p>
             ) : (
               <div className="space-y-3">
@@ -756,10 +756,10 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                           className="h-8"
                         >
                           {price.active && <Check className="h-3 w-3 mr-1" />}
-                          {price.active ? 'Active' : 'Inactive'}
+                          {price.active ? t('status.active') : t('status.inactive')}
                         </Button>
                         <span className="text-xs text-muted-foreground">
-                          {price.type.charAt(0).toUpperCase() + price.type.slice(1)} Price
+                          {t('labels.priceTypeValue', { type: price.type.charAt(0).toUpperCase() + price.type.slice(1) })}
                         </span>
                       </div>
                       <Button
@@ -775,7 +775,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-1">
-                        <Label htmlFor={`price-amount-${price.id}`}>Amount</Label>
+                        <Label htmlFor={`price-amount-${price.id}`}>{t('labels.amount')}</Label>
                         <Input
                           id={`price-amount-${price.id}`}
                           type="number"
@@ -794,7 +794,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                       </div>
 
                       <div className="space-y-1">
-                        <Label htmlFor={`price-currency-${price.id}`}>Currency</Label>
+                        <Label htmlFor={`price-currency-${price.id}`}>{t('labels.currency')}</Label>
                         <Select
                           value={price.currency}
                           onValueChange={(val) =>
@@ -814,7 +814,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                       </div>
 
                       <div className="space-y-1">
-                        <Label htmlFor={`price-type-${price.id}`}>Price Type</Label>
+                        <Label htmlFor={`price-type-${price.id}`}>{t('labels.priceType')}</Label>
                         <Select
                           value={price.type}
                           onValueChange={(val) =>
@@ -825,10 +825,10 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="msrp">MSRP (Manufacturer's Suggsted Retail Price)</SelectItem>
-                            <SelectItem value="retail">List</SelectItem>
-                            <SelectItem value="sale">Sale</SelectItem>
-                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="msrp">{t('priceTypeOptions.msrp')}</SelectItem>
+                            <SelectItem value="retail">{t('priceTypeOptions.retail')}</SelectItem>
+                            <SelectItem value="sale">{t('priceTypeOptions.sale')}</SelectItem>
+                            <SelectItem value="member">{t('priceTypeOptions.member')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -837,7 +837,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label htmlFor={`price-start-${price.id}`}>
-                          Start Date (optional)
+                          {t('labels.startDateOptional')}
                         </Label>
                         <Input
                           id={`price-start-${price.id}`}
@@ -855,7 +855,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
                       <div className="space-y-1">
                         <Label htmlFor={`price-end-${price.id}`}>
-                          End Date (optional)
+                          {t('labels.endDateOptional')}
                         </Label>
                         <Input
                           id={`price-end-${price.id}`}
@@ -881,16 +881,16 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
           <div className="space-y-3 border rounded-md p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-medium">Inventory Stock</h2>
+                <h2 className="text-sm font-medium">{t('sections.inventory.title')}</h2>
                 <p className="text-xs text-muted-foreground">
-                  Manage stock levels across different locations
+                  {t('sections.inventory.description')}
                 </p>
               </div>
             </div>
 
             {locations.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                No locations available. Please create locations first.
+                {t('sections.inventory.noLocations')}
               </p>
             ) : (
               <div className="space-y-3">
@@ -910,7 +910,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                           </p>
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">Available: </span>
+                          <span className="font-medium">{t('labels.available')}: </span>
                           <span className={available > 0 ? 'text-green-600' : available < 0 ? 'text-red-600' : ''}>
                             {available}
                           </span>
@@ -920,7 +920,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1">
                           <Label htmlFor={`inventory-onhand-${location.id}`}>
-                            On Hand
+                            {t('labels.onHand')}
                           </Label>
                           <Input
                             id={`inventory-onhand-${location.id}`}
@@ -938,13 +938,13 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            Total physical stock
+                            {t('labels.totalPhysicalStock')}
                           </p>
                         </div>
 
                         <div className="space-y-1">
                           <Label htmlFor={`inventory-reserved-${location.id}`}>
-                            Reserved
+                            {t('labels.reserved')}
                           </Label>
                           <Input
                             id={`inventory-reserved-${location.id}`}
@@ -962,7 +962,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            Reserved for orders
+                            {t('labels.reservedForOrders')}
                           </p>
                         </div>
                       </div>
@@ -983,14 +983,14 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
 
       <div className="flex gap-2">
         <Button type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save changes'}
+          {isSaving ? tc('saving') : t('buttons.saveChanges')}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={() => router.back()}
         >
-          Cancel
+          {tc('cancel')}
         </Button>
       </div>
     </form>
