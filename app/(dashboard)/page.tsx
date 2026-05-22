@@ -4,10 +4,10 @@ import { Package, ShoppingCart, Users, PlusCircle, LineChart, Workflow } from 'l
 import Link from 'next/link';
 import { prisma } from '@jssprz/ludo2go-database';
 import { OrderStatus, EventType, DeviceType } from '@prisma/client';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('es-CL', {
+const formatPrice = (price: number, locale: string) => {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'CLP',
     minimumFractionDigits: 0
@@ -16,6 +16,9 @@ const formatPrice = (price: number) => {
 
 export default async function AdminHomePage() {
   const t = await getTranslations('dashboard');
+  const tp = await getTranslations('products');
+  const td = await getTranslations('dashboardPage');
+  const locale = await getLocale();
   
   // get totals
   let totalProducts = await prisma.product.count();
@@ -77,7 +80,7 @@ export default async function AdminHomePage() {
           <Button asChild>
             <Link href="/products/new">
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Product
+              {tp('addProduct')}
             </Link>
           </Button>
         </div>
@@ -88,7 +91,7 @@ export default async function AdminHomePage() {
         {/* Catalog */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Catalog</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('catalog.title')}</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -96,37 +99,37 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalProducts}</div>
                 <p className="text-xs text-muted-foreground">
-                  Products
+                  {td('catalog.products')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalVairants}</div>
                 <p className="text-xs text-muted-foreground">
-                  Variants
+                  {td('catalog.variants')}
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{formatPrice(avgVariantPrice)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgVariantPrice, locale)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Price
+                  {td('catalog.avgPrice')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalGames}</div>
                 <p className="text-xs text-muted-foreground">
-                  Games
+                  {td('catalog.games')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalAccessories}</div>
                 <p className="text-xs text-muted-foreground">
-                  Accesories
+                  {td('catalog.accessories')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalBundles}</div>
                 <p className="text-xs text-muted-foreground">
-                  Bundles
+                  {td('catalog.bundles')}
                 </p>
               </div>
             </div>
@@ -136,7 +139,7 @@ export default async function AdminHomePage() {
         {/* Last Week Orders */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orders</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('orders.title')}</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -144,61 +147,61 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Total
+                  {td('orders.total')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(avgOrderSize * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Size
+                  {td('orders.avgSize')}
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{formatPrice(avgOrderSubtotal)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgOrderSubtotal, locale)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Subtotal
+                  {td('orders.avgSubtotal')}
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{formatPrice(avgOrderShipping)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgOrderShipping, locale)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Shipping
+                  {td('orders.avgShipping')}
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{formatPrice(avgOrderTotal)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgOrderTotal, locale)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Total
+                  {td('orders.avgTotal')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalPendingOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Pending
+                  {td('orders.pending')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalProcessingOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Proceess
+                  {td('orders.processing')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalShippedOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Shipped
+                  {td('orders.shipped')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalDeliveredOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Delivered
+                  {td('orders.delivered')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalCancelledOrders}</div>
                 <p className="text-xs text-muted-foreground">
-                  Cancelled
+                  {td('orders.cancelled')}
                 </p>
               </div>
             </div>
@@ -208,7 +211,7 @@ export default async function AdminHomePage() {
         {/* Customers */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('customers.title')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -216,31 +219,31 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalCustomers}</div>
                 <p className="text-xs text-muted-foreground">
-                  Total
+                  {td('customers.total')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(avgCustomerVisits * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Visits
+                  {td('customers.avgVisits')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(totalOrders / totalCustomers * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Orders
+                  {td('customers.avgOrders')}
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{formatPrice(avgCustomerSpent)}</div>
+                <div className="text-xl font-bold">{formatPrice(avgCustomerSpent, locale)}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Spent
+                  {td('customers.avgSpent')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{totalAddresses}</div>
                 <p className="text-xs text-muted-foreground">
-                  Addresses
+                  {td('customers.addresses')}
                 </p>
               </div>
             </div>
@@ -250,7 +253,7 @@ export default async function AdminHomePage() {
         {/* Mobile Traffic & Rates */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Mobile Traffic & Rates</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('mobileTraffic.title')}</CardTitle>
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -258,37 +261,37 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalMobileVisits}</div>
                 <p className="text-xs text-muted-foreground">
-                  Visits
+                  {td('traffic.visits')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(mobileConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  Conversion
+                  {td('traffic.conversion')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(mobileAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  AtoC
+                  {td('traffic.atoc')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{mobileSearches}</div>
                 <p className="text-xs text-muted-foreground">
-                  Searches
+                  {td('traffic.searches')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{mobileProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
-                  Item Imprs
+                  {td('traffic.itemImpressions')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{avgMobileProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Item Imprs
+                  {td('traffic.avgItemImpressions')}
                 </p>
               </div>
             </div>
@@ -298,7 +301,7 @@ export default async function AdminHomePage() {
         {/* Desktop Traffic & Rates */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Desktop Traffic & Rates</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('desktopTraffic.title')}</CardTitle>
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -306,37 +309,37 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalDesktopVisits}</div>
                 <p className="text-xs text-muted-foreground">
-                  Visits
+                  {td('traffic.visits')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  Conversion
+                  {td('traffic.conversion')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  AtoC
+                  {td('traffic.atoc')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{desktopSearches}</div>
                 <p className="text-xs text-muted-foreground">
-                  Searches
+                  {td('traffic.searches')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{desktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
-                  Item Imprs
+                  {td('traffic.itemImpressions')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{avgDesktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Item Imprs
+                  {td('traffic.avgItemImpressions')}
                 </p>
               </div>
             </div>
@@ -346,7 +349,7 @@ export default async function AdminHomePage() {
         {/* Other/Unknown Device Traffic & Rates */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Others Traffic & Rates</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('otherTraffic.title')}</CardTitle>
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -354,37 +357,37 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalOtherVisits}</div>
                 <p className="text-xs text-muted-foreground">
-                  Visits
+                  {td('traffic.visits')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(desktopConversion * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  Conversion
+                  {td('traffic.conversion')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
                 <p className="text-xs text-muted-foreground">
-                  AtoC
+                  {td('traffic.atoc')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{desktopSearches}</div>
                 <p className="text-xs text-muted-foreground">
-                  Searches
+                  {td('traffic.searches')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{desktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
-                  Item Imprs
+                  {td('traffic.itemImpressions')}
                 </p>
               </div>
               <div>
                 <div className="text-xl font-bold">{avgDesktopProductImprs}</div>
                 <p className="text-xs text-muted-foreground">
-                  Avg Item Imprs
+                  {td('traffic.avgItemImpressions')}
                 </p>
               </div>
             </div>
@@ -394,7 +397,7 @@ export default async function AdminHomePage() {
         {/* Traffic per Channel */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Traffic per UTM</CardTitle>
+            <CardTitle className="text-sm font-medium">{td('utm.title')}</CardTitle>
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -445,18 +448,18 @@ export default async function AdminHomePage() {
         {/* Catalog */}
         <Card>
           <CardHeader>
-            <CardTitle>Catalog</CardTitle>
+            <CardTitle>{td('quick.catalog.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Create, edit and organize products and their variants.
+              {td('quick.catalog.description')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" asChild>
-                <Link href="/products">View products</Link>
+                <Link href="/products">{td('quick.catalog.viewProducts')}</Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/products?status=draft">Draft products</Link>
+                <Link href="/products?status=draft">{td('quick.catalog.draftProducts')}</Link>
               </Button>
             </div>
           </CardContent>
@@ -465,18 +468,18 @@ export default async function AdminHomePage() {
         {/* Orders & Customers */}
         <Card>
           <CardHeader>
-            <CardTitle>Orders & Customers</CardTitle>
+            <CardTitle>{td('quick.ordersCustomers.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              (Future sections) Track orders, customers and fulfillment.
+              {td('quick.ordersCustomers.description')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled>
-                Orders (coming soon)
+                {td('quick.ordersCustomers.ordersComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Customers (coming soon)
+                {td('quick.ordersCustomers.customersComingSoon')}
               </Button>
             </div>
           </CardContent>
@@ -485,18 +488,18 @@ export default async function AdminHomePage() {
         {/* Stock & Inventory */}
         <Card>
           <CardHeader>
-            <CardTitle>Stock & Inventory</CardTitle>
+            <CardTitle>{td('quick.stockInventory.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              (Future sections) Update stocks per variant and manage alerts.
+              {td('quick.stockInventory.description')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled>
-                Stock per variant (coming soon)
+                {td('quick.stockInventory.stockPerVariantComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Products at risk of running out of stock (coming soon)
+                {td('quick.stockInventory.lowStockComingSoon')}
               </Button>
             </div>
           </CardContent>
@@ -505,33 +508,33 @@ export default async function AdminHomePage() {
         {/* Prices, promotions, and coupons */}
         <Card>
           <CardHeader>
-            <CardTitle>Prices, Promotions & Coupons</CardTitle>
+            <CardTitle>{td('quick.pricingPromotions.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              (Future sections) Manage base price + sale price per variant, promotions and coupons.
+              {td('quick.pricingPromotions.description1')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Schedule promotions by date (e.g., Black Friday, summer sales)
+              {td('quick.pricingPromotions.description2')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Coupon management: percentage, fixed amount, free shipping, minimum order value, expiration.
+              {td('quick.pricingPromotions.description3')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Simple rules such as: “X% off on the ‘family games’ category.”
+              {td('quick.pricingPromotions.description4')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled>
-                Prices (coming soon)
+                {td('quick.pricingPromotions.pricesComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Promotions (coming soon)
+                {td('quick.pricingPromotions.promotionsComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Coupons (coming soon)
+                {td('quick.pricingPromotions.couponsComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Simple Rules (coming soon)
+                {td('quick.pricingPromotions.simpleRulesComingSoon')}
               </Button>
             </div>
           </CardContent>
@@ -540,30 +543,30 @@ export default async function AdminHomePage() {
         {/* Shipping & Logistics */}
         <Card>
           <CardHeader>
-            <CardTitle>Shipping & Logistics</CardTitle>
+            <CardTitle>{td('quick.shippingLogistics.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              (Future sections) Configuration of shipping zones (Chile: Metropolitan Region, other regions, remote areas, etc.)
+              {td('quick.shippingLogistics.description1')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Rates: flat, by weight, by order total
+              {td('quick.shippingLogistics.description2')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Integrations or at least data export for couriers (Chilexpress, Starken, etc.)
+              {td('quick.shippingLogistics.description3')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Field for shipment tracking number and tracking link.
+              {td('quick.shippingLogistics.description4')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled>
-                Shipping Zones (coming soon)
+                {td('quick.shippingLogistics.shippingZonesComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Rates (coming soon)
+                {td('quick.shippingLogistics.ratesComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Couriers (coming soon)
+                {td('quick.shippingLogistics.couriersComingSoon')}
               </Button>
             </div>
           </CardContent>
@@ -572,21 +575,21 @@ export default async function AdminHomePage() {
         {/* Content & Pages (mini CMS) */}
         <Card>
           <CardHeader>
-            <CardTitle>Content & Pages (mini CMS)</CardTitle>
+            <CardTitle>{td('quick.contentPages.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              (Future sections) Edit key texts: return policy, terms and conditions, FAQs
+              {td('quick.contentPages.description1')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Banners and promotional messages on the home page (“Free shipping on orders over $X”)
+              {td('quick.contentPages.description2')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled>
-                Pages (coming soon)
+                {td('quick.contentPages.pagesComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Banners (coming soon)
+                {td('quick.contentPages.bannersComingSoon')}
               </Button>
             </div>
           </CardContent>
@@ -595,21 +598,21 @@ export default async function AdminHomePage() {
         {/* Reports & basic analytics */}
         <Card>
           <CardHeader>
-            <CardTitle>Reports & basic analytics</CardTitle>
+            <CardTitle>{td('quick.reportsAnalytics.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              (Future sections) Even if you later use GA/Looker/etc., the admin should at least show:
+              {td('quick.reportsAnalytics.description1')}
             </p>
             <p className="text-sm text-muted-foreground">
-              (Future sections) Banners and promotional messages on the home page (“Free shipping on orders over $X”)
+              {td('quick.reportsAnalytics.description2')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled>
-                Sales per day / week / month (coming soon)
+                {td('quick.reportsAnalytics.salesComingSoon')}
               </Button>
               <Button variant="outline" size="sm" disabled>
-                Top best-selling products (coming soon)
+                {td('quick.reportsAnalytics.topProductsComingSoon')}
               </Button>
             </div>
           </CardContent>

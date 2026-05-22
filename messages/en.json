@@ -71,6 +71,113 @@
     "totalProducts": "Total Products",
     "totalCustomers": "Total Customers"
   },
+  "dashboardPage": {
+    "catalog": {
+      "title": "Catalog",
+      "products": "Products",
+      "variants": "Variants",
+      "avgPrice": "Avg Price",
+      "games": "Games",
+      "accessories": "Accessories",
+      "bundles": "Bundles"
+    },
+    "orders": {
+      "title": "Orders",
+      "total": "Total",
+      "avgSize": "Avg Size",
+      "avgSubtotal": "Avg Subtotal",
+      "avgShipping": "Avg Shipping",
+      "avgTotal": "Avg Total",
+      "pending": "Pending",
+      "processing": "Processing",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "customers": {
+      "title": "Customers",
+      "total": "Total",
+      "avgVisits": "Avg Visits",
+      "avgOrders": "Avg Orders",
+      "avgSpent": "Avg Spent",
+      "addresses": "Addresses"
+    },
+    "traffic": {
+      "visits": "Visits",
+      "conversion": "Conversion",
+      "atoc": "AtoC",
+      "searches": "Searches",
+      "itemImpressions": "Item Imprs",
+      "avgItemImpressions": "Avg Item Imprs"
+    },
+    "mobileTraffic": {
+      "title": "Mobile Traffic & Rates"
+    },
+    "desktopTraffic": {
+      "title": "Desktop Traffic & Rates"
+    },
+    "otherTraffic": {
+      "title": "Others Traffic & Rates"
+    },
+    "utm": {
+      "title": "Traffic per UTM"
+    },
+    "quick": {
+      "catalog": {
+        "title": "Catalog",
+        "description": "Create, edit and organize products and their variants.",
+        "viewProducts": "View products",
+        "draftProducts": "Draft products"
+      },
+      "ordersCustomers": {
+        "title": "Orders & Customers",
+        "description": "(Future sections) Track orders, customers and fulfillment.",
+        "ordersComingSoon": "Orders (coming soon)",
+        "customersComingSoon": "Customers (coming soon)"
+      },
+      "stockInventory": {
+        "title": "Stock & Inventory",
+        "description": "(Future sections) Update stocks per variant and manage alerts.",
+        "stockPerVariantComingSoon": "Stock per variant (coming soon)",
+        "lowStockComingSoon": "Products at risk of running out of stock (coming soon)"
+      },
+      "pricingPromotions": {
+        "title": "Prices, Promotions & Coupons",
+        "description1": "(Future sections) Manage base price + sale price per variant, promotions and coupons.",
+        "description2": "(Future sections) Schedule promotions by date (e.g., Black Friday, summer sales)",
+        "description3": "(Future sections) Coupon management: percentage, fixed amount, free shipping, minimum order value, expiration.",
+        "description4": "(Future sections) Simple rules such as: \"X% off on the 'family games' category.\"",
+        "pricesComingSoon": "Prices (coming soon)",
+        "promotionsComingSoon": "Promotions (coming soon)",
+        "couponsComingSoon": "Coupons (coming soon)",
+        "simpleRulesComingSoon": "Simple Rules (coming soon)"
+      },
+      "shippingLogistics": {
+        "title": "Shipping & Logistics",
+        "description1": "(Future sections) Configuration of shipping zones (Chile: Metropolitan Region, other regions, remote areas, etc.)",
+        "description2": "(Future sections) Rates: flat, by weight, by order total",
+        "description3": "(Future sections) Integrations or at least data export for couriers (Chilexpress, Starken, etc.)",
+        "description4": "(Future sections) Field for shipment tracking number and tracking link.",
+        "shippingZonesComingSoon": "Shipping Zones (coming soon)",
+        "ratesComingSoon": "Rates (coming soon)",
+        "couriersComingSoon": "Couriers (coming soon)"
+      },
+      "contentPages": {
+        "title": "Content & Pages (mini CMS)",
+        "description1": "(Future sections) Edit key texts: return policy, terms and conditions, FAQs",
+        "description2": "(Future sections) Banners and promotional messages on the home page (\"Free shipping on orders over $X\")",
+        "pagesComingSoon": "Pages (coming soon)",
+        "bannersComingSoon": "Banners (coming soon)"
+      },
+      "reportsAnalytics": {
+        "title": "Reports & basic analytics",
+        "description1": "(Future sections) Even if you later use GA/Looker/etc., the admin should at least show:",
+        "description2": "(Future sections) Banners and promotional messages on the home page (\"Free shipping on orders over $X\")",
+        "salesComingSoon": "Sales per day / week / month (coming soon)",
+        "topProductsComingSoon": "Top best-selling products (coming soon)"
+      }
+    }
+  },
   "products": {
     "title": "Products",
     "description": "Manage your product catalog",

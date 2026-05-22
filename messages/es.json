@@ -70,6 +70,113 @@
     "totalProducts": "Productos Totales",
     "totalCustomers": "Clientes Totales"
   },
+  "dashboardPage": {
+    "catalog": {
+      "title": "Catálogo",
+      "products": "Productos",
+      "variants": "Variantes",
+      "avgPrice": "Precio Promedio",
+      "games": "Juegos",
+      "accessories": "Accesorios",
+      "bundles": "Bundles"
+    },
+    "orders": {
+      "title": "Pedidos",
+      "total": "Total",
+      "avgSize": "Tamaño Promedio",
+      "avgSubtotal": "Subtotal Promedio",
+      "avgShipping": "Envío Promedio",
+      "avgTotal": "Total Promedio",
+      "pending": "Pendientes",
+      "processing": "En Proceso",
+      "shipped": "Enviados",
+      "delivered": "Entregados",
+      "cancelled": "Cancelados"
+    },
+    "customers": {
+      "title": "Clientes",
+      "total": "Total",
+      "avgVisits": "Visitas Promedio",
+      "avgOrders": "Pedidos Promedio",
+      "avgSpent": "Gasto Promedio",
+      "addresses": "Direcciones"
+    },
+    "traffic": {
+      "visits": "Visitas",
+      "conversion": "Conversión",
+      "atoc": "AtoC",
+      "searches": "Búsquedas",
+      "itemImpressions": "Impresiones de ítems",
+      "avgItemImpressions": "Impresiones Promedio"
+    },
+    "mobileTraffic": {
+      "title": "Tráfico y Tasas Móvil"
+    },
+    "desktopTraffic": {
+      "title": "Tráfico y Tasas Desktop"
+    },
+    "otherTraffic": {
+      "title": "Tráfico y Tasas Otros"
+    },
+    "utm": {
+      "title": "Tráfico por UTM"
+    },
+    "quick": {
+      "catalog": {
+        "title": "Catálogo",
+        "description": "Crea, edita y organiza productos y sus variantes.",
+        "viewProducts": "Ver productos",
+        "draftProducts": "Productos borrador"
+      },
+      "ordersCustomers": {
+        "title": "Pedidos y Clientes",
+        "description": "(Secciones futuras) Seguimiento de pedidos, clientes y cumplimiento.",
+        "ordersComingSoon": "Pedidos (próximamente)",
+        "customersComingSoon": "Clientes (próximamente)"
+      },
+      "stockInventory": {
+        "title": "Stock e Inventario",
+        "description": "(Secciones futuras) Actualiza stock por variante y gestiona alertas.",
+        "stockPerVariantComingSoon": "Stock por variante (próximamente)",
+        "lowStockComingSoon": "Productos con riesgo de quedarse sin stock (próximamente)"
+      },
+      "pricingPromotions": {
+        "title": "Precios, Promociones y Cupones",
+        "description1": "(Secciones futuras) Gestiona precio base + precio oferta por variante, promociones y cupones.",
+        "description2": "(Secciones futuras) Programa promociones por fecha (por ejemplo, Black Friday, rebajas de verano)",
+        "description3": "(Secciones futuras) Gestión de cupones: porcentaje, monto fijo, envío gratis, mínimo de compra, vencimiento.",
+        "description4": "(Secciones futuras) Reglas simples como: \"X% de descuento en la categoría de juegos familiares\".",
+        "pricesComingSoon": "Precios (próximamente)",
+        "promotionsComingSoon": "Promociones (próximamente)",
+        "couponsComingSoon": "Cupones (próximamente)",
+        "simpleRulesComingSoon": "Reglas simples (próximamente)"
+      },
+      "shippingLogistics": {
+        "title": "Envío y Logística",
+        "description1": "(Secciones futuras) Configuración de zonas de envío (Chile: Región Metropolitana, otras regiones, zonas remotas, etc.)",
+        "description2": "(Secciones futuras) Tarifas: fija, por peso, por total del pedido",
+        "description3": "(Secciones futuras) Integraciones o al menos exportación de datos para couriers (Chilexpress, Starken, etc.)",
+        "description4": "(Secciones futuras) Campo para número de seguimiento y enlace de tracking.",
+        "shippingZonesComingSoon": "Zonas de envío (próximamente)",
+        "ratesComingSoon": "Tarifas (próximamente)",
+        "couriersComingSoon": "Couriers (próximamente)"
+      },
+      "contentPages": {
+        "title": "Contenido y Páginas (mini CMS)",
+        "description1": "(Secciones futuras) Edita textos clave: política de devoluciones, términos y condiciones, FAQs",
+        "description2": "(Secciones futuras) Banners y mensajes promocionales en la página principal (\"Envío gratis sobre $X\")",
+        "pagesComingSoon": "Páginas (próximamente)",
+        "bannersComingSoon": "Banners (próximamente)"
+      },
+      "reportsAnalytics": {
+        "title": "Reportes y analítica básica",
+        "description1": "(Secciones futuras) Aunque después uses GA/Looker/etc., el admin debería mostrar al menos:",
+        "description2": "(Secciones futuras) Banners y mensajes promocionales en la página principal (\"Envío gratis sobre $X\")",
+        "salesComingSoon": "Ventas por día / semana / mes (próximamente)",
+        "topProductsComingSoon": "Productos más vendidos (próximamente)"
+      }
+    }
+  },
   "products": {
     "title": "Productos",
     "description": "Administra tu catálogo de productos",
