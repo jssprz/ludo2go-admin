@@ -2,6 +2,38 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 
+function normalizeItem(item: any) {
+  const quantity = Math.max(0, Number(item?.quantity) || 0);
+  const quantityReceived = Math.max(0, Number(item?.quantityReceived) || 0);
+  const unitCost = Math.max(0, Number(item?.unitCost) || 0);
+  const discount = Math.max(0, Number(item?.discount) || 0);
+  const gross = quantity * unitCost;
+  const total = Math.max(0, gross - discount);
+
+  return {
+    variantId: item?.variantId,
+    quantity,
+    quantityReceived,
+    unitCost,
+    discount,
+    total,
+  };
+}
+
+function calculateTotals(
+  subtotal: number,
+  shipping: number,
+  includeShippingInTax: boolean
+) {
+  const taxBase = subtotal + (includeShippingInTax ? shipping : 0);
+  const tax = Math.round(taxBase * 0.19);
+  return {
+    subtotal,
+    tax,
+    total: subtotal + shipping + tax,
+  };
+}
+
 // GET /api/purchase-orders - List all purchase orders
 export async function GET(request: Request) {
   const session = await auth();
@@ -18,7 +50,13 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
       include: {
         supplier: { select: { id: true, name: true, code: true } },
-        _count: { select: { items: true } },
+        items: {
+          include: {
+            variant: {
+              select: { id: true, sku: true, product: { select: { name: true } } },
+            },
+          },
+        },
       },
     });
 
@@ -43,7 +81,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       code, supplierId, currency, notes, orderedAt, expectedAt,
-      items, // Array of { variantId, quantity, unitCost }
+      shipping,
+      includeShippingInTax,
+      items, // Array of { variantId, quantity, unitCost, discount }
     } = body;
 
     if (!code || !supplierId) {
@@ -62,15 +102,21 @@ export async function POST(request: Request) {
     }
 
     // Calculate totals from items
-    const orderItems = (items || []).map((item: any) => ({
-      variantId: item.variantId,
-      quantity: Number(item.quantity) || 0,
-      quantityReceived: 0,
-      unitCost: Number(item.unitCost) || 0,
-      total: (Number(item.quantity) || 0) * (Number(item.unitCost) || 0),
-    }));
+    const orderItems = (items || [])
+      .map((item: any) => normalizeItem(item))
+      .filter((item: any) => !!item.variantId);
+
+    const uniqueVariantIds = new Set(orderItems.map((item: any) => item.variantId));
+    if (uniqueVariantIds.size !== orderItems.length) {
+      return NextResponse.json(
+        { error: 'Duplicate variants are not allowed in the same purchase order' },
+        { status: 400 }
+      );
+    }
 
     const subtotal = orderItems.reduce((sum: number, i: any) => sum + i.total, 0);
+    const normalizedShipping = Math.max(0, Number(shipping) || 0);
+    const totals = calculateTotals(subtotal, normalizedShipping, !!includeShippingInTax);
 
     const order = await prisma.purchaseOrder.create({
       data: {
@@ -78,10 +124,10 @@ export async function POST(request: Request) {
         supplierId,
         status: 'draft',
         currency: currency || 'CLP',
-        subtotal,
-        tax: 0,
-        shipping: 0,
-        total: subtotal,
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        shipping: normalizedShipping,
+        total: totals.total,
         notes: notes || null,
         orderedAt: orderedAt ? new Date(orderedAt) : null,
         expectedAt: expectedAt ? new Date(expectedAt) : null,

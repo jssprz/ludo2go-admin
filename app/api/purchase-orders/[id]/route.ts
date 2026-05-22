@@ -2,6 +2,39 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 
+function normalizeItem(item: any, purchaseOrderId: string) {
+  const quantity = Math.max(0, Number(item?.quantity) || 0);
+  const quantityReceived = Math.max(0, Number(item?.quantityReceived) || 0);
+  const unitCost = Math.max(0, Number(item?.unitCost) || 0);
+  const discount = Math.max(0, Number(item?.discount) || 0);
+  const gross = quantity * unitCost;
+  const total = Math.max(0, gross - discount);
+
+  return {
+    purchaseOrderId,
+    variantId: item?.variantId,
+    quantity,
+    quantityReceived,
+    unitCost,
+    discount,
+    total,
+  };
+}
+
+function calculateTotals(
+  subtotal: number,
+  shipping: number,
+  includeShippingInTax: boolean
+) {
+  const taxBase = subtotal + (includeShippingInTax ? shipping : 0);
+  const tax = Math.round(taxBase * 0.19);
+  return {
+    subtotal,
+    tax,
+    total: subtotal + shipping + tax,
+  };
+}
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -56,7 +89,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const body = await request.json();
     const {
-      status, notes, tax, shipping, orderedAt, expectedAt, receivedAt,
+      status, notes, shipping, includeShippingInTax, orderedAt, expectedAt, receivedAt,
       items, // optional: full replacement of items
     } = body;
 
@@ -68,14 +101,17 @@ export async function PUT(request: Request, { params }: RouteContext) {
         where: { purchaseOrderId: id },
       });
 
-      const orderItems = items.map((item: any) => ({
-        purchaseOrderId: id,
-        variantId: item.variantId,
-        quantity: Number(item.quantity) || 0,
-        quantityReceived: Number(item.quantityReceived) || 0,
-        unitCost: Number(item.unitCost) || 0,
-        total: (Number(item.quantity) || 0) * (Number(item.unitCost) || 0),
-      }));
+      const orderItems = items
+        .map((item: any) => normalizeItem(item, id))
+        .filter((item: any) => !!item.variantId);
+
+      const uniqueVariantIds = new Set(orderItems.map((item: any) => item.variantId));
+      if (uniqueVariantIds.size !== orderItems.length) {
+        return NextResponse.json(
+          { error: 'Duplicate variants are not allowed in the same purchase order' },
+          { status: 400 }
+        );
+      }
 
       if (orderItems.length > 0) {
         await prisma.purchaseOrderItem.createMany({ data: orderItems });
@@ -90,18 +126,23 @@ export async function PUT(request: Request, { params }: RouteContext) {
     }
 
     const finalSubtotal = subtotal !== undefined ? subtotal : currentOrder.subtotal;
-    const finalTax = typeof tax === 'number' ? tax : currentOrder.tax;
-    const finalShipping = typeof shipping === 'number' ? shipping : currentOrder.shipping;
+    const finalShipping = Math.max(0, typeof shipping === 'number' ? shipping : currentOrder.shipping);
+    const includeShippingForTax =
+      typeof includeShippingInTax === 'boolean'
+        ? includeShippingInTax
+        : Math.abs(currentOrder.tax - Math.round((currentOrder.subtotal + currentOrder.shipping) * 0.19)) <=
+          Math.abs(currentOrder.tax - Math.round(currentOrder.subtotal * 0.19));
+    const totals = calculateTotals(finalSubtotal, finalShipping, includeShippingForTax);
 
     const order = await prisma.purchaseOrder.update({
       where: { id },
       data: {
         ...(status ? { status: status as any } : {}),
         notes: notes !== undefined ? (notes || null) : undefined,
-        subtotal: finalSubtotal,
-        tax: finalTax,
+        subtotal: totals.subtotal,
+        tax: totals.tax,
         shipping: finalShipping,
-        total: finalSubtotal + finalTax + finalShipping,
+        total: totals.total,
         orderedAt: orderedAt !== undefined ? (orderedAt ? new Date(orderedAt) : null) : undefined,
         expectedAt: expectedAt !== undefined ? (expectedAt ? new Date(expectedAt) : null) : undefined,
         receivedAt: receivedAt !== undefined ? (receivedAt ? new Date(receivedAt) : null) : undefined,

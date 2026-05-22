@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -72,6 +73,7 @@ type OrderItem = {
   quantity: number;
   quantityReceived: number;
   unitCost: number;
+  discount: number;
   total: number;
   variant: {
     id: string;
@@ -132,6 +134,25 @@ function formatCurrency(amount: number, currency: string) {
   }).format(amount);
 }
 
+function getItemTotal(quantity: number, unitCost: number, discount: number) {
+  return Math.max(0, quantity * unitCost - discount);
+}
+
+function getItemsSubtotal(items: Array<{ quantity: number; unitCost: number; discount: number }>) {
+  return items.reduce((sum, item) => sum + getItemTotal(item.quantity, item.unitCost, item.discount), 0);
+}
+
+function getTax(subtotal: number, shipping: number, includeShippingInTax: boolean) {
+  const taxBase = subtotal + (includeShippingInTax ? shipping : 0);
+  return Math.round(taxBase * 0.19);
+}
+
+function inferIncludeShippingInTax(order: PurchaseOrder) {
+  const withShipping = Math.round((order.subtotal + order.shipping) * 0.19);
+  const withoutShipping = Math.round(order.subtotal * 0.19);
+  return Math.abs(order.tax - withShipping) <= Math.abs(order.tax - withoutShipping);
+}
+
 export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders);
@@ -143,10 +164,12 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [formCode, setFormCode] = useState('');
   const [formSupplierId, setFormSupplierId] = useState('');
   const [formCurrency, setFormCurrency] = useState('CLP');
+  const [formShipping, setFormShipping] = useState(0);
+  const [formIncludeShippingInTax, setFormIncludeShippingInTax] = useState(false);
   const [formNotes, setFormNotes] = useState('');
   const [formOrderedAt, setFormOrderedAt] = useState('');
   const [formExpectedAt, setFormExpectedAt] = useState('');
-  const [formItems, setFormItems] = useState<Array<{ variantId: string; quantity: number; unitCost: number }>>([]);
+  const [formItems, setFormItems] = useState<Array<{ variantId: string; quantity: number; unitCost: number; discount: number }>>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Detail/edit dialog
@@ -154,13 +177,16 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [editStatus, setEditStatus] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const [editTax, setEditTax] = useState<number>(0);
+  const [editItems, setEditItems] = useState<Array<{ variantId: string; quantity: number; quantityReceived: number; unitCost: number; discount: number }>>([]);
   const [editShipping, setEditShipping] = useState<number>(0);
+  const [editIncludeShippingInTax, setEditIncludeShippingInTax] = useState(false);
 
   function resetCreateForm() {
     setFormCode('');
     setFormSupplierId('');
     setFormCurrency('CLP');
+    setFormShipping(0);
+    setFormIncludeShippingInTax(false);
     setFormNotes('');
     setFormOrderedAt('');
     setFormExpectedAt('');
@@ -169,7 +195,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   }
 
   function addItem() {
-    setFormItems([...formItems, { variantId: '', quantity: 1, unitCost: 0 }]);
+    setFormItems([...formItems, { variantId: '', quantity: 1, unitCost: 0, discount: 0 }]);
   }
 
   function removeItem(index: number) {
@@ -182,9 +208,36 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setFormItems(updated);
   }
 
-  function getItemsSubtotal() {
-    return formItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
+  function addEditItem() {
+    setEditItems([
+      ...editItems,
+      { variantId: '', quantity: 1, quantityReceived: 0, unitCost: 0, discount: 0 },
+    ]);
   }
+
+  function removeEditItem(index: number) {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  }
+
+  function updateEditItem(index: number, field: string, value: any) {
+    const updated = [...editItems];
+    const next = { ...updated[index], [field]: value } as any;
+    if (field === 'quantity' && next.quantityReceived > value) {
+      next.quantityReceived = value;
+    }
+    updated[index] = next;
+    setEditItems(updated);
+  }
+
+  const formSubtotal = getItemsSubtotal(formItems);
+  const normalizedFormShipping = Math.max(0, formShipping || 0);
+  const formTax = getTax(formSubtotal, normalizedFormShipping, formIncludeShippingInTax);
+  const formTotal = formSubtotal + normalizedFormShipping + formTax;
+
+  const editSubtotal = getItemsSubtotal(editItems);
+  const normalizedEditShipping = Math.max(0, editShipping || 0);
+  const editTax = getTax(editSubtotal, normalizedEditShipping, editIncludeShippingInTax);
+  const editTotal = editSubtotal + normalizedEditShipping + editTax;
 
   async function handleCreate() {
     if (!formCode.trim() || !formSupplierId) {
@@ -203,6 +256,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
           code: formCode.trim(),
           supplierId: formSupplierId,
           currency: formCurrency,
+          shipping: normalizedFormShipping,
+          includeShippingInTax: formIncludeShippingInTax,
           notes: formNotes.trim() || null,
           orderedAt: formOrderedAt || null,
           expectedAt: formExpectedAt || null,
@@ -231,8 +286,17 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setSelectedOrder(order);
     setEditStatus(order.status);
     setEditNotes(order.notes ?? '');
-    setEditTax(order.tax);
     setEditShipping(order.shipping);
+    setEditIncludeShippingInTax(inferIncludeShippingInTax(order));
+    setEditItems(
+      order.items.map((item) => ({
+        variantId: item.variantId,
+        quantity: item.quantity,
+        quantityReceived: item.quantityReceived,
+        unitCost: item.unitCost,
+        discount: item.discount || 0,
+      }))
+    );
     setShowDetailDialog(true);
   }
 
@@ -247,8 +311,9 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
         body: JSON.stringify({
           status: editStatus,
           notes: editNotes.trim() || null,
-          tax: editTax,
-          shipping: editShipping,
+          shipping: normalizedEditShipping,
+          includeShippingInTax: editIncludeShippingInTax,
+          items: editItems.filter((i) => i.variantId),
           ...(editStatus === 'received' ? { receivedAt: new Date().toISOString() } : {}),
         }),
       });
@@ -485,13 +550,23 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     <Label className="text-xs">Unit cost</Label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="1"
                       value={item.unitCost}
                       onChange={(e) => updateItem(idx, 'unitCost', Number(e.target.value) || 0)}
                     />
                   </div>
+                  <div className="w-28 space-y-1">
+                    <Label className="text-xs">Discount</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      min={0}
+                      value={item.discount}
+                      onChange={(e) => updateItem(idx, 'discount', Math.max(0, Number(e.target.value) || 0))}
+                    />
+                  </div>
                   <div className="w-24 text-right text-sm font-medium pt-5">
-                    {formatCurrency(item.quantity * item.unitCost, formCurrency)}
+                    {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), formCurrency)}
                   </div>
                   <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => removeItem(idx)}>
                     <X className="h-4 w-4" />
@@ -499,11 +574,47 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                 </div>
               ))}
 
-              {formItems.length > 0 && (
-                <div className="text-right text-sm font-medium">
-                  Subtotal: {formatCurrency(getItemsSubtotal(), formCurrency)}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Shipping</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={formShipping}
+                    onChange={(e) => setFormShipping(Math.max(0, Number(e.target.value) || 0))}
+                  />
                 </div>
-              )}
+                <div className="flex items-end pb-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="form-include-shipping-tax"
+                      checked={formIncludeShippingInTax}
+                      onCheckedChange={(v) => setFormIncludeShippingInTax(!!v)}
+                    />
+                    <Label htmlFor="form-include-shipping-tax">Include shipping before 19% tax</Label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(formSubtotal, formCurrency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax (19%)</span>
+                  <span>{formatCurrency(formTax, formCurrency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Shipping</span>
+                  <span>{formatCurrency(normalizedFormShipping, formCurrency)}</span>
+                </div>
+                <div className="flex justify-between font-bold border-t pt-1">
+                  <span>Total</span>
+                  <span>{formatCurrency(formTotal, formCurrency)}</span>
+                </div>
+              </div>
             </div>
 
             {formError && <p className="text-sm text-red-500">{formError}</p>}
@@ -544,13 +655,28 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Tax</Label>
-                    <Input type="number" step="0.01" value={editTax} onChange={(e) => setEditTax(Number(e.target.value) || 0)} />
+                    <Label>Shipping</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="1"
+                      value={editShipping}
+                      onChange={(e) => setEditShipping(Math.max(0, Number(e.target.value) || 0))}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label>Shipping</Label>
-                    <Input type="number" step="0.01" value={editShipping} onChange={(e) => setEditShipping(Number(e.target.value) || 0)} />
+                    <Label>Tax (19%)</Label>
+                    <Input value={formatCurrency(editTax, selectedOrder.currency)} disabled />
                   </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-include-shipping-tax"
+                    checked={editIncludeShippingInTax}
+                    onCheckedChange={(v) => setEditIncludeShippingInTax(!!v)}
+                  />
+                  <Label htmlFor="edit-include-shipping-tax">Include shipping before 19% tax</Label>
                 </div>
 
                 <div className="space-y-2">
@@ -559,46 +685,108 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                 </div>
 
                 {/* Order items */}
-                <div className="space-y-2">
-                  <Label className="text-base font-medium">Items ({selectedOrder.items.length})</Label>
-                  <div className="border rounded-md divide-y">
-                    {selectedOrder.items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                        <div>
-                          <span className="font-medium">{item.variant.sku}</span>
-                          <span className="text-muted-foreground ml-2">{item.variant.product.name}</span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-medium">Items ({editItems.length})</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addEditItem}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add item
+                    </Button>
+                  </div>
+
+                  {editItems.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4 border rounded-md border-dashed">
+                      No items yet. Click &quot;Add item&quot; to start.
+                    </p>
+                  )}
+
+                  {editItems.map((item, idx) => (
+                    <div key={idx} className="grid gap-3 border rounded-md p-3">
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr),90px,120px,120px,120px,80px]">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Variant</Label>
+                          <Select value={item.variantId} onValueChange={(val) => updateEditItem(idx, 'variantId', val)}>
+                            <SelectTrigger><SelectValue placeholder="Select variant" /></SelectTrigger>
+                            <SelectContent>
+                              {variants.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.sku} — {v.product.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div className="flex items-center gap-4 text-right">
-                          <span>{item.quantityReceived}/{item.quantity} received</span>
-                          <span className="font-medium">
-                            {formatCurrency(item.unitCost, selectedOrder.currency)} × {item.quantity}
-                          </span>
-                          <span className="font-bold min-w-[80px]">
-                            {formatCurrency(item.total, selectedOrder.currency)}
-                          </span>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Qty</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={item.quantity}
+                            onChange={(e) => updateEditItem(idx, 'quantity', Math.max(1, Number(e.target.value) || 1))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Received</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.quantity}
+                            value={item.quantityReceived}
+                            onChange={(e) => {
+                              const next = Math.max(0, Number(e.target.value) || 0);
+                              updateEditItem(idx, 'quantityReceived', Math.min(next, item.quantity));
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Unit cost</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="1"
+                            value={item.unitCost}
+                            onChange={(e) => updateEditItem(idx, 'unitCost', Math.max(0, Number(e.target.value) || 0))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Discount</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="1"
+                            value={item.discount}
+                            onChange={(e) => updateEditItem(idx, 'discount', Math.max(0, Number(e.target.value) || 0))}
+                          />
+                        </div>
+                        <div className="flex items-end justify-end pb-1">
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeEditItem(idx)}>
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div className="text-right text-sm font-medium">
+                        {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Totals */}
                 <div className="border rounded-md p-3 space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
-                    <span>{formatCurrency(selectedOrder.subtotal, selectedOrder.currency)}</span>
+                    <span>{formatCurrency(editSubtotal, selectedOrder.currency)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Tax</span>
+                    <span>Tax (19%)</span>
                     <span>{formatCurrency(editTax, selectedOrder.currency)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Shipping</span>
-                    <span>{formatCurrency(editShipping, selectedOrder.currency)}</span>
+                    <span>{formatCurrency(normalizedEditShipping, selectedOrder.currency)}</span>
                   </div>
                   <div className="flex justify-between font-bold border-t pt-1">
                     <span>Total</span>
-                    <span>{formatCurrency(selectedOrder.subtotal + editTax + editShipping, selectedOrder.currency)}</span>
+                    <span>{formatCurrency(editTotal, selectedOrder.currency)}</span>
                   </div>
                 </div>
               </div>
