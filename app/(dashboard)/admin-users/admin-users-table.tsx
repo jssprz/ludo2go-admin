@@ -23,6 +23,16 @@ export async function AdminUsersTable() {
   const adminUsers = await prisma.adminUser.findMany({
     include: {
       role: true,
+      _count: {
+        select: {
+          createdProducts: true,
+          updatedProducts: true,
+          createdProductVariants: true,
+          updatedProductVariants: true,
+          createdPrices: true,
+          updatedPrices: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
@@ -45,6 +55,12 @@ export async function AdminUsersTable() {
               <TableHead>Username</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Products Created</TableHead>
+              <TableHead>Products Updated</TableHead>
+              <TableHead>Variants Created</TableHead>
+              <TableHead>Variants Updated</TableHead>
+              <TableHead>Prices Created</TableHead>
+              <TableHead>Prices Updated</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -52,7 +68,7 @@ export async function AdminUsersTable() {
           <TableBody>
             {adminUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={12} className="text-center text-muted-foreground">
                   No admin users found.
                 </TableCell>
               </TableRow>
@@ -69,6 +85,12 @@ export async function AdminUsersTable() {
                   <TableCell>
                     <Badge variant="outline">{user.role.name}</Badge>
                   </TableCell>
+                  <TableCell>{user._count.createdProducts}</TableCell>
+                  <TableCell>{user._count.updatedProducts}</TableCell>
+                  <TableCell>{user._count.createdProductVariants}</TableCell>
+                  <TableCell>{user._count.updatedProductVariants}</TableCell>
+                  <TableCell>{user._count.createdPrices}</TableCell>
+                  <TableCell>{user._count.updatedPrices}</TableCell>
                   <TableCell>
                     {new Date(user.createdAt).toLocaleDateString()}
                   </TableCell>
