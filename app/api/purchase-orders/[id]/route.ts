@@ -89,7 +89,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const body = await request.json();
     const {
-      status, notes, shipping, includeShippingInTax, orderedAt, expectedAt, receivedAt,
+      status, notes, pdfFileUrl, shipping, includeShippingInTax, orderedAt, expectedAt, receivedAt,
       items, // optional: full replacement of items
     } = body;
 
@@ -139,6 +139,10 @@ export async function PUT(request: Request, { params }: RouteContext) {
       data: {
         ...(status ? { status: status as any } : {}),
         notes: notes !== undefined ? (notes || null) : undefined,
+        pdfFileUrl:
+          pdfFileUrl !== undefined
+            ? (typeof pdfFileUrl === 'string' && pdfFileUrl.trim().length > 0 ? pdfFileUrl.trim() : null)
+            : undefined,
         subtotal: totals.subtotal,
         tax: totals.tax,
         shipping: finalShipping,

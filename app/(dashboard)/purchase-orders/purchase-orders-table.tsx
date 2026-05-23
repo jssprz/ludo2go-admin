@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { upload } from '@vercel/blob/client';
 import {
   Table,
   TableBody,
@@ -92,6 +93,7 @@ type PurchaseOrder = {
   tax: number;
   shipping: number;
   total: number;
+  pdfFileUrl: string | null;
   notes: string | null;
   orderedAt: string | null;
   expectedAt: string | null;
@@ -166,20 +168,24 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [formCurrency, setFormCurrency] = useState('CLP');
   const [formShipping, setFormShipping] = useState(0);
   const [formIncludeShippingInTax, setFormIncludeShippingInTax] = useState(false);
+  const [formPdfFileUrl, setFormPdfFileUrl] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formOrderedAt, setFormOrderedAt] = useState('');
   const [formExpectedAt, setFormExpectedAt] = useState('');
   const [formItems, setFormItems] = useState<Array<{ variantId: string; quantity: number; unitCost: number; discount: number }>>([]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isUploadingCreatePdf, setIsUploadingCreatePdf] = useState(false);
 
   // Detail/edit dialog
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [editStatus, setEditStatus] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editPdfFileUrl, setEditPdfFileUrl] = useState('');
   const [editItems, setEditItems] = useState<Array<{ variantId: string; quantity: number; quantityReceived: number; unitCost: number; discount: number }>>([]);
   const [editShipping, setEditShipping] = useState<number>(0);
   const [editIncludeShippingInTax, setEditIncludeShippingInTax] = useState(false);
+  const [isUploadingEditPdf, setIsUploadingEditPdf] = useState(false);
 
   function resetCreateForm() {
     setFormCode('');
@@ -187,11 +193,55 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setFormCurrency('CLP');
     setFormShipping(0);
     setFormIncludeShippingInTax(false);
+    setFormPdfFileUrl('');
     setFormNotes('');
     setFormOrderedAt('');
     setFormExpectedAt('');
     setFormItems([]);
     setFormError(null);
+  }
+
+  async function uploadPdfFile(file: File, mode: 'create' | 'edit') {
+    if (file.type !== 'application/pdf') {
+      throw new Error('Only PDF files are allowed');
+    }
+
+    if (mode === 'create') setIsUploadingCreatePdf(true);
+    if (mode === 'edit') setIsUploadingEditPdf(true);
+
+    try {
+      const timestamp = Date.now();
+      const blob = await upload(`purchase-orders/pdf/${timestamp}-${file.name}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/media/upload',
+        clientPayload: JSON.stringify({
+          sizeBytes: file.size,
+          mime: file.type,
+        }),
+      });
+
+      if (mode === 'create') setFormPdfFileUrl(blob.url);
+      if (mode === 'edit') setEditPdfFileUrl(blob.url);
+    } finally {
+      if (mode === 'create') setIsUploadingCreatePdf(false);
+      if (mode === 'edit') setIsUploadingEditPdf(false);
+    }
+  }
+
+  async function handlePdfInputChange(
+    e: React.ChangeEvent<HTMLInputElement>,
+    mode: 'create' | 'edit'
+  ) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      await uploadPdfFile(files[0], mode);
+    } catch (error: any) {
+      alert(error?.message || 'Failed to upload PDF');
+    } finally {
+      e.target.value = '';
+    }
   }
 
   function addItem() {
@@ -258,6 +308,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
           currency: formCurrency,
           shipping: normalizedFormShipping,
           includeShippingInTax: formIncludeShippingInTax,
+          pdfFileUrl: formPdfFileUrl.trim() || null,
           notes: formNotes.trim() || null,
           orderedAt: formOrderedAt || null,
           expectedAt: formExpectedAt || null,
@@ -286,6 +337,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setSelectedOrder(order);
     setEditStatus(order.status);
     setEditNotes(order.notes ?? '');
+    setEditPdfFileUrl(order.pdfFileUrl ?? '');
     setEditShipping(order.shipping);
     setEditIncludeShippingInTax(inferIncludeShippingInTax(order));
     setEditItems(
@@ -311,6 +363,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
         body: JSON.stringify({
           status: editStatus,
           notes: editNotes.trim() || null,
+          pdfFileUrl: editPdfFileUrl.trim() || null,
           shipping: normalizedEditShipping,
           includeShippingInTax: editIncludeShippingInTax,
           items: editItems.filter((i) => i.variantId),
@@ -507,6 +560,40 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
               <Textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} rows={2} placeholder="Notes..." />
             </div>
 
+            <div className="space-y-2">
+              <Label>Attachment PDF (optional)</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="po-create-pdf-upload">
+                  <Button asChild variant="outline" size="sm" disabled={isUploadingCreatePdf}>
+                    <span>{isUploadingCreatePdf ? 'Uploading PDF...' : 'Upload PDF'}</span>
+                  </Button>
+                </label>
+                <Input
+                  id="po-create-pdf-upload"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="hidden"
+                  onChange={(e) => handlePdfInputChange(e, 'create')}
+                  disabled={isUploadingCreatePdf}
+                />
+                {formPdfFileUrl && (
+                  <>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={formPdfFileUrl} target="_blank" rel="noopener noreferrer">Open PDF</a>
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setFormPdfFileUrl('')}>
+                      Remove
+                    </Button>
+                  </>
+                )}
+              </div>
+              <Input
+                placeholder="https://.../invoice.pdf"
+                value={formPdfFileUrl}
+                onChange={(e) => setFormPdfFileUrl(e.target.value)}
+              />
+            </div>
+
             {/* Line items */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -531,7 +618,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                       <SelectContent>
                         {variants.map((v) => (
                           <SelectItem key={v.id} value={v.id}>
-                            {v.sku} — {v.product.name}
+                            {v.product.name} - {v.sku}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -684,6 +771,40 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                   <Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={2} />
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Attachment PDF (optional)</Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label htmlFor="po-edit-pdf-upload">
+                      <Button asChild variant="outline" size="sm" disabled={isUploadingEditPdf}>
+                        <span>{isUploadingEditPdf ? 'Uploading PDF...' : 'Upload PDF'}</span>
+                      </Button>
+                    </label>
+                    <Input
+                      id="po-edit-pdf-upload"
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={(e) => handlePdfInputChange(e, 'edit')}
+                      disabled={isUploadingEditPdf}
+                    />
+                    {editPdfFileUrl && (
+                      <>
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={editPdfFileUrl} target="_blank" rel="noopener noreferrer">Open PDF</a>
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditPdfFileUrl('')}>
+                          Remove
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <Input
+                    placeholder="https://.../invoice.pdf"
+                    value={editPdfFileUrl}
+                    onChange={(e) => setEditPdfFileUrl(e.target.value)}
+                  />
+                </div>
+
                 {/* Order items */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -709,7 +830,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                             <SelectContent>
                               {variants.map((v) => (
                                 <SelectItem key={v.id} value={v.id}>
-                                  {v.sku} — {v.product.name}
+                                  {v.product.name} - {v.sku}
                                 </SelectItem>
                               ))}
                             </SelectContent>

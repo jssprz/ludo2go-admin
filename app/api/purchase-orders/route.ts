@@ -83,6 +83,7 @@ export async function POST(request: Request) {
       code, supplierId, currency, notes, orderedAt, expectedAt,
       shipping,
       includeShippingInTax,
+      pdfFileUrl,
       items, // Array of { variantId, quantity, unitCost, discount }
     } = body;
 
@@ -128,6 +129,10 @@ export async function POST(request: Request) {
         tax: totals.tax,
         shipping: normalizedShipping,
         total: totals.total,
+        pdfFileUrl:
+          typeof pdfFileUrl === 'string' && pdfFileUrl.trim().length > 0
+            ? pdfFileUrl.trim()
+            : null,
         notes: notes || null,
         orderedAt: orderedAt ? new Date(orderedAt) : null,
         expectedAt: expectedAt ? new Date(expectedAt) : null,
