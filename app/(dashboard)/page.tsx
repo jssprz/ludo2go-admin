@@ -24,6 +24,7 @@ export default async function AdminHomePage() {
   let totalProducts = await prisma.product.count();
   let totalVairants = await prisma.productVariant.count();
   let totalGames = await prisma.gameDetails.count();
+  let totalExpansions = await prisma.gameExpansionDetails.count();
   let totalAccessories = await prisma.accessoryDetails.count();
   let totalBundles = await prisma.bundleDetails.count();
   let totalCustomers = await prisma.customer.count();
@@ -87,7 +88,7 @@ export default async function AdminHomePage() {
       </div>
 
       {/* Quick stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {/* Catalog */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -95,7 +96,7 @@ export default async function AdminHomePage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-3'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-5'>
               <div>
                 <div className="text-xl font-bold">{totalProducts}</div>
                 <p className="text-xs text-muted-foreground">
@@ -116,6 +117,12 @@ export default async function AdminHomePage() {
               </div>
               <div>
                 <div className="text-xl font-bold">{totalGames}</div>
+                <p className="text-xs text-muted-foreground">
+                  {td('catalog.games')}
+                </p>
+              </div>
+              <div>
+                <div className="text-xl font-bold">{totalExpansions}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('catalog.games')}
                 </p>
@@ -143,7 +150,7 @@ export default async function AdminHomePage() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-5'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-5'>
               <div>
                 <div className="text-xl font-bold">{totalOrders}</div>
                 <p className="text-xs text-muted-foreground">
@@ -215,7 +222,7 @@ export default async function AdminHomePage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-3'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-5'>
               <div>
                 <div className="text-xl font-bold">{totalCustomers}</div>
                 <p className="text-xs text-muted-foreground">
@@ -257,7 +264,7 @@ export default async function AdminHomePage() {
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-6'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
               <div>
                 <div className="text-xl font-bold">{totalMobileVisits}</div>
                 <p className="text-xs text-muted-foreground">
@@ -305,7 +312,7 @@ export default async function AdminHomePage() {
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-6'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
               <div>
                 <div className="text-xl font-bold">{totalDesktopVisits}</div>
                 <p className="text-xs text-muted-foreground">
@@ -353,7 +360,7 @@ export default async function AdminHomePage() {
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-6'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
               <div>
                 <div className="text-xl font-bold">{totalOtherVisits}</div>
                 <p className="text-xs text-muted-foreground">
@@ -401,7 +408,7 @@ export default async function AdminHomePage() {
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 md:grid-cols-6'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
               <div>
                 <div className="text-xl font-bold">—</div>
                 <p className="text-xs text-muted-foreground">
