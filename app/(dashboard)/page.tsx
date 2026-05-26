@@ -14,6 +14,24 @@ const formatPrice = (price: number, locale: string) => {
   }).format(price)
 }
 
+function getUtmSourceFromProperties(properties: unknown): string | null {
+  if (!properties || typeof properties !== 'object') return null;
+
+  const props = properties as {
+    utm?: {
+      first?: { source?: string | null };
+      last?: { source?: string | null };
+      source?: string | null;
+    };
+  };
+
+  const source = props.utm?.last?.source ?? props.utm?.first?.source ?? props.utm?.source;
+  if (!source || typeof source !== 'string') return null;
+
+  const normalized = source.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
 export default async function AdminHomePage() {
   const t = await getTranslations('dashboard');
   const tp = await getTranslations('products');
@@ -66,6 +84,34 @@ export default async function AdminHomePage() {
   let mobileAtoCsRate = totalMobileVisits ? mobileAtoC / totalMobileVisits : 0
   let avgDesktopProductImprs = totalVairants ? desktopProductImprs / totalVairants : 0
   let avgMobileProductImprs = totalVairants ? mobileProductImprs / totalVairants : 0
+
+  // UTM / Channel traffic (session-based, last-touch source across all events)
+  const channelEvents = await prisma.event.findMany({
+    select: { sessionId: true, occurredAt: true, properties: true },
+    orderBy: { occurredAt: 'asc' },
+  });
+
+  const sessionChannel = new Map<string, string>();
+  for (const event of channelEvents) {
+    const source = getUtmSourceFromProperties(event.properties);
+    if (source) {
+      sessionChannel.set(event.sessionId, source);
+    } else if (!sessionChannel.has(event.sessionId)) {
+      sessionChannel.set(event.sessionId, 'direct');
+    }
+  }
+
+  const channelCountMap = new Map<string, number>();
+  for (const source of Array.from(sessionChannel.values())) {
+    channelCountMap.set(source, (channelCountMap.get(source) ?? 0) + 1);
+  }
+
+  const topChannels = Array.from(channelCountMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([source, visits]) => ({ source, visits }));
+
+  const channelCards = [0, 1, 2, 3, 4, 5].map((index) => topChannels[index] ?? null);
 
   return (
     <div className="space-y-8">
@@ -409,42 +455,14 @@ export default async function AdminHomePage() {
           </CardHeader>
           <CardContent>
             <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
-              <div>
-                <div className="text-xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">
-                  UTM1
-                </p>
-              </div>
-              <div>
-                <div className="text-xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">
-                  UTM2
-                </p>
-              </div>
-              <div>
-                <div className="text-xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">
-                  UTM3
-                </p>
-              </div>
-              <div>
-                <div className="text-xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">
-                  UTM4
-                </p>
-              </div>
-              <div>
-                <div className="text-xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">
-                  UTM5
-                </p>
-              </div>
-              <div>
-                <div className="text-xl font-bold">—</div>
-                <p className="text-xs text-muted-foreground">
-                  UTM6
-                </p>
-              </div>
+              {channelCards.map((channel, idx) => (
+                <div key={idx}>
+                  <div className="text-xl font-bold">{channel ? channel.visits : '—'}</div>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {channel ? channel.source : '—'}
+                  </p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
