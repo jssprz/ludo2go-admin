@@ -24,7 +24,7 @@ type Props = {
   bundleProductId: string;
   groupId: string;
   initialRule: VariantSelectionRule | null;
-  onRuleChange: (rule: VariantSelectionRule | null) => void;
+  onRuleChangeAction: (rule: VariantSelectionRule | null) => void;
 };
 
 const DEFAULT_RULE: VariantSelectionRule = {
@@ -52,7 +52,7 @@ function stringToTags(str: string) {
     .filter(Boolean);
 }
 
-export function VariantSelectionRuleEditor({ bundleProductId, groupId, initialRule, onRuleChange }: Props) {
+export function VariantSelectionRuleEditor({ bundleProductId, groupId, initialRule, onRuleChangeAction }: Props) {
   const [rule, setRule] = useState<VariantSelectionRule>(initialRule ?? DEFAULT_RULE);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -88,7 +88,7 @@ export function VariantSelectionRuleEditor({ bundleProductId, groupId, initialRu
       if (!res.ok) throw new Error(await res.text());
       const saved: VariantSelectionRule = await res.json();
       setRule(saved);
-      onRuleChange(saved);
+      onRuleChangeAction(saved);
     } catch (err) {
       console.error(err);
       alert('Failed to save rule.');
@@ -104,7 +104,7 @@ export function VariantSelectionRuleEditor({ bundleProductId, groupId, initialRu
       const res = await fetch(`/api/bundles/${bundleProductId}/groups/${groupId}/rule`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await res.text());
       setRule(DEFAULT_RULE);
-      onRuleChange(null);
+      onRuleChangeAction(null);
     } catch (err) {
       console.error(err);
       alert('Failed to delete rule.');

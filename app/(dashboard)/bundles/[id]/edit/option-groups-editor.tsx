@@ -56,7 +56,7 @@ const GROUP_TYPE_LABELS: Record<string, string> = Object.fromEntries(
 type Props = {
   bundleProductId: string;
   initialGroups: OptionGroup[];
-  onGroupsChange: (groups: OptionGroup[]) => void;
+  onGroupsChangeAction: (groups: OptionGroup[]) => void;
 };
 
 const EMPTY_GROUP_FORM = {
@@ -70,7 +70,7 @@ const EMPTY_GROUP_FORM = {
   active: true,
 };
 
-export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsChange }: Props) {
+export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsChangeAction }: Props) {
   const [groups, setGroups] = useState<OptionGroup[]>(initialGroups);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -84,7 +84,7 @@ export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsCha
 
   function updateGroups(updated: OptionGroup[]) {
     setGroups(updated);
-    onGroupsChange(updated);
+    onGroupsChangeAction(updated);
   }
 
   function openCreate() {
@@ -248,7 +248,7 @@ export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsCha
                     bundleProductId={bundleProductId}
                     groupId={group.id}
                     initialRule={group.variantSelectionRule}
-                    onRuleChange={(rule) =>
+                    onRuleChangeAction={(rule) =>
                       updateGroups(groups.map((g) => g.id === group.id ? { ...g, variantSelectionRule: rule } : g))
                     }
                   />
@@ -258,7 +258,7 @@ export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsCha
                     bundleProductId={bundleProductId}
                     groupId={group.id}
                     initialOptions={group.options}
-                    onOptionsChange={(opts) =>
+                    onOptionsChangeAction={(opts) =>
                       updateGroups(groups.map((g) => g.id === group.id ? { ...g, options: opts } : g))
                     }
                   />

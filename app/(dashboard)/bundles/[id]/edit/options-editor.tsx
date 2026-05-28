@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,14 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Plus, Trash2, Pencil, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, Plus, Trash2, Pencil, ChevronUp, ChevronDown, ImagePlus } from 'lucide-react';
 import type { BundleOption, VariantRef } from './bundle-editor';
 
 type Props = {
   bundleProductId: string;
   groupId: string;
   initialOptions: BundleOption[];
-  onOptionsChange: (options: BundleOption[]) => void;
+  onOptionsChangeAction: (options: BundleOption[]) => void;
 };
 
 const EMPTY_FORM = {
@@ -43,9 +44,10 @@ const EMPTY_FORM = {
   active: true,
 };
 
-export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOptionsChange }: Props) {
+export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOptionsChangeAction }: Props) {
   const [options, setOptions] = useState<BundleOption[]>(initialOptions);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingOption, setEditingOption] = useState<BundleOption | null>(null);
@@ -57,7 +59,17 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
 
   function updateOptions(updated: BundleOption[]) {
     setOptions(updated);
-    onOptionsChange(updated);
+    onOptionsChangeAction(updated);
+  }
+
+  function replaceOption(updatedOption: BundleOption) {
+    const updatedOptions = options.map((option) =>
+      option.id === updatedOption.id ? updatedOption : option
+    );
+    updateOptions(updatedOptions);
+    if (editingOption?.id === updatedOption.id) {
+      setEditingOption(updatedOption);
+    }
   }
 
   function openCreate() {
@@ -114,7 +126,7 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
         );
         if (!res.ok) throw new Error(await res.text());
         const updated: BundleOption = await res.json();
-        updateOptions(options.map((o) => (o.id === editingOption.id ? updated : o)));
+        replaceOption(updated);
       } else {
         const res = await fetch(
           `/api/bundles/${bundleProductId}/groups/${groupId}/options`,
@@ -148,6 +160,73 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
       alert('Failed to delete option.');
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleImageUpload(file: File) {
+    if (!editingOption) return;
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('alt', editingOption.label);
+
+      const uploadRes = await fetch('/api/media', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const error = await uploadRes.json();
+        throw new Error(error.message || 'Failed to upload image');
+      }
+
+      const media = await uploadRes.json();
+
+      const attachRes = await fetch(
+        `/api/bundles/${bundleProductId}/groups/${groupId}/options/${editingOption.id}/media`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mediaId: media.id }),
+        }
+      );
+
+      if (!attachRes.ok) {
+        const error = await attachRes.json();
+        throw new Error(error.message || 'Failed to attach image');
+      }
+
+      const updatedOption: BundleOption = await attachRes.json();
+      replaceOption(updatedOption);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Failed to upload image.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }
+
+  async function removeImage(mediaId: string) {
+    if (!editingOption) return;
+
+    try {
+      const res = await fetch(
+        `/api/bundles/${bundleProductId}/groups/${groupId}/options/${editingOption.id}/media?mediaId=${mediaId}`,
+        { method: 'DELETE' }
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to remove image');
+      }
+
+      const updatedOption: BundleOption = await res.json();
+      replaceOption(updatedOption);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Failed to remove image.');
     }
   }
 
@@ -185,6 +264,7 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
               <TableRow>
                 <TableHead className="w-16">Order</TableHead>
                 <TableHead>Label</TableHead>
+                <TableHead>Image</TableHead>
                 <TableHead>Linked Variant</TableHead>
                 <TableHead className="text-right">Price Δ</TableHead>
                 <TableHead>Active</TableHead>
@@ -209,6 +289,26 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
                       <p className="font-medium text-sm">{opt.label}</p>
                       {opt.description && <p className="text-xs text-muted-foreground">{opt.description}</p>}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {opt.mediaLinks[0] ? (
+                      <div className="flex items-center gap-2">
+                        <div className="relative h-10 w-10 overflow-hidden rounded border bg-muted">
+                          <Image
+                            src={opt.mediaLinks[0].media.thumbUrl || opt.mediaLinks[0].media.url}
+                            alt={opt.mediaLinks[0].media.alt || opt.label}
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                          />
+                        </div>
+                        {opt.mediaLinks.length > 1 && (
+                          <span className="text-xs text-muted-foreground">+{opt.mediaLinks.length - 1}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {opt.variant ? (
@@ -271,6 +371,75 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
                 rows={2}
                 placeholder="Optional description…"
               />
+            </div>
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label>Option Images</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Upload images after the option exists. Attached images are stored as media assets.
+                  </p>
+                </div>
+                <label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={!editingOption || isUploadingImage}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        void handleImageUpload(file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                  <Button type="button" variant="outline" size="sm" disabled={!editingOption || isUploadingImage} asChild>
+                    <span>
+                      {isUploadingImage ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImagePlus className="mr-2 h-4 w-4" />
+                      )}
+                      Upload Image
+                    </span>
+                  </Button>
+                </label>
+              </div>
+
+              {!editingOption && (
+                <p className="text-xs text-muted-foreground">
+                  Save the option first, then reopen it to upload images.
+                </p>
+              )}
+
+              {editingOption && editingOption.mediaLinks.length > 0 && (
+                <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                  {editingOption.mediaLinks.map((mediaLink) => (
+                    <div key={mediaLink.mediaId} className="space-y-2">
+                      <div className="relative aspect-square overflow-hidden rounded-md border bg-muted">
+                        <Image
+                          src={mediaLink.media.thumbUrl || mediaLink.media.url}
+                          alt={mediaLink.media.alt || editingOption.label}
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-destructive"
+                        onClick={() => removeImage(mediaLink.mediaId)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Linked Variant (optional)</Label>

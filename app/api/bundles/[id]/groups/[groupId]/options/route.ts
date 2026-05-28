@@ -17,6 +17,20 @@ export async function GET(_req: Request, { params }: RouteContext) {
       orderBy: { sortOrder: 'asc' },
       include: {
         variant: { select: { id: true, sku: true, product: { select: { name: true } } } },
+        mediaLinks: {
+          orderBy: { sort: 'asc' },
+          include: {
+            media: {
+              select: {
+                id: true,
+                kind: true,
+                url: true,
+                thumbUrl: true,
+                alt: true,
+              },
+            },
+          },
+        },
       },
     });
     return NextResponse.json(options);
@@ -54,6 +68,20 @@ export async function POST(req: Request, { params }: RouteContext) {
       },
       include: {
         variant: { select: { id: true, sku: true, product: { select: { name: true } } } },
+        mediaLinks: {
+          orderBy: { sort: 'asc' },
+          include: {
+            media: {
+              select: {
+                id: true,
+                kind: true,
+                url: true,
+                thumbUrl: true,
+                alt: true,
+              },
+            },
+          },
+        },
       },
     });
     return NextResponse.json(option, { status: 201 });

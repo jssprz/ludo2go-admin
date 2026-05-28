@@ -28,6 +28,20 @@ export async function PUT(req: Request, { params }: RouteContext) {
       },
       include: {
         variant: { select: { id: true, sku: true, product: { select: { name: true } } } },
+        mediaLinks: {
+          orderBy: { sort: 'asc' },
+          include: {
+            media: {
+              select: {
+                id: true,
+                kind: true,
+                url: true,
+                thumbUrl: true,
+                alt: true,
+              },
+            },
+          },
+        },
       },
     });
     return NextResponse.json(option);

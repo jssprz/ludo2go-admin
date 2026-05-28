@@ -49,6 +49,22 @@ export type VariantRef = {
   product: { name: string };
 };
 
+export type OptionMediaAsset = {
+  id: string;
+  kind: 'image' | 'video' | 'pdf' | 'audio' | 'model3d';
+  url: string;
+  thumbUrl: string | null;
+  alt: string | null;
+};
+
+export type BundleOptionMedia = {
+  optionId: string;
+  mediaId: string;
+  role: string | null;
+  sort: number;
+  media: OptionMediaAsset;
+};
+
 export type BundleItemRow = {
   id?: string;
   variantId: string;
@@ -81,6 +97,7 @@ export type BundleOption = {
   priceDelta: number;
   sortOrder: number;
   active: boolean;
+  mediaLinks: BundleOptionMedia[];
 };
 
 export type OptionGroup = {
@@ -461,7 +478,7 @@ export function BundleEditor({ product }: Props) {
                 <OptionGroupsEditor
                   bundleProductId={product.id}
                   initialGroups={optionGroups}
-                  onGroupsChange={setOptionGroups}
+                  onGroupsChangeAction={setOptionGroups}
                 />
               ) : (
                 <Card>

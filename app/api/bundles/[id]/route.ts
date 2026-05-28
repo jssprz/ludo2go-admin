@@ -34,7 +34,28 @@ export async function GET(_req: Request, { params }: RouteContext) {
                 optionGroups: {
                   orderBy: { sortOrder: 'asc' },
                   include: {
-                    options: { orderBy: { sortOrder: 'asc' } },
+                    options: {
+                      orderBy: { sortOrder: 'asc' },
+                      include: {
+                        variant: {
+                          select: { id: true, sku: true, product: { select: { name: true } } },
+                        },
+                        mediaLinks: {
+                          orderBy: { sort: 'asc' },
+                          include: {
+                            media: {
+                              select: {
+                                id: true,
+                                kind: true,
+                                url: true,
+                                thumbUrl: true,
+                                alt: true,
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
                     variantSelectionRule: true,
                   },
                 },
@@ -149,7 +170,28 @@ export async function PUT(req: Request, { params }: RouteContext) {
                 optionGroups: {
                   orderBy: { sortOrder: 'asc' },
                   include: {
-                    options: { orderBy: { sortOrder: 'asc' } },
+                    options: {
+                      orderBy: { sortOrder: 'asc' },
+                      include: {
+                        variant: {
+                          select: { id: true, sku: true, product: { select: { name: true } } },
+                        },
+                        mediaLinks: {
+                          orderBy: { sort: 'asc' },
+                          include: {
+                            media: {
+                              select: {
+                                id: true,
+                                kind: true,
+                                url: true,
+                                thumbUrl: true,
+                                alt: true,
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
                     variantSelectionRule: true,
                   },
                 },
