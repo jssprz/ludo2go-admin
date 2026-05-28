@@ -83,8 +83,17 @@ export type VariantSelectionRule = {
   excludedProductIds: string[];
   allowedVariantIds: string[];
   excludedVariantIds: string[];
+  allowedVariantSKUs: string[];
+  excludedVariantSKUs: string[];
+  allowedGameCategoryIds: string[];
+  excludedGameCategoryIds: string[];
+  allowedGameThemeIds: string[];
+  excludedGameThemeIds: string[];
+  allowedGameMechanicIds: string[];
+  excludedGameMechanicIds: string[];
   allowedTags: string[];
   excludedTags: string[];
+  priceDiscountPercentage: string | null;
   metadata: any;
 };
 

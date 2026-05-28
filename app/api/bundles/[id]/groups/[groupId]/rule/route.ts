@@ -41,10 +41,33 @@ export async function PUT(req: Request, { params }: RouteContext) {
     excludedProductIds,
     allowedVariantIds,
     excludedVariantIds,
+    allowedVariantSKUs,
+    excludedVariantSKUs,
+    allowedGameCategoryIds,
+    excludedGameCategoryIds,
+    allowedGameThemeIds,
+    excludedGameThemeIds,
+    allowedGameMechanicIds,
+    excludedGameMechanicIds,
     allowedTags,
     excludedTags,
+    priceDiscountPercentage,
     metadata,
   } = body;
+
+  let parsedPriceDiscountPercentage: string | null | undefined = undefined;
+  if (priceDiscountPercentage === null || priceDiscountPercentage === '' || priceDiscountPercentage === undefined) {
+    parsedPriceDiscountPercentage = null;
+  } else {
+    const numeric = Number(priceDiscountPercentage);
+    if (Number.isNaN(numeric) || numeric < 0 || numeric > 100) {
+      return NextResponse.json(
+        { error: 'priceDiscountPercentage must be a number between 0 and 100' },
+        { status: 400 }
+      );
+    }
+    parsedPriceDiscountPercentage = numeric.toFixed(2);
+  }
 
   const data = {
     productKind: productKind ?? null,
@@ -56,8 +79,17 @@ export async function PUT(req: Request, { params }: RouteContext) {
     excludedProductIds: excludedProductIds ?? [],
     allowedVariantIds: allowedVariantIds ?? [],
     excludedVariantIds: excludedVariantIds ?? [],
+    allowedVariantSKUs: allowedVariantSKUs ?? [],
+    excludedVariantSKUs: excludedVariantSKUs ?? [],
+    allowedGameCategoryIds: allowedGameCategoryIds ?? [],
+    excludedGameCategoryIds: excludedGameCategoryIds ?? [],
+    allowedGameThemeIds: allowedGameThemeIds ?? [],
+    excludedGameThemeIds: excludedGameThemeIds ?? [],
+    allowedGameMechanicIds: allowedGameMechanicIds ?? [],
+    excludedGameMechanicIds: excludedGameMechanicIds ?? [],
     allowedTags: allowedTags ?? [],
     excludedTags: excludedTags ?? [],
+    priceDiscountPercentage: parsedPriceDiscountPercentage,
     metadata: metadata ?? undefined,
   };
 
