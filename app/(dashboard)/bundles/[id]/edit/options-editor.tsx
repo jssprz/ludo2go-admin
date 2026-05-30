@@ -5,9 +5,9 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,15 @@ const EMPTY_FORM = {
   sortOrder: '0',
   active: true,
 };
+
+function getPlainTextPreview(html: string | null) {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOptionsChangeAction }: Props) {
   const [options, setOptions] = useState<BundleOption[]>(initialOptions);
@@ -287,7 +296,11 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
                   <TableCell>
                     <div>
                       <p className="font-medium text-sm">{opt.label}</p>
-                      {opt.description && <p className="text-xs text-muted-foreground">{opt.description}</p>}
+                      {opt.description && (
+                        <p className="text-xs text-muted-foreground">
+                          {getPlainTextPreview(opt.description)}
+                        </p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -365,11 +378,10 @@ export function OptionsEditor({ bundleProductId, groupId, initialOptions, onOpti
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea
+              <RichTextEditor
                 value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                rows={2}
-                placeholder="Optional description…"
+                onValueChange={(value) => setForm((f) => ({ ...f, description: value }))}
+                placeholder="Optional HTML description..."
               />
             </div>
             <div className="space-y-3 rounded-md border p-3">

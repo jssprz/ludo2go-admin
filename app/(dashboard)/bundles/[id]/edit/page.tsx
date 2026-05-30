@@ -56,6 +56,7 @@ export default async function EditBundlePage({ params }: PageProps) {
                     },
                   },
                   variantSelectionRule: true,
+                  addressRule: true,
                 },
               },
             },

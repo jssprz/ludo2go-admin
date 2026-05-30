@@ -39,6 +39,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
           },
         },
         variantSelectionRule: true,
+        addressRule: true,
       },
     });
     return NextResponse.json(groups);
@@ -118,6 +119,7 @@ export async function POST(req: Request, { params }: RouteContext) {
           },
         },
         variantSelectionRule: true,
+        addressRule: true,
       },
     });
     return NextResponse.json(group, { status: 201 });

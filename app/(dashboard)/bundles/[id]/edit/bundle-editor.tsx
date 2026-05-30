@@ -97,6 +97,16 @@ export type VariantSelectionRule = {
   metadata: any;
 };
 
+export type AddressSelectionRule = {
+  id?: string;
+  allowedRegions: string[];
+  excludedRegions: string[];
+  allowedCities: string[];
+  excludedCities: string[];
+  requireCityMatch: boolean;
+  metadata: any;
+};
+
 export type BundleOption = {
   id: string;
   label: string;
@@ -121,6 +131,7 @@ export type OptionGroup = {
   active: boolean;
   options: BundleOption[];
   variantSelectionRule: VariantSelectionRule | null;
+  addressRule: AddressSelectionRule | null;
 };
 
 export type CustomizableDetails = {

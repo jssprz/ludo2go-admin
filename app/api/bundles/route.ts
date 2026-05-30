@@ -29,6 +29,7 @@ export async function GET() {
                   include: {
                     options: { orderBy: { sortOrder: 'asc' } },
                     variantSelectionRule: true,
+                    addressRule: true,
                   },
                 },
               },

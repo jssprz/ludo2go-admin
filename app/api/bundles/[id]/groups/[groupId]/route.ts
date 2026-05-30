@@ -37,8 +37,30 @@ export async function PUT(req: Request, { params }: RouteContext) {
         ...(active !== undefined ? { active } : {}),
       },
       include: {
-        options: { orderBy: { sortOrder: 'asc' } },
+        options: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            variant: {
+              select: { id: true, sku: true, product: { select: { name: true } } },
+            },
+            mediaLinks: {
+              orderBy: { sort: 'asc' },
+              include: {
+                media: {
+                  select: {
+                    id: true,
+                    kind: true,
+                    url: true,
+                    thumbUrl: true,
+                    alt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         variantSelectionRule: true,
+        addressRule: true,
       },
     });
     return NextResponse.json(group);

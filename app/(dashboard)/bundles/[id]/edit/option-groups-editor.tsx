@@ -39,6 +39,7 @@ import { Loader2, Plus, Trash2, Pencil, ChevronUp, ChevronDown, Settings } from 
 import type { OptionGroup } from './bundle-editor';
 import { OptionsEditor } from './options-editor';
 import { VariantSelectionRuleEditor } from './variant-selection-rule-editor';
+import { AddressRuleEditor } from './address-rule-editor';
 
 const GROUP_TYPES = [
   { value: 'variant_selection', label: 'Variant Selection' },
@@ -47,6 +48,7 @@ const GROUP_TYPES = [
   { value: 'date_input', label: 'Date Input' },
   { value: 'time_slot', label: 'Time Slot' },
   { value: 'boolean', label: 'Boolean (Yes/No)' },
+  { value: 'address', label: 'Address' },
 ];
 
 const GROUP_TYPE_LABELS: Record<string, string> = Object.fromEntries(
@@ -130,7 +132,18 @@ export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsCha
         );
         if (!res.ok) throw new Error(await res.text());
         const updated: OptionGroup = await res.json();
-        updateGroups(groups.map((g) => (g.id === editingGroup.id ? { ...updated, options: g.options, variantSelectionRule: g.variantSelectionRule } : g)));
+        updateGroups(
+          groups.map((g) =>
+            g.id === editingGroup.id
+              ? {
+                  ...updated,
+                  options: g.options,
+                  variantSelectionRule: g.variantSelectionRule,
+                  addressRule: g.addressRule,
+                }
+              : g
+          )
+        );
       } else {
         const res = await fetch(
           `/api/bundles/${bundleProductId}/groups`,
@@ -253,6 +266,16 @@ export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsCha
                     }
                   />
                 )}
+                {group.type === 'address' && (
+                  <AddressRuleEditor
+                    bundleProductId={bundleProductId}
+                    groupId={group.id}
+                    initialRule={group.addressRule}
+                    onRuleChangeAction={(rule) =>
+                      updateGroups(groups.map((g) => g.id === group.id ? { ...g, addressRule: rule } : g))
+                    }
+                  />
+                )}
                 {group.type === 'fixed_option' && (
                   <OptionsEditor
                     bundleProductId={bundleProductId}
@@ -263,7 +286,7 @@ export function OptionGroupsEditor({ bundleProductId, initialGroups, onGroupsCha
                     }
                   />
                 )}
-                {!['variant_selection', 'fixed_option'].includes(group.type) && (
+                {!['variant_selection', 'fixed_option', 'address'].includes(group.type) && (
                   <p className="text-sm text-muted-foreground">
                     This group type ({GROUP_TYPE_LABELS[group.type] ?? group.type}) collects customer input — no additional sub-options needed.
                   </p>
