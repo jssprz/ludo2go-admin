@@ -10,7 +10,7 @@ export async function GET() {
   }
 
   try {
-    const [categories, themes, mechanics] = await Promise.all([
+    const [categories, themes, mechanics, locations] = await Promise.all([
       prisma.gameCategory.findMany({
         where: { isActive: true },
         orderBy: { order: 'asc' },
@@ -26,9 +26,14 @@ export async function GET() {
         orderBy: { order: 'asc' },
         select: { id: true, name: true, slug: true },
       }),
+      prisma.location.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, code: true },
+      }),
     ]);
 
-    return NextResponse.json({ categories, themes, mechanics });
+    return NextResponse.json({ categories, themes, mechanics, locations });
   } catch (error) {
     console.error('Error fetching bundle rule options:', error);
     return NextResponse.json(

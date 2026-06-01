@@ -23,7 +23,7 @@ const VARIANT_STATUSES = ['active', 'inactive', 'discontinued'];
 type CatalogOption = {
   id: string;
   name: string;
-  slug: string;
+  slug?: string;
 };
 
 type VariantSearchResult = {
@@ -44,6 +44,7 @@ const DEFAULT_RULE: VariantSelectionRule = {
   productStatus: null,
   variantStatus: null,
   requireStock: true,
+  requiredStockLocationIds: [],
   requireActivePrice: true,
   allowedProductIds: [],
   excludedProductIds: [],
@@ -98,7 +99,7 @@ function CatalogMultiSelectPicker({
     return options.filter(
       (opt) =>
         opt.name.toLowerCase().includes(q) ||
-        opt.slug.toLowerCase().includes(q)
+        (opt.slug || '').toLowerCase().includes(q)
     );
   }, [options, search]);
 
@@ -137,7 +138,7 @@ function CatalogMultiSelectPicker({
               >
                 <Checkbox checked={checked} />
                 <span className="text-xs">{opt.name}</span>
-                <span className="ml-auto text-[10px] text-muted-foreground">{opt.slug}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">{opt.slug || opt.id}</span>
               </button>
             );
           })
@@ -319,6 +320,11 @@ export function VariantSelectionRuleEditor({
   const [categories, setCategories] = useState<CatalogOption[]>([]);
   const [themes, setThemes] = useState<CatalogOption[]>([]);
   const [mechanics, setMechanics] = useState<CatalogOption[]>([]);
+  const [locations, setLocations] = useState<CatalogOption[]>([]);
+
+  const [requiredStockLocationIds, setRequiredStockLocationIds] = useState<string[]>(
+    initialRule?.requiredStockLocationIds ?? []
+  );
 
   const [priceDiscountPercentage, setPriceDiscountPercentage] = useState(initialRule?.priceDiscountPercentage ?? '');
 
@@ -336,6 +342,15 @@ export function VariantSelectionRuleEditor({
         setCategories(Array.isArray(data.categories) ? data.categories : []);
         setThemes(Array.isArray(data.themes) ? data.themes : []);
         setMechanics(Array.isArray(data.mechanics) ? data.mechanics : []);
+        setLocations(
+          Array.isArray(data.locations)
+            ? data.locations.map((location: { id: string; name: string; code: string }) => ({
+                id: location.id,
+                name: location.name,
+                slug: location.code,
+              }))
+            : []
+        );
       } finally {
         if (!cancelled) {
           setIsLoadingCatalogOptions(false);
@@ -361,6 +376,7 @@ export function VariantSelectionRuleEditor({
         ...rule,
         allowedProductIds: stringToTags(allowedProductIdsStr),
         excludedProductIds: stringToTags(excludedProductIdsStr),
+        requiredStockLocationIds,
         allowedVariantIds,
         excludedVariantIds,
         allowedVariantSKUs,
@@ -514,6 +530,16 @@ export function VariantSelectionRuleEditor({
           />
         </div>
       </div>
+
+      {rule.requireStock && (
+        <CatalogMultiSelectPicker
+          label="Required Stock Locations"
+          options={locations}
+          selectedIds={requiredStockLocationIds}
+          onChange={setRequiredStockLocationIds}
+          searchPlaceholder="Search locations by name or code..."
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">

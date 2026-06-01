@@ -78,6 +78,7 @@ export type VariantSelectionRule = {
   productStatus: string | null;
   variantStatus: string | null;
   requireStock: boolean;
+  requiredStockLocationIds: string[];
   requireActivePrice: boolean;
   allowedProductIds: string[];
   excludedProductIds: string[];
