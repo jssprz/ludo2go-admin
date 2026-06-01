@@ -8,7 +8,7 @@ import { ArrowLeft } from 'lucide-react';
 
 type PageProps = {
   params: Promise<{
-    orderId: string;
+    id: string;
   }>;
 };
 
@@ -22,10 +22,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default async function OrderDetailPage({ params }: PageProps) {
-  const { orderId } = await params;
+  const { id } = await params;
+
+  if (!id) {
+    notFound();
+  }
 
   const order = await prisma.order.findUnique({
-    where: { id: orderId },
+    where: { id },
     include: {
       customer: true,
       items: {
