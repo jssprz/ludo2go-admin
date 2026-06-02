@@ -116,6 +116,10 @@ async function DesktopNav() {
           <Package className="h-4 w-4" />
         </NavItem>
 
+        <NavItem href="/promo-codes" label="Promo Codes">
+          <Tag className="h-4 w-4" />
+        </NavItem>
+
         <NavItem href="/presale" label="Pre-Sale">
           <CalendarPlus className="h-4 w-4" />
         </NavItem>
@@ -277,6 +281,13 @@ function MobileNav() {
           >
             <Package className="h-4 w-4" />
             Bundles
+          </Link>
+          <Link
+            href="/promo-codes"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Tag className="h-4 w-4" />
+            Promo Codes
           </Link>
           <Link
             href="/presale"
