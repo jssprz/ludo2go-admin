@@ -29,6 +29,33 @@ interface SiteConfig {
   parse: ($: cheerio.CheerioAPI) => TrendingProduct[];
 }
 
+const BRAND_FETCH_TIMEOUT_MS = 12000;
+const BRAND_FETCH_RETRIES = 2;
+const BRAND_FETCH_CONCURRENCY = 6;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const safeLimit = Math.max(1, Math.min(limit, items.length));
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const currentIndex = nextIndex;
+      if (currentIndex >= items.length) return;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  await Promise.all(Array.from({ length: safeLimit }, () => worker()));
+  return results;
+}
+
 // ─── Price parsing ─────────────────────────────────────────────
 function normalizePriceText(text: string | undefined | null): number | null {
   if (!text) return null;
@@ -145,8 +172,12 @@ const SITES: SiteConfig[] = [
           $el.find('.product-image-link noscript img').attr('src') ||
           $el.find('.product-image-link img').attr('data-lazy-src') ||
           $el.find('.product-image-link img').attr('src') || null;
-        const priceText = $el.find('.woocommerce-Price-amount.amount').first().text();
-        const originalPriceText = $el.find('.woocommerce-Price-amount.amount').eq(1).text();
+        // WooCommerce sale markup usually stores old price in <del> and discounted price in <ins>.
+        const salePriceText = $el.find('.price ins .woocommerce-Price-amount.amount').first().text();
+        const regularPriceText = $el.find('.price del .woocommerce-Price-amount.amount').first().text();
+        const fallbackPriceText = $el.find('.price .woocommerce-Price-amount.amount').first().text();
+        const priceText = salePriceText || fallbackPriceText;
+        const originalPriceText = regularPriceText || null;
         const badge =
           $el.find('.onsale.product-label').first().text().trim() || null;
 
@@ -171,52 +202,72 @@ const SITES: SiteConfig[] = [
 
 // ─── Fetch brand from product detail page ────────────────────
 async function fetchProductBrand(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
-      },
-      next: { revalidate: 0 },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const $ = cheerio.load(html);
+  for (let attempt = 0; attempt <= BRAND_FETCH_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), BRAND_FETCH_TIMEOUT_MS);
 
-    // Try multiple selectors for brand on product detail page
-    // For updown: <li>Marca:Devir</li> inside <div class="woocommerce-product-details__short-description"><ul><li>
-    // For dementegames: <div class="product-manufacturer" itemprop="brand"><meta itemprop="name" content="Fractal Juegos">
-    // For magicsur: <div class="product-manufacturer-next img alt="...">
-    
-    // UpDown: extract from "Marca:" in short description
-    let brand =
-      $('.woocommerce-product-details__short-description li')
-        .toArray()
-        .map((el) => $(el).text())
-        .find((text) => text.toLowerCase().startsWith('marca:'))
-        ?.replace(/^marca:\s*/i, '')
-        ?.trim() || null;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
+        },
+        next: { revalidate: 0 },
+        signal: controller.signal,
+      });
 
-    // If not found via updown method, try other stores
-    if (!brand) {
-      brand =
-        $('.product-manufacturer meta[itemprop="name"]').attr('content') ||
-        $('meta[itemprop="brand"]').attr('content') ||
-        $('[itemprop="brand"]').first().text().trim() ||
-        $('.product-manufacturer-next img').attr('alt')?.trim() ||
-        $('.product-manufacturer a img').attr('alt')?.trim() ||
-        $('.product-manufacturer img').attr('alt')?.trim() ||
-        $('.product-manufacturer').first().text().trim() ||
-        $('.manufacturer').first().text().trim() ||
-        $('[class*="brand"]').first().text().trim() || null;
+      if (!res.ok) {
+        // Retry transient upstream issues; fail fast on hard client errors.
+        if (res.status >= 500 || res.status === 429) {
+          continue;
+        }
+        return null;
+      }
+
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      // Try multiple selectors for brand on product detail page
+      // For updown: <li>Marca:Devir</li> inside <div class="woocommerce-product-details__short-description"><ul><li>
+      // For dementegames: <div class="product-manufacturer" itemprop="brand"><meta itemprop="name" content="Fractal Juegos">
+      // For magicsur: <div class="product-manufacturer-next img alt="...">
+
+      // UpDown: extract from "Marca:" in short description
+      let brand =
+        $('.woocommerce-product-details__short-description li')
+          .toArray()
+          .map((el) => $(el).text())
+          .find((text) => text.toLowerCase().startsWith('marca:'))
+          ?.replace(/^marca:\s*/i, '')
+          ?.trim() || null;
+
+      // If not found via updown method, try other stores
+      if (!brand) {
+        brand =
+          $('.product-manufacturer meta[itemprop="name"]').attr('content') ||
+          $('meta[itemprop="brand"]').attr('content') ||
+          $('[itemprop="brand"]').first().text().trim() ||
+          $('.product-manufacturer-next img').attr('alt')?.trim() ||
+          $('.product-manufacturer a img').attr('alt')?.trim() ||
+          $('.product-manufacturer img').attr('alt')?.trim() ||
+          $('.product-manufacturer').first().text().trim() ||
+          $('.manufacturer').first().text().trim() ||
+          $('[class*="brand"]').first().text().trim() || null;
+      }
+
+      return brand && brand.length > 0 ? brand : null;
+    } catch {
+      if (attempt >= BRAND_FETCH_RETRIES) {
+        return null;
+      }
+    } finally {
+      clearTimeout(timeout);
     }
-
-    return brand && brand.length > 0 ? brand : null;
-  } catch (err) {
-    return null;
   }
+
+  return null;
 }
 
 // ─── Fetch + parse one site ────────────────────────────────────
@@ -246,11 +297,13 @@ async function scrapeSite(config: SiteConfig): Promise<TrendingSource> {
     const products = config.parse($);
 
     // Fetch brand from each product's detail page
-    const productsWithBrands = await Promise.all(
-      products.map(async (product) => {
+    const productsWithBrands = await mapWithConcurrency(
+      products,
+      BRAND_FETCH_CONCURRENCY,
+      async (product) => {
         const brand = await fetchProductBrand(product.url);
         return { ...product, brand };
-      })
+      }
     );
 
     return {
