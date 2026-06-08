@@ -19,6 +19,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   RefreshCcw,
   Loader2,
   ExternalLink,
@@ -145,6 +152,18 @@ function CatalogStatusBadge({ status }: { status: CatalogStatus | undefined }) {
 function TrendingStoreCard({ source }: { source: TrendingSource }) {
   const [products, setProducts] = useState<TrendingProduct[]>(source.products);
   const [isCheckingCatalog, setIsCheckingCatalog] = useState(false);
+  const [brandFilter, setBrandFilter] = useState('all');
+
+  const unbrandedValue = '__no_brand__';
+  const brandOptions = Array.from(
+    new Set(products.map((p) => p.brand?.trim()).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filteredProducts = products.filter((p) => {
+    if (brandFilter === 'all') return true;
+    if (brandFilter === unbrandedValue) return !p.brand?.trim();
+    return p.brand?.trim() === brandFilter;
+  });
 
   // Fetch catalog status for all products in this store
   useEffect(() => {
@@ -214,119 +233,147 @@ function TrendingStoreCard({ source }: { source: TrendingSource }) {
             No products found. The page structure may have changed.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">#</TableHead>
-                <TableHead className="w-16">Image</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead className="hidden lg:table-cell">Brand</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right hidden sm:table-cell">
-                  Original
-                </TableHead>
-                <TableHead className="hidden md:table-cell">Badge</TableHead>
-                <TableHead>Catalog Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((p) => {
-                const hasDiscount =
-                  p.originalPrice !== null &&
-                  p.price !== null &&
-                  p.originalPrice > p.price;
-                const discountPct = hasDiscount
-                  ? Math.round(
-                      ((p.originalPrice! - p.price!) / p.originalPrice!) * 100
-                    )
-                  : null;
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-muted-foreground">
+                Showing {filteredProducts.length} of {products.length} products
+              </div>
+              <Select value={brandFilter} onValueChange={setBrandFilter}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                  <SelectValue placeholder="Filter by brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All brands</SelectItem>
+                  {brandOptions.map((brand) => (
+                    <SelectItem key={brand} value={brand}>
+                      {brand}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={unbrandedValue}>No brand</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                return (
-                  <TableRow key={`${source.key}-${p.rank}`}>
-                    <TableCell className="font-mono text-muted-foreground text-sm">
-                      {p.rank}
-                    </TableCell>
-                    <TableCell>
-                      {p.imageUrl ? (
-                        <img
-                          src={p.imageUrl}
-                          alt={p.name}
-                          width={48}
-                          height={48}
-                          className="rounded object-cover aspect-square w-12 h-12"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded bg-muted">
-                          <ImageOff className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <a
-                        href={p.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium hover:underline hover:text-primary transition-colors line-clamp-2"
-                      >
-                        {p.name}
-                      </a>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {p.brand ? (
-                        <span className="text-sm text-muted-foreground">{p.brand}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/50">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span
-                        className={`text-sm font-medium tabular-nums ${
-                          hasDiscount ? 'text-green-600' : ''
-                        }`}
-                      >
-                        {formatPrice(p.price, p.currency)}
-                      </span>
-                      {discountPct !== null && (
-                        <Badge
-                          variant="destructive"
-                          className="ml-1.5 text-[10px] px-1 py-0"
-                        >
-                          -{discountPct}%
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right hidden sm:table-cell">
-                      {hasDiscount ? (
-                        <span className="text-sm text-muted-foreground line-through tabular-nums">
-                          {formatPrice(p.originalPrice, p.currency)}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {p.badge ? (
-                        <Badge variant="secondary" className="text-xs">
-                          {p.badge}
-                        </Badge>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {p.catalogStatus?.loading ? (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>Checking…</span>
-                        </div>
-                      ) : (
-                        <CatalogStatusBadge status={p.catalogStatus} />
-                      )}
-                    </TableCell>
+            {filteredProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No products match the selected brand.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead className="w-16">Image</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead className="hidden lg:table-cell">Brand</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">
+                      Original
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">Badge</TableHead>
+                    <TableHead>Catalog Status</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((p) => {
+                    const hasDiscount =
+                      p.originalPrice !== null &&
+                      p.price !== null &&
+                      p.originalPrice > p.price;
+                    const discountPct = hasDiscount
+                      ? Math.round(
+                          ((p.originalPrice! - p.price!) / p.originalPrice!) * 100
+                        )
+                      : null;
+
+                    return (
+                      <TableRow key={`${source.key}-${p.rank}`}>
+                        <TableCell className="font-mono text-muted-foreground text-sm">
+                          {p.rank}
+                        </TableCell>
+                        <TableCell>
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              width={48}
+                              height={48}
+                              className="rounded object-cover aspect-square w-12 h-12"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-12 w-12 items-center justify-center rounded bg-muted">
+                              <ImageOff className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium hover:underline hover:text-primary transition-colors line-clamp-2"
+                          >
+                            {p.name}
+                          </a>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {p.brand ? (
+                            <span className="text-sm text-muted-foreground">{p.brand}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/50">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={`text-sm font-medium tabular-nums ${
+                              hasDiscount ? 'text-green-600' : ''
+                            }`}
+                          >
+                            {formatPrice(p.price, p.currency)}
+                          </span>
+                          {discountPct !== null && (
+                            <Badge
+                              variant="destructive"
+                              className="ml-1.5 text-[10px] px-1 py-0"
+                            >
+                              -{discountPct}%
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right hidden sm:table-cell">
+                          {hasDiscount ? (
+                            <span className="text-sm text-muted-foreground line-through tabular-nums">
+                              {formatPrice(p.originalPrice, p.currency)}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {p.badge ? (
+                            <Badge variant="secondary" className="text-xs">
+                              {p.badge}
+                            </Badge>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {p.catalogStatus?.loading ? (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span>Checking…</span>
+                            </div>
+                          ) : (
+                            <CatalogStatusBadge status={p.catalogStatus} />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
