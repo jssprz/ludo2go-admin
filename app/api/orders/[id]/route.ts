@@ -5,7 +5,7 @@ import { OrderStatus } from '@prisma/client';
 
 type RouteContext = {
   params: Promise<{
-    orderId: string;
+    id: string;
   }>;
 };
 
@@ -17,10 +17,10 @@ export async function GET(request: Request, { params }: RouteContext) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { orderId } = await params;
+    const { id } = await params;
 
     const order = await prisma.order.findUnique({
-      where: { id: orderId },
+      where: { id },
       include: {
         customer: true,
         items: {
@@ -70,10 +70,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       );
     }
 
-    const { orderId } = await params;
+    const { id } = await params;
 
     const order = await prisma.order.update({
-      where: { id: orderId },
+      where: { id },
       data: {
         status: status as OrderStatus,
         updatedAt: new Date(),
@@ -117,10 +117,10 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { orderId } = await params;
+    const { id } = await params;
 
     await prisma.order.delete({
-      where: { id: orderId },
+      where: { id },
     });
 
     return NextResponse.json({ message: 'Order deleted successfully' });
