@@ -39,6 +39,18 @@ export default async function OrderDetailPage({ params }: PageProps) {
               product: true,
             },
           },
+          customizations: {
+            include: {
+              group: true,
+              option: true,
+              selectedVariant: {
+                include: {
+                  product: true,
+                },
+              },
+              selectedAddress: true,
+            },
+          },
         },
       },
       shippingAddr: true,
@@ -177,6 +189,63 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   <p className="text-sm text-muted-foreground">
                     Quantity: {item.quantity}
                   </p>
+                  {item.customizations.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Customizations:
+                      </p>
+                      {item.customizations.map((customization) => {
+                        const selectedValue =
+                          customization.option?.label ??
+                          (customization.selectedVariant
+                            ? `${customization.selectedVariant.product.name} (${customization.selectedVariant.sku})`
+                            : null) ??
+                          (customization.selectedAddress
+                            ? [
+                                customization.selectedAddress.line1,
+                                customization.selectedAddress.line2,
+                                customization.selectedAddress.city,
+                                customization.selectedAddress.region,
+                                customization.selectedAddress.postalCode,
+                                customization.selectedAddress.country,
+                              ]
+                                .filter(Boolean)
+                                .join(', ')
+                            : null) ??
+                          customization.valueString ??
+                          customization.valueText ??
+                          (customization.valueBoolean !== null
+                            ? customization.valueBoolean
+                              ? 'Yes'
+                              : 'No'
+                            : null) ??
+                          (customization.valueDate
+                            ? new Date(customization.valueDate).toLocaleDateString()
+                            : null) ??
+                          (customization.valueJson
+                            ? JSON.stringify(customization.valueJson)
+                            : 'Selected');
+
+                        return (
+                          <p key={customization.id} className="text-xs text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              {customization.group.name}:
+                            </span>{' '}
+                            {selectedValue}
+                            {customization.priceDelta !== 0 && (
+                              <span className="ml-1">
+                                ({customization.priceDelta > 0 ? '+' : '-'}
+                                {formatCurrency(
+                                  Math.abs(customization.priceDelta),
+                                  item.currency
+                                )})
+                              </span>
+                            )}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
