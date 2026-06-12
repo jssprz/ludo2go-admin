@@ -92,7 +92,7 @@ export async function getProducts(
           media: true
         }
       },
-      variants: true,
+      variants: { include: { inventory: true } },
       createdByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
       updatedByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
     },
@@ -114,9 +114,9 @@ export async function deleteProductById(id: string) {
   await prisma.product.deleteMany({ where: { id: { equals: id } } })
 }
 
-export async function updateProduct(product: any){
+export async function updateProduct(product: any) {
   return await prisma.product.update({
-    where: {id: product.id},
+    where: { id: product.id },
     data: product
   })
 }
