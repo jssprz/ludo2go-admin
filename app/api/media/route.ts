@@ -3,6 +3,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { put } from '@vercel/blob';
+import { createAndStoreThumbnailFromUrl } from '@/lib/media-thumbnails';
 
 // GET /api/media - List all media assets
 export async function GET(request: NextRequest) {
@@ -133,18 +134,23 @@ export async function POST(request: NextRequest) {
       addRandomSuffix: false,
     });
 
-    // Get image dimensions if it's an image
-    let width: number | null = null;
-    let height: number | null = null;
+    const thumbnail =
+      kind === 'image'
+        ? await createAndStoreThumbnailFromUrl({
+            sourceUrl: blob.url,
+            sourceMime: file.type,
+            pathnameHint: file.name,
+          })
+        : null;
 
     // Create media asset in database
     const mediaAsset = await prisma.mediaAsset.create({
       data: {
         kind,
         url: blob.url,
-        thumbUrl: kind === 'image' ? blob.url : null,
-        width,
-        height,
+        thumbUrl: thumbnail?.thumbUrl || (kind === 'image' ? blob.url : null),
+        width: thumbnail?.width ?? null,
+        height: thumbnail?.height ?? null,
         sizeBytes: file.size,
         mime: file.type,
         locale: locale || null,

@@ -3,6 +3,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
+import { createAndStoreThumbnailFromUrl } from '@/lib/media-thumbnails';
 
 // POST /api/media/upload - Handle client-side Vercel Blob uploads
 export async function POST(request: NextRequest) {
@@ -73,14 +74,22 @@ export async function POST(request: NextRequest) {
 
           const filename = blob.pathname.split('/').pop() || 'untitled';
           const alt = filename.replace(/\.[^/.]+$/, '').replace(/^\d+-/, '');
+          const thumbnail =
+            kind === 'image'
+              ? await createAndStoreThumbnailFromUrl({
+                  sourceUrl: blob.url,
+                  sourceMime: blob.contentType,
+                  pathnameHint: filename,
+                })
+              : null;
 
           const created = await prisma.mediaAsset.create({
             data: {
               kind,
               url: blob.url,
-              thumbUrl: kind === 'image' ? blob.url : null,
-              width: null,
-              height: null,
+              thumbUrl: thumbnail?.thumbUrl || (kind === 'image' ? blob.url : null),
+              width: thumbnail?.width ?? null,
+              height: thumbnail?.height ?? null,
               sizeBytes,
               mime: blob.contentType || payload.mime || 'application/octet-stream',
               locale: null,

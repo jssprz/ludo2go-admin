@@ -47,9 +47,9 @@ import {
   Grid,
   List,
   Loader2,
-  X,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 
 type MediaAsset = {
@@ -102,6 +102,8 @@ export function MediaGallery() {
   const [editCopyright, setEditCopyright] = useState('');
   const [editLocale, setEditLocale] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [thumbnailingId, setThumbnailingId] = useState<string | null>(null);
+  const [isBulkThumbnailing, setIsBulkThumbnailing] = useState(false);
 
   // Preview dialog state
   const [previewMedia, setPreviewMedia] = useState<MediaAsset | null>(null);
@@ -246,6 +248,80 @@ export function MediaGallery() {
     navigator.clipboard.writeText(text);
   }
 
+  async function handleGenerateThumbnail(item: MediaAsset) {
+    if (item.kind !== 'image') return;
+
+    setThumbnailingId(item.id);
+    try {
+      const res = await fetch(`/api/media/${item.id}/thumbnail`, {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to generate thumbnail');
+      }
+
+      const updated = await res.json();
+      setMedia((prev) =>
+        prev.map((mediaItem) =>
+          mediaItem.id === updated.id
+            ? {
+                ...mediaItem,
+                thumbUrl: updated.thumbUrl,
+                width: updated.width,
+                height: updated.height,
+              }
+            : mediaItem
+        )
+      );
+
+      if (previewMedia?.id === updated.id) {
+        setPreviewMedia((prev) =>
+          prev
+            ? {
+                ...prev,
+                thumbUrl: updated.thumbUrl,
+                width: updated.width,
+                height: updated.height,
+              }
+            : prev
+        );
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to generate thumbnail');
+    } finally {
+      setThumbnailingId(null);
+    }
+  }
+
+  async function handleGenerateMissingThumbnails() {
+    setIsBulkThumbnailing(true);
+    try {
+      const res = await fetch('/api/media/thumbnails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onlyMissing: true, limit: 500 }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to generate thumbnails');
+      }
+
+      const result = await res.json();
+      alert(
+        `Generated ${result.generated} thumbnail(s). Failed: ${result.failed}. Scanned: ${result.scanned}.`
+      );
+      fetchMedia();
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || 'Failed to generate thumbnails');
+    } finally {
+      setIsBulkThumbnailing(false);
+    }
+  }
+
   function formatBytes(bytes: number | null): string {
     if (!bytes) return 'Unknown';
     if (bytes < 1024) return `${bytes} B`;
@@ -317,6 +393,23 @@ export function MediaGallery() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleGenerateMissingThumbnails}
+            disabled={isBulkThumbnailing || isUploading}
+          >
+            {isBulkThumbnailing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Thumbnails...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Generate Missing Thumbs
+              </>
+            )}
+          </Button>
           <label htmlFor="media-upload">
             <Button asChild disabled={isUploading}>
               <span>
@@ -405,12 +498,35 @@ export function MediaGallery() {
                       <Copy className="mr-2 h-4 w-4" />
                       Copy URL
                     </DropdownMenuItem>
+                    {item.kind === 'image' && item.thumbUrl && (
+                      <DropdownMenuItem
+                        onClick={() => copyToClipboard(item.thumbUrl || '')}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Thumbnail URL
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       onClick={() => window.open(item.url, '_blank')}
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Open Original
                     </DropdownMenuItem>
+                    {item.kind === 'image' && (
+                      <DropdownMenuItem
+                        onClick={() => handleGenerateThumbnail(item)}
+                        disabled={thumbnailingId === item.id}
+                      >
+                        <RefreshCw
+                          className={`mr-2 h-4 w-4 ${
+                            thumbnailingId === item.id ? 'animate-spin' : ''
+                          }`}
+                        />
+                        {thumbnailingId === item.id
+                          ? 'Generating Thumbnail...'
+                          : 'Regenerate Thumbnail'}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => openEditDialog(item)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Metadata
@@ -493,6 +609,29 @@ export function MediaGallery() {
                       <Copy className="mr-2 h-4 w-4" />
                       Copy URL
                     </DropdownMenuItem>
+                    {item.kind === 'image' && item.thumbUrl && (
+                      <DropdownMenuItem
+                        onClick={() => copyToClipboard(item.thumbUrl || '')}
+                      >
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy Thumbnail URL
+                      </DropdownMenuItem>
+                    )}
+                    {item.kind === 'image' && (
+                      <DropdownMenuItem
+                        onClick={() => handleGenerateThumbnail(item)}
+                        disabled={thumbnailingId === item.id}
+                      >
+                        <RefreshCw
+                          className={`mr-2 h-4 w-4 ${
+                            thumbnailingId === item.id ? 'animate-spin' : ''
+                          }`}
+                        />
+                        {thumbnailingId === item.id
+                          ? 'Generating Thumbnail...'
+                          : 'Regenerate Thumbnail'}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => openEditDialog(item)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit Metadata
@@ -677,6 +816,15 @@ export function MediaGallery() {
                 <Copy className="mr-2 h-4 w-4" />
                 Copy URL
               </Button>
+              {previewMedia?.kind === 'image' && previewMedia?.thumbUrl && (
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(previewMedia.thumbUrl || '')}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Thumbnail URL
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => window.open(previewMedia?.url, '_blank')}
@@ -684,6 +832,22 @@ export function MediaGallery() {
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open Original
               </Button>
+              {previewMedia?.kind === 'image' && (
+                <Button
+                  variant="outline"
+                  onClick={() => previewMedia && handleGenerateThumbnail(previewMedia)}
+                  disabled={thumbnailingId === previewMedia?.id}
+                >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${
+                      thumbnailingId === previewMedia?.id ? 'animate-spin' : ''
+                    }`}
+                  />
+                  {thumbnailingId === previewMedia?.id
+                    ? 'Generating...'
+                    : 'Regenerate Thumbnail'}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => {
