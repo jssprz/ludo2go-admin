@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const assets = await prisma.mediaAsset.findMany({
       where: {
         kind: 'image',
-        ...(onlyMissing ? { OR: [{ thumbUrl: null }, { thumbUrl: '' }] } : {}),
+        ...(onlyMissing ? { OR: [{ thumbUrl: null }, { thumbUrl: '' }, { thumbUrl: { equals: prisma.mediaAsset.fields.url } }] } : {}),
       },
       select: {
         id: true,
