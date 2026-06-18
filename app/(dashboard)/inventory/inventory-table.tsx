@@ -107,6 +107,36 @@ export function InventoryTable({ variants, locations }: Props) {
     );
   }
 
+  function calculateTableTotals() {
+    if (selectedLocation === 'all') {
+      return filteredVariants.reduce(
+        (acc, variant) => {
+          const total = getTotalStock(variant);
+          const available = calculateAvailable(total.onHand, total.reserved);
+          acc.onHand += total.onHand;
+          acc.reserved += total.reserved;
+          acc.available += available;
+          return acc;
+        },
+        { onHand: 0, reserved: 0, available: 0 }
+      );
+    } else {
+      return filteredVariants.reduce(
+        (acc, variant) => {
+          const inventory = getInventoryForLocation(variant, selectedLocation);
+          const onHand = inventory?.onHand || 0;
+          const reserved = inventory?.reserved || 0;
+          const available = calculateAvailable(onHand, reserved);
+          acc.onHand += onHand;
+          acc.reserved += reserved;
+          acc.available += available;
+          return acc;
+        },
+        { onHand: 0, reserved: 0, available: 0 }
+      );
+    }
+  }
+
   async function handleSave(variantId: string) {
     if (!editingCell) return;
 
@@ -458,6 +488,28 @@ export function InventoryTable({ variants, locations }: Props) {
                 );
               }
             })}
+            {filteredVariants.length > 0 && (() => {
+              const totals = calculateTableTotals();
+              return (
+                <TableRow className="font-semibold bg-muted/50 border-t-2 border-t-border">
+                  <TableCell colSpan={3}>Total</TableCell>
+                  {selectedLocation === 'all' ? (
+                    <>
+                      <TableCell className="text-right">{totals.onHand}</TableCell>
+                      <TableCell className="text-right">{totals.reserved}</TableCell>
+                      <TableCell className="text-right">{totals.available}</TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="text-right">{totals.onHand}</TableCell>
+                      <TableCell className="text-right">{totals.reserved}</TableCell>
+                      <TableCell className="text-right">{totals.available}</TableCell>
+                      <TableCell />
+                    </>
+                  )}
+                </TableRow>
+              );
+            })()}
           </TableBody>
         </Table>
       </div>
