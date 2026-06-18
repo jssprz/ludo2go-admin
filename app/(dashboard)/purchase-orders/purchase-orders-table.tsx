@@ -741,7 +741,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
       {/* Detail / Edit Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           {selectedOrder && (
             <>
               <DialogHeader>
@@ -832,12 +832,6 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-medium">Items ({editItems.length})</Label>
-                  </div>
-
-                  <div className="border rounded-md p-3 bg-muted/30">
-                    <Button type="button" variant="outline" className="w-full" onClick={addEditItem}>
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Add item
-                    </Button>
                   </div>
 
                   {editItems.length === 0 && (
@@ -931,6 +925,12 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                       </div>
                     );
                   })}
+
+                  <div className="border rounded-md p-3 bg-muted/30">
+                    <Button type="button" variant="outline" className="w-full" onClick={addEditItem}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add item
+                    </Button>
+                  </div>
 
                   {/* Item Totals */}
                   {editItems.length > 0 && (
