@@ -65,7 +65,18 @@ type SupplierOption = {
 type VariantOption = {
   id: string;
   sku: string;
-  product: { name: string };
+  product: {
+    id: string;
+    name: string;
+    mediaLinks: Array<{
+      media: {
+        id: string;
+        url: string;
+        thumbUrl: string | null;
+        alt: string | null;
+      };
+    }>;
+  };
 };
 
 type OrderItem = {
@@ -142,6 +153,14 @@ function getItemTotal(quantity: number, unitCost: number, discount: number) {
 
 function getItemsSubtotal(items: Array<{ quantity: number; unitCost: number; discount: number }>) {
   return items.reduce((sum, item) => sum + getItemTotal(item.quantity, item.unitCost, item.discount), 0);
+}
+
+function getTotalQuantity(items: OrderItem[]) {
+  return items.reduce((sum, item) => sum + item.quantity, 0);
+}
+
+function getTotalReceived(items: OrderItem[]) {
+  return items.reduce((sum, item) => sum + item.quantityReceived, 0);
 }
 
 function getTax(subtotal: number, shipping: number, includeShippingInTax: boolean) {
@@ -442,6 +461,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
               <TableHead>Supplier</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="hidden md:table-cell">Items</TableHead>
+              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Received</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="hidden md:table-cell">Ordered</TableHead>
               <TableHead className="hidden md:table-cell">Expected</TableHead>
@@ -451,7 +472,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                   No purchase orders found
                 </TableCell>
               </TableRow>
@@ -470,6 +491,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">{order.items.length}</TableCell>
+                  <TableCell className="text-right">{getTotalQuantity(order.items)}</TableCell>
+                  <TableCell className="text-right">{getTotalReceived(order.items)}</TableCell>
                   <TableCell className="text-right font-medium">
                     {formatCurrency(order.total, order.currency)}
                   </TableCell>
@@ -809,7 +832,10 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-base font-medium">Items ({editItems.length})</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addEditItem}>
+                  </div>
+
+                  <div className="border rounded-md p-3 bg-muted/30">
+                    <Button type="button" variant="outline" className="w-full" onClick={addEditItem}>
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add item
                     </Button>
                   </div>
@@ -820,75 +846,105 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     </p>
                   )}
 
-                  {editItems.map((item, idx) => (
-                    <div key={idx} className="grid gap-3 border rounded-md p-3">
-                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr),90px,120px,120px,120px,80px]">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Variant</Label>
-                          <Select value={item.variantId} onValueChange={(val) => updateEditItem(idx, 'variantId', val)}>
-                            <SelectTrigger><SelectValue placeholder="Select variant" /></SelectTrigger>
-                            <SelectContent>
-                              {variants.map((v) => (
-                                <SelectItem key={v.id} value={v.id}>
-                                  {v.product.name} - {v.sku}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                  {editItems.map((item, idx) => {
+                    const variantData = variants.find((v) => v.id === item.variantId);
+                    const productImage = variantData?.product.mediaLinks[0]?.media;
+
+                    return (
+                      <div key={idx} className="grid gap-3 border rounded-md p-3">
+                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),90px,120px,120px,120px,80px]">
+                          {/* Product Image */}
+                          {productImage && (
+                            <div className="hidden md:flex items-center justify-center border rounded bg-muted overflow-hidden">
+                              <img
+                                src={productImage.thumbUrl || productImage.url}
+                                alt={productImage.alt || 'Product'}
+                                className="h-16 w-16 object-cover"
+                              />
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Variant</Label>
+                            <Select value={item.variantId} onValueChange={(val) => updateEditItem(idx, 'variantId', val)}>
+                              <SelectTrigger><SelectValue placeholder="Select variant" /></SelectTrigger>
+                              <SelectContent>
+                                {variants.map((v) => (
+                                  <SelectItem key={v.id} value={v.id}>
+                                    {v.product.name} - {v.sku}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Qty</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={item.quantity}
+                              onChange={(e) => updateEditItem(idx, 'quantity', Math.max(1, Number(e.target.value) || 1))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Received</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={item.quantity}
+                              value={item.quantityReceived}
+                              onChange={(e) => {
+                                const next = Math.max(0, Number(e.target.value) || 0);
+                                updateEditItem(idx, 'quantityReceived', Math.min(next, item.quantity));
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Unit cost</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="1"
+                              value={item.unitCost}
+                              onChange={(e) => updateEditItem(idx, 'unitCost', Math.max(0, Number(e.target.value) || 0))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Discount</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="1"
+                              value={item.discount}
+                              onChange={(e) => updateEditItem(idx, 'discount', Math.max(0, Number(e.target.value) || 0))}
+                            />
+                          </div>
+                          <div className="flex items-end justify-end pb-1">
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeEditItem(idx)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Qty</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={item.quantity}
-                            onChange={(e) => updateEditItem(idx, 'quantity', Math.max(1, Number(e.target.value) || 1))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Received</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={item.quantity}
-                            value={item.quantityReceived}
-                            onChange={(e) => {
-                              const next = Math.max(0, Number(e.target.value) || 0);
-                              updateEditItem(idx, 'quantityReceived', Math.min(next, item.quantity));
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Unit cost</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="1"
-                            value={item.unitCost}
-                            onChange={(e) => updateEditItem(idx, 'unitCost', Math.max(0, Number(e.target.value) || 0))}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Discount</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="1"
-                            value={item.discount}
-                            onChange={(e) => updateEditItem(idx, 'discount', Math.max(0, Number(e.target.value) || 0))}
-                          />
-                        </div>
-                        <div className="flex items-end justify-end pb-1">
-                          <Button type="button" variant="ghost" size="icon" onClick={() => removeEditItem(idx)}>
-                            <X className="h-4 w-4" />
-                          </Button>
+                        <div className="text-right text-sm font-medium">
+                          {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}
                         </div>
                       </div>
-                      <div className="text-right text-sm font-medium">
-                        {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}
+                    );
+                  })}
+
+                  {/* Item Totals */}
+                  {editItems.length > 0 && (
+                    <div className="border rounded-md p-3 space-y-1 text-sm bg-muted/30">
+                      <div className="flex justify-between">
+                        <span>Total Qty:</span>
+                        <span className="font-semibold">{editItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Received:</span>
+                        <span className="font-semibold">{editItems.reduce((sum, item) => sum + item.quantityReceived, 0)}</span>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 {/* Totals */}

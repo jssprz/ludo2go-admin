@@ -15,7 +15,20 @@ export default async function PurchaseOrdersPage() {
         items: {
           include: {
             variant: {
-              select: { id: true, sku: true, product: { select: { name: true } } },
+              select: {
+                id: true,
+                sku: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    mediaLinks: {
+                      include: { media: true },
+                      take: 1,
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -31,7 +44,16 @@ export default async function PurchaseOrdersPage() {
       select: {
         id: true,
         sku: true,
-        product: { select: { name: true } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            mediaLinks: {
+              include: { media: true },
+              take: 1,
+            },
+          },
+        },
       },
     }),
   ]);
