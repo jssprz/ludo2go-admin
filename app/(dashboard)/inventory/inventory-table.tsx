@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertTriangle, Save, X } from 'lucide-react';
+import { AlertTriangle, Save, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 
 type VariantWithInventory = ProductVariant & {
@@ -54,6 +54,24 @@ export function InventoryTable({ variants, locations }: Props) {
   const [editingCell, setEditingCell] = useState<EditingState>(null);
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortCol, setSortCol] = useState<string>('product');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  }
+
+  function SortIcon({ col }: { col: string }) {
+    if (sortCol !== col) return <ArrowUpDown className="ml-1 h-3.5 w-3.5 opacity-40 inline-block" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="ml-1 h-3.5 w-3.5 inline-block" />
+      : <ArrowDown className="ml-1 h-3.5 w-3.5 inline-block" />;
+  }
 
   // Filter variants by search query
   const filteredVariants = variants.filter((variant) => {
@@ -63,6 +81,31 @@ export function InventoryTable({ variants, locations }: Props) {
       variant.sku.toLowerCase().includes(searchLower) ||
       variant.edition?.toLowerCase().includes(searchLower)
     );
+  });
+
+  const sortedVariants = [...filteredVariants].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+
+    const getVals = (v: VariantWithInventory) => {
+      if (selectedLocation === 'all') {
+        const t = getTotalStock(v);
+        return { onHand: t.onHand, reserved: t.reserved, available: calculateAvailable(t.onHand, t.reserved) };
+      }
+      const inv = v.inventory.find((i) => i.locationId === selectedLocation);
+      const onHand = inv?.onHand ?? 0;
+      const reserved = inv?.reserved ?? 0;
+      return { onHand, reserved, available: calculateAvailable(onHand, reserved) };
+    };
+
+    switch (sortCol) {
+      case 'product': return dir * a.product.name.localeCompare(b.product.name);
+      case 'sku':     return dir * a.sku.localeCompare(b.sku);
+      case 'edition': return dir * (a.edition ?? '').localeCompare(b.edition ?? '');
+      case 'onHand':  return dir * (getVals(a).onHand - getVals(b).onHand);
+      case 'reserved':return dir * (getVals(a).reserved - getVals(b).reserved);
+      case 'available':return dir * (getVals(a).available - getVals(b).available);
+      default:        return 0;
+    }
   });
 
   function getInventoryForLocation(
@@ -253,27 +296,45 @@ export function InventoryTable({ variants, locations }: Props) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Edition</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('product')}>
+                Product <SortIcon col="product" />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('sku')}>
+                SKU <SortIcon col="sku" />
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('edition')}>
+                Edition <SortIcon col="edition" />
+              </TableHead>
               {selectedLocation === 'all' ? (
                 <>
-                  <TableHead className="text-right">Total On Hand</TableHead>
-                  <TableHead className="text-right">Total Reserved</TableHead>
-                  <TableHead className="text-right">Total Available</TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('onHand')}>
+                    Total On Hand <SortIcon col="onHand" />
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('reserved')}>
+                    Total Reserved <SortIcon col="reserved" />
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('available')}>
+                    Total Available <SortIcon col="available" />
+                  </TableHead>
                 </>
               ) : (
                 <>
-                  <TableHead className="text-right">On Hand</TableHead>
-                  <TableHead className="text-right">Reserved</TableHead>
-                  <TableHead className="text-right">Available</TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('onHand')}>
+                    On Hand <SortIcon col="onHand" />
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('reserved')}>
+                    Reserved <SortIcon col="reserved" />
+                  </TableHead>
+                  <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('available')}>
+                    Available <SortIcon col="available" />
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </>
               )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredVariants.map((variant) => {
+            {sortedVariants.map((variant) => {
               if (selectedLocation === 'all') {
                 const total = getTotalStock(variant);
                 const available = calculateAvailable(
@@ -488,7 +549,7 @@ export function InventoryTable({ variants, locations }: Props) {
                 );
               }
             })}
-            {filteredVariants.length > 0 && (() => {
+            {sortedVariants.length > 0 && (() => {
               const totals = calculateTableTotals();
               return (
                 <TableRow className="font-semibold bg-muted/50 border-t-2 border-t-border">
