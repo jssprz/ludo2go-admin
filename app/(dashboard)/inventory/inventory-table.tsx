@@ -42,8 +42,8 @@ type EditingState = {
   reserved: number;
 } | null;
 
-const LOW_STOCK_THRESHOLD = 10; // Highlight if available stock is below this
-const CRITICAL_STOCK_THRESHOLD = 5; // Critical if available stock is below this
+const LOW_STOCK_THRESHOLD = Number(process.env.NEXT_PUBLIC_LOW_STOCK_THRESHOLD ?? 5);
+const CRITICAL_STOCK_THRESHOLD = Number(process.env.NEXT_PUBLIC_CRITICAL_STOCK_THRESHOLD ?? 2);
 
 export function InventoryTable({ variants, locations }: Props) {
   const t = useTranslations('locations');
