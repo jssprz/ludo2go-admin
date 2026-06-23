@@ -845,8 +845,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     const productImage = variantData?.product.mediaLinks[0]?.media;
 
                     return (
-                      <div key={idx} className="grid gap-3 border rounded-md p-3">
-                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),90px,120px,120px,120px,80px]">
+                      <div key={idx} className="grid gap-3 border rounded-md p-1">
+                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,110px,110px,110px,80px]">
                           {/* Product Image */}
                           {productImage && (
                             <div className="hidden md:flex items-center justify-center border rounded bg-muted overflow-hidden">
@@ -871,7 +871,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               </SelectContent>
                             </Select>
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-1 cols-span-1">
                             <Label className="text-xs">Qty</Label>
                             <Input
                               type="number"
@@ -901,6 +901,16 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               step="1"
                               value={item.unitCost}
                               onChange={(e) => updateEditItem(idx, 'unitCost', Math.max(0, Number(e.target.value) || 0))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">+IVA</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="1"
+                              value={item.unitCost * 1.19}
+                              disabled
                             />
                           </div>
                           <div className="space-y-1">
