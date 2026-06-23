@@ -899,16 +899,13 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               type="number"
                               min={0}
                               step="1"
-                              value={formatCurrency(item.unitCost, selectedOrder.currency)}
+                              value={item.unitCost}
                               onChange={(e) => updateEditItem(idx, 'unitCost', Math.max(0, Number(e.target.value) || 0))}
                             />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">+IVA</Label>
                             <Input
-                              type="number"
-                              min={0}
-                              step="1"
                               value={formatCurrency(item.unitCost * 1.19, selectedOrder.currency)}
                               disabled
                             />
@@ -919,7 +916,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               type="number"
                               min={0}
                               step="1"
-                              value={formatCurrency(item.discount, selectedOrder.currency)}
+                              value={item.discount}
                               onChange={(e) => updateEditItem(idx, 'discount', Math.max(0, Number(e.target.value) || 0))}
                             />
                           </div>
