@@ -1,5 +1,6 @@
 import { prisma } from '@jssprz/ludo2go-database';
 import { CustomersTable } from './customers-table';
+import { CreateCustomerDialog } from './create-customer-dialog';
 
 export default async function CustomersPage(
   props: {
@@ -118,11 +119,14 @@ export default async function CustomersPage(
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
-        <p className="text-muted-foreground">
-          View all customers, their orders and activity.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
+          <p className="text-muted-foreground">
+            View all customers, their orders and activity.
+          </p>
+        </div>
+        <CreateCustomerDialog />
       </div>
       <CustomersTable
         customers={rows}

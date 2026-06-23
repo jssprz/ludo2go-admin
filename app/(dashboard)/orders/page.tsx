@@ -1,4 +1,7 @@
 import { prisma } from '@jssprz/ludo2go-database';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 import { OrdersTable } from './orders-table';
 
 export default async function OrdersPage() {
@@ -42,6 +45,12 @@ export default async function OrdersPage() {
             Manage customer orders and update their status
           </p>
         </div>
+        <Button asChild>
+          <Link href="/orders/manual">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Manual Order
+          </Link>
+        </Button>
       </div>
 
       <OrdersTable orders={orders} />
