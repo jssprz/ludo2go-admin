@@ -198,6 +198,54 @@ const SITES: SiteConfig[] = [
       return products;
     },
   },
+  {
+    key: 'antartica',
+    storeName: 'Antartica',
+    url: 'https://www.antartica.cl/juegos-y-accesorios/entretencion/juegos.html?product_list_order=bestseller&product_list_dir=desc',
+    parse($) {
+      const products: TrendingProduct[] = [];
+      // Magento-like product grid
+      $('li.product-item').each((i, el) => {
+        const $el = $(el);
+        const link = $el.find('.product-item-name .product-item-link').first();
+        const name = link.text().trim();
+        const url = link.attr('href') || '';
+        const imageUrl =
+          $el.find('img.product-image-photo').first().attr('src') ||
+          $el.find('img.product-image-photo').first().attr('data-src') ||
+          null;
+
+        const salePriceText = $el.find('.price-box .special-price .price').first().text();
+        const fallbackPriceText =
+          $el.find('.price-box .price-container .price').first().text() ||
+          $el.find('.price-box .price').first().text();
+        const originalPriceText =
+          $el.find('.price-box .old-price .price').first().text() ||
+          $el.find('.price-box .regular-price .price').first().text();
+        const badge =
+          $el.find('.product-label, .label, .sale, .discount').first().text().trim() || null;
+        const brand =
+          $el.find('a[href*="autor="]').first().text().trim() ||
+          $el.find('.product.author a').first().text().trim() ||
+          null;
+
+        if (name && url) {
+          products.push({
+            rank: i + 1,
+            name,
+            url: url.startsWith('http') ? url : `https://www.antartica.cl${url}`,
+            imageUrl,
+            price: normalizePriceText(salePriceText || fallbackPriceText),
+            originalPrice: normalizePriceText(originalPriceText),
+            currency: 'CLP',
+            badge,
+            brand,
+          });
+        }
+      });
+      return products;
+    },
+  },
 ];
 
 // ─── Fetch brand from product detail page ────────────────────
@@ -302,7 +350,7 @@ async function scrapeSite(config: SiteConfig): Promise<TrendingSource> {
       BRAND_FETCH_CONCURRENCY,
       async (product) => {
         const brand = await fetchProductBrand(product.url);
-        return { ...product, brand };
+        return { ...product, brand: brand ?? product.brand ?? null };
       }
     );
 
