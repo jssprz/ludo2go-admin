@@ -160,7 +160,7 @@ async function DesktopNav() {
           <Boxes className="h-4 w-4" />
         </NavItem>
 
-        <NavItem href="/variant-prices" label={t('prices')}>
+        <NavItem href="/prices" label={t('prices')}>
           <Tag className="h-4 w-4" />
         </NavItem>
 

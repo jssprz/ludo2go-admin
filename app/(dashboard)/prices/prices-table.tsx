@@ -211,7 +211,7 @@ export function VariantPricesTable({ variants }: Props) {
     setSavingVariantId(variant.id);
 
     try {
-      const res = await fetch(`/api/variant-prices/${variant.id}`, {
+      const res = await fetch(`/api/prices/${variant.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
