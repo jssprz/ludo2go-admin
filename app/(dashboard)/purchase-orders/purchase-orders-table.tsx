@@ -846,7 +846,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
                     return (
                       <div key={idx} className="grid gap-3 border rounded-md p-1">
-                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,110px,110px,110px,25px]">
+                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,100px,100px,100px,25px]">
                           {/* Product Image */}
                           {productImage && (
                             <div className="hidden md:flex items-center justify-center border rounded bg-muted overflow-hidden">
