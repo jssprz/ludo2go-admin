@@ -846,7 +846,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
                     return (
                       <div key={idx} className="grid gap-3 border rounded-md p-1">
-                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,110px,110px,110px,80px]">
+                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,110px,110px,110px,25px]">
                           {/* Product Image */}
                           {productImage && (
                             <div className="hidden md:flex items-center justify-center border rounded bg-muted overflow-hidden">
@@ -899,7 +899,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               type="number"
                               min={0}
                               step="1"
-                              value={item.unitCost}
+                              value={formatCurrency(item.unitCost, selectedOrder.currency)}
                               onChange={(e) => updateEditItem(idx, 'unitCost', Math.max(0, Number(e.target.value) || 0))}
                             />
                           </div>
@@ -909,7 +909,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               type="number"
                               min={0}
                               step="1"
-                              value={item.unitCost * 1.19}
+                              value={formatCurrency(item.unitCost * 1.19, selectedOrder.currency)}
                               disabled
                             />
                           </div>
@@ -919,7 +919,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                               type="number"
                               min={0}
                               step="1"
-                              value={item.discount}
+                              value={formatCurrency(item.discount, selectedOrder.currency)}
                               onChange={(e) => updateEditItem(idx, 'discount', Math.max(0, Number(e.target.value) || 0))}
                             />
                           </div>
