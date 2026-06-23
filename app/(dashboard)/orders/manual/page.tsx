@@ -67,7 +67,7 @@ type Variant = {
 
 type OrderItem = {
   variantId: string;
-  variant?: Variant;
+  variant: Variant;
   quantity: number;
   unitPrice: number;
 };
@@ -96,11 +96,15 @@ export default function ManualOrderPage() {
     quantity: 1,
     unitPrice: 0,
   });
+  
+  // Get selected variant for display
+  const selectedVariant = variants.find((v) => v.id === newItem.variantId);
 
   // Order state
   const [currency, setCurrency] = useState('CLP');
   const [discount, setDiscount] = useState(0);
   const [shipping, setShipping] = useState(0);
+  const [includeTax, setIncludeTax] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -165,15 +169,46 @@ export default function ManualOrderPage() {
       alert('Quantity must be greater than 0');
       return;
     }
+    if (newItem.unitPrice < 0) {
+      alert('Unit price cannot be negative');
+      return;
+    }
 
     const variant = variants.find((v) => v.id === newItem.variantId);
-    setItems([
-      ...items,
-      {
-        ...newItem,
-        variant,
-      },
-    ]);
+    if (!variant) {
+      alert('Variant not found');
+      return;
+    }
+
+    // Check if item already exists
+    const existingItem = items.find((item) => item.variantId === newItem.variantId);
+    
+    if (existingItem) {
+      // Merge with existing item - update quantity
+      setItems(
+        items.map((item) =>
+          item.variantId === newItem.variantId
+            ? {
+                ...item,
+                quantity: item.quantity + newItem.quantity,
+              }
+            : item
+        )
+      );
+    } else {
+      // Add new item
+      setItems([
+        ...items,
+        {
+          variantId: newItem.variantId,
+          variant,
+          quantity: newItem.quantity,
+          unitPrice: newItem.unitPrice,
+        },
+      ]);
+    }
+
+    // Reset form
     setNewItem({ variantId: '', quantity: 1, unitPrice: 0 });
     setVariantSearch('');
     setVariants([]);
@@ -187,14 +222,16 @@ export default function ManualOrderPage() {
   function updateItem(variantId: string, field: string, value: any) {
     setItems(
       items.map((item) =>
-        item.variantId === variantId ? { ...item, [field]: value } : item
+        item.variantId === variantId
+          ? { ...item, [field]: field === 'quantity' ? Math.max(1, value) : Math.max(0, value) }
+          : item
       )
     );
   }
 
   // Calculations
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const tax = Math.round(subtotal * 0.19);
+  const tax = includeTax ? Math.round(subtotal * 0.19) : 0;
   const total = subtotal + tax + shipping - discount;
 
   // Handle submit
@@ -381,9 +418,9 @@ export default function ManualOrderPage() {
                       <TableRow key={item.variantId}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{item.variant?.product.name}</p>
+                            <p className="font-medium">{item.variant.product.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              SKU: {item.variant?.sku}
+                              SKU: {item.variant.sku}
                             </p>
                           </div>
                         </TableCell>
@@ -435,7 +472,18 @@ export default function ManualOrderPage() {
               </div>
             )}
 
-            <Dialog open={showAddItem} onOpenChange={setShowAddItem}>
+            <Dialog
+              open={showAddItem}
+              onOpenChange={(open) => {
+                setShowAddItem(open);
+                if (!open) {
+                  // Reset form when closing
+                  setNewItem({ variantId: '', quantity: 1, unitPrice: 0 });
+                  setVariantSearch('');
+                  setVariants([]);
+                }
+              }}
+            >
               <Button onClick={() => setShowAddItem(true)} className="w-full">
                 <Plus className="h-4 w-4 mr-2" /> Add Item
               </Button>
@@ -447,15 +495,37 @@ export default function ManualOrderPage() {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Product Variant</Label>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by product name or SKU..."
-                        value={variantSearch}
-                        onChange={(e) => handleVariantSearch(e.target.value)}
-                        className="pl-8"
-                      />
-                    </div>
+                    {selectedVariant ? (
+                      <div className="p-3 border rounded-lg bg-muted/50 space-y-3">
+                        <div>
+                          <p className="text-sm font-medium">{selectedVariant.product.name}</p>
+                          <p className="text-xs text-muted-foreground">SKU: {selectedVariant.sku}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setNewItem({ ...newItem, variantId: '' });
+                            setVariantSearch('');
+                            setVariants([]);
+                          }}
+                        >
+                          Change Selection
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search by product name or SKU..."
+                          value={variantSearch}
+                          onChange={(e) => handleVariantSearch(e.target.value)}
+                          className="pl-8"
+                          autoFocus
+                        />
+                      </div>
+                    )}
 
                     {searchingVariants && (
                       <div className="flex items-center justify-center py-4">
@@ -463,7 +533,7 @@ export default function ManualOrderPage() {
                       </div>
                     )}
 
-                    {variants.length > 0 && (
+                    {variants.length > 0 && !newItem.variantId && (
                       <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
                         {variants.map((variant) => (
                           <button
@@ -471,7 +541,6 @@ export default function ManualOrderPage() {
                             onClick={() => {
                               setNewItem({ ...newItem, variantId: variant.id });
                               setVariantSearch('');
-                              setVariants([]);
                             }}
                             className="w-full p-3 text-left hover:bg-muted/50 transition-colors flex items-center gap-3"
                           >
@@ -488,25 +557,27 @@ export default function ManualOrderPage() {
                   {newItem.variantId && (
                     <>
                       <div className="space-y-2">
-                        <Label>Quantity</Label>
+                        <Label htmlFor="qty">Quantity</Label>
                         <Input
+                          id="qty"
                           type="number"
                           min="1"
                           value={newItem.quantity}
                           onChange={(e) =>
-                            setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })
+                            setNewItem({ ...newItem, quantity: Math.max(1, parseInt(e.target.value) || 1) })
                           }
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Unit Price</Label>
+                        <Label htmlFor="price">Unit Price</Label>
                         <Input
+                          id="price"
                           type="number"
                           min="0"
                           step="0.01"
                           value={newItem.unitPrice}
                           onChange={(e) =>
-                            setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })
+                            setNewItem({ ...newItem, unitPrice: Math.max(0, parseFloat(e.target.value) || 0) })
                           }
                         />
                       </div>
@@ -603,6 +674,17 @@ export default function ManualOrderPage() {
               </div>
             </div>
 
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="includeTax"
+                checked={includeTax}
+                onCheckedChange={(checked) => setIncludeTax(checked as boolean)}
+              />
+              <Label htmlFor="includeTax" className="font-normal cursor-pointer">
+                Include 19% tax in order total
+              </Label>
+            </div>
+
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
@@ -651,7 +733,7 @@ export default function ManualOrderPage() {
                   {items.map((item) => (
                     <div key={item.variantId} className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium">{item.variant?.product.name}</p>
+                        <p className="font-medium">{item.variant.product.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {item.quantity}x @ {item.unitPrice.toLocaleString()}
                         </p>
@@ -685,10 +767,12 @@ export default function ManualOrderPage() {
                   <span>-{discount.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span>Tax (19%):</span>
-                <span>{tax.toLocaleString()}</span>
-              </div>
+              {includeTax && (
+                <div className="flex justify-between">
+                  <span>Tax (19%):</span>
+                  <span>{tax.toLocaleString()}</span>
+                </div>
+              )}
               {shipping > 0 && (
                 <div className="flex justify-between">
                   <span>Shipping:</span>
