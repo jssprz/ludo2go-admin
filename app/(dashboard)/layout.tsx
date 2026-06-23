@@ -160,6 +160,10 @@ async function DesktopNav() {
           <Boxes className="h-4 w-4" />
         </NavItem>
 
+        <NavItem href="/variant-prices" label={t('prices')}>
+          <Tag className="h-4 w-4" />
+        </NavItem>
+
         <NavItem href="/locations" label={t('locations')}>
           <Warehouse className="h-4 w-4" />
         </NavItem>
@@ -337,6 +341,13 @@ function MobileNav() {
           >
             <Boxes className="h-4 w-4" />
             Inventory
+          </Link>
+          <Link
+            href="/prices"
+            className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
+          >
+            <Tag className="h-4 w-4" />
+            Prices
           </Link>
           <Link
             href="/locations"
