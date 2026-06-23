@@ -17,12 +17,14 @@ export async function POST(request: NextRequest) {
       tax,
       shipping,
       discount,
+      promoDiscount,
       total,
       currency,
       paymentMethod,
       paymentStatus,
       notes,
       shippingAddrId,
+      shippingAddressId,
     } = body;
 
     if (!customerId || !items || items.length === 0) {
@@ -32,6 +34,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedPromoDiscount = Math.max(
+      0,
+      Math.round(Number(promoDiscount ?? discount ?? 0) || 0)
+    );
+    const normalizedShippingAddressId =
+      shippingAddressId ?? shippingAddrId ?? null;
+
     // Create the order
     const order = await prisma.order.create({
       data: {
@@ -40,11 +49,11 @@ export async function POST(request: NextRequest) {
         subtotal,
         tax,
         shipping,
-        discount: discount || 0,
+        promoDiscount: normalizedPromoDiscount,
         total,
         status: 'pending',
         notes: notes || null,
-        shippingAddrId: shippingAddrId || null,
+        shippingAddressId: normalizedShippingAddressId,
         items: {
           create: items.map((item: any) => ({
             variantId: item.variantId,
