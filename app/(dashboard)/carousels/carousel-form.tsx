@@ -140,10 +140,9 @@ export function CarouselForm({ carousel }: Props) {
                   onChange={handleChange}
                   placeholder="e.g., home-main"
                   required
-                  disabled={isEditing}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Unique identifier for this carousel {isEditing && '(cannot be changed)'}
+                  Unique identifier for this carousel {isEditing && '(shuldn\'t be changed)'}
                 </p>
               </div>
 
