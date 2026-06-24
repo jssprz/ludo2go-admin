@@ -62,3 +62,15 @@ pnpm dev
 ```
 
 You should now be able to access the application at http://localhost:3000.
+
+## External Trending Dashboard
+
+The admin dashboard includes an External Trending page at `/external-trending`.
+It scrapes best-selling products from competitor stores and displays them as store cards.
+
+Current configured sources:
+
+- Demente games: https://dementegames.cl/10-juegos-de-mesa?order=product.sales.desc
+- Magicsur: https://www.magicsur.cl/15-juegos-de-mesa-magicsur-chile?order=product.sales.desc
+- Updown: https://www.updown.cl/categoria-producto/juegos-de-mesa/?orderby=popularity&paged=1
+- Antartica: https://www.antartica.cl/juegos-y-accesorios/entretencion/juegos.html?product_list_order=bestseller&product_list_dir=desc
