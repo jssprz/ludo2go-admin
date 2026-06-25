@@ -545,9 +545,9 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-plural-name">{t('pluralName')} *</Label>
+              <Label htmlFor="create-plural-name">{t('pluralName')}</Label>
               <Input
-                id="create-name"
+                id="create-plural-name"
                 value={formPluralName}
                 onChange={(e) => setFormPluralName(e.target.value)}
                 placeholder={t('pluralNamePlaceholder')}
