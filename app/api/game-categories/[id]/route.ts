@@ -50,7 +50,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, slug, description, icon, order, isActive, mediaId } = body;
+    const { name, pluralName, slug, description, icon, order, isActive, mediaId } = body;
 
     if (!name || !slug) {
       return NextResponse.json(
@@ -78,6 +78,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       where: { id },
       data: {
         name,
+        pluralName,
         slug,
         description: description || null,
         icon: icon || null,

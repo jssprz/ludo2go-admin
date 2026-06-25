@@ -61,6 +61,7 @@ type MediaAsset = {
 type GameCategory = {
   id: string;
   name: string;
+  pluralName: string;
   slug: string;
   description: string | null;
   icon: string | null;
@@ -97,6 +98,7 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
 
   // Form states
   const [formName, setFormName] = useState('');
+  const [formPluralName, setFormPluralName] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formIcon, setFormIcon] = useState('');
@@ -138,6 +140,7 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
 
   function resetForm() {
     setFormName('');
+    setFormPluralName('');
     setFormSlug('');
     setFormDescription('');
     setFormIcon('');
@@ -157,6 +160,7 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
   function openEditDialog(category: GameCategory) {
     setSelectedCategory(category);
     setFormName(category.name);
+    setFormPluralName(category.pluralName || '')
     setFormSlug(category.slug);
     setFormDescription(category.description || '');
     setFormIcon(category.icon || '');
@@ -198,6 +202,7 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formName.trim(),
+          pluralName: formPluralName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
           icon: formIcon.trim() || null,
@@ -247,6 +252,7 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formName.trim(),
+          pluralName: formPluralName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
           icon: formIcon.trim() || null,
@@ -321,6 +327,7 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: category.name,
+          pluralName: category.pluralName,
           slug: category.slug,
           description: category.description,
           icon: category.icon,
@@ -535,6 +542,15 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
                 value={formSlug}
                 onChange={(e) => setFormSlug(e.target.value)}
                 placeholder={t('slugPlaceholder')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-plural-name">{t('pluralName')} *</Label>
+              <Input
+                id="create-name"
+                value={formPluralName}
+                onChange={(e) => setFormPluralName(e.target.value)}
+                placeholder={t('pluralNamePlaceholder')}
               />
             </div>
             <div className="space-y-2">

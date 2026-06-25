@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, slug, description, icon, order, isActive, mediaId } = body;
+    const { name, pluralName, slug, description, icon, order, isActive, mediaId } = body;
 
     if (!name || !slug) {
       return NextResponse.json(
@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     const category = await prisma.gameCategory.create({
       data: {
         name,
+        pluralName,
         slug,
         description: description || null,
         icon: icon || null,
