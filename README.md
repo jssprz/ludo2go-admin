@@ -63,6 +63,10 @@ pnpm dev
 
 You should now be able to access the application at http://localhost:3000.
 
+## Products
+
+The admin dashboard includes a Products tabale page at `/products`.
+
 ## External Trending Dashboard
 
 The admin dashboard includes an External Trending page at `/external-trending`.
