@@ -670,6 +670,14 @@ export function GameCategoriesTable({ initialCategories, mediaAssets }: Props) {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="edit-name">{t('pluralName')}</Label>
+              <Input
+                id="edit-plural-name"
+                value={formPluralName}
+                onChange={(e) => setFormPluralName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-description">{t('descriptionLabel')}</Label>
               <Input
                 id="edit-description"
