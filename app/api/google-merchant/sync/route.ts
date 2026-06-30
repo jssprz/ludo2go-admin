@@ -118,6 +118,7 @@ export async function POST() {
           },
         },
         game: true,
+        expansion: true,
       },
     });
 
@@ -252,23 +253,24 @@ export async function POST() {
 
         // Game-specific details as custom attributes
         const customAttributes: content_v2_1.Schema$CustomAttribute[] = [];
-        if (product.game) {
-          if (product.game.minPlayers != null && product.game.maxPlayers != null) {
+        const details = product.game || product.expansion
+        if (details) {
+          if (details.minPlayers != null && details.maxPlayers != null) {
             customAttributes.push({
               name: 'number_of_players',
-              value: `${product.game.minPlayers}-${product.game.maxPlayers}`,
+              value: `${details.minPlayers}-${details.maxPlayers}`,
             });
           }
-          if (product.game.playtimeMin != null) {
+          if (details.playtimeMin != null) {
             customAttributes.push({
               name: 'playing_time',
-              value: `${product.game.playtimeMin}${product.game.playtimeMax ? '-' + product.game.playtimeMax : ''} min`,
+              value: `${details.playtimeMin}${details.playtimeMax ? '-' + details.playtimeMax : ''} min`,
             });
           }
-          if (product.game.minAge != null) {
+          if (details.minAge != null) {
             customAttributes.push({
               name: 'suggested_age',
-              value: `${product.game.minAge}+`,
+              value: `${details.minAge}+`,
             });
           }
         }
