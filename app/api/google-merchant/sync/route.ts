@@ -26,7 +26,7 @@ function getMerchantId(): string {
 }
 
 function getStorefrontBaseUrl(): string {
-  return process.env.STOREFRONT_BASE_URL || 'https://jobys.cl';
+  return process.env.STOREFRONT_BASE_URL || 'https://www.jobys.cl';
 }
 
 /** Convert minor-unit integer (e.g. 12990) → "129.90" */
