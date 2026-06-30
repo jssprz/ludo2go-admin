@@ -44,8 +44,13 @@ export interface SelectProduct {
 
 export function ProductRow({ product }: { product: SelectProduct }) {
   const router = useRouter();
+  
+  // Total stock across all locations
   const totalStock = product.variants.reduce(
-    (sum: number, v: any) => sum + (v.stock ?? 0),
+    (sum: number, v: any) => sum + (v.inventory.reduce(
+      (sum: number, inv: any) => sum + Math.max(0, inv.onHand - inv.reserved),
+      0
+    )),
     0
   );
 
@@ -95,15 +100,15 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
         {product.createdByAdminUser
           ? (product.createdByAdminUser.firstName && product.createdByAdminUser.lastName
-              ? `${product.createdByAdminUser.firstName} ${product.createdByAdminUser.lastName}`
-              : product.createdByAdminUser.username ?? '—')
+            ? `${product.createdByAdminUser.firstName} ${product.createdByAdminUser.lastName}`
+            : product.createdByAdminUser.username ?? '—')
           : '—'}
       </TableCell>
       <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
         {product.updatedByAdminUser
           ? (product.updatedByAdminUser.firstName && product.updatedByAdminUser.lastName
-              ? `${product.updatedByAdminUser.firstName} ${product.updatedByAdminUser.lastName}`
-              : product.updatedByAdminUser.username ?? '—')
+            ? `${product.updatedByAdminUser.firstName} ${product.updatedByAdminUser.lastName}`
+            : product.updatedByAdminUser.username ?? '—')
           : '—'}
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
