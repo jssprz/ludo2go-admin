@@ -156,10 +156,10 @@ export async function POST() {
 
         // Images: variant-specific first, then product-level
         const variantImages = variant.mediaLinks
-          .filter((ml) => ml.media.kind === 'image')
+          .filter((ml) => ml.media.kind === 'image' && ml.role === 'primary')
           .map((ml) => ml.media.url);
         const productImages = product.mediaLinks
-          .filter((ml) => ml.media.kind === 'image')
+          .filter((ml) => ml.media.kind === 'image' && ml.role === 'primary')
           .map((ml) => ml.media.url);
         const allImages = variantImages.length > 0 ? variantImages : productImages;
 
