@@ -139,13 +139,14 @@ export async function PUT(
       lastName: lastName || null,
       phone: phone || null,
       avatar: avatar || null,
-      roleId,
+      role: {
+        connect: { id: roleId },
+      },
     };
 
     // Hash and update password if provided
     if (password) {
-      // @ts-ignore - passwordHash field will be added via schema migration
-      updateData.passwordHash = await bcrypt.hash(password, 12);
+      updateData.password = await bcrypt.hash(password, 12);
     }
 
     // Update the admin user

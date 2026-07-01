@@ -91,7 +91,9 @@ export async function POST(request: NextRequest) {
         phone: phone || null,
         avatar: avatar || null,
         password: passwordHash,
-        roleId,
+        role: {
+          connect: { id: roleId },
+        },
       },
       include: {
         role: true,
