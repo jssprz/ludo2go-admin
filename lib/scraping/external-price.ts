@@ -334,37 +334,98 @@ function normalizePriceText(text: string, locale = 'es-CL') {
   return Number.isNaN(num) ? null : num;
 }
 
+function scorePriceElement($: cheerio.CheerioAPI, el: cheerio.Cheerio<any>, isSingleProductPage: boolean) {
+  let score = 0;
+
+  if (!isSingleProductPage) {
+    return score;
+  }
+
+  const inRelatedSection =
+    el.parents('.related, .upsells, .cross-sells, .related.products, .upsells.products').length > 0;
+
+  if (inRelatedSection) {
+    return -100;
+  }
+
+  const inSummary = el.parents('.summary, .summary.entry-summary').length > 0;
+  const inSingleProduct = el.parents('.single-product, body.single-product').length > 0;
+  const inMainProductBlock = el.parents('div.product').length > 0;
+
+  if (inSummary) score += 60;
+  if (inSingleProduct) score += 25;
+  if (inMainProductBlock) score += 10;
+
+  return score;
+}
+
 function extractWithTemplates($: cheerio.CheerioAPI, hostname: string) {
   const hostTemplates = TEMPLATES[hostname] ?? [];
   const candidates = [
     ...hostTemplates,
     ...TEMPLATES.__woocommerce_defaults__,
   ];
+  const isSingleProductPage =
+    $('body.single-product').length > 0 ||
+    $('.single-product').length > 0 ||
+    $('form.cart').length > 0;
 
   for (const tpl of candidates) {
     for (const sel of tpl.selectors) {
       try {
-        const el = $(sel).first();
-        if (!el.length) continue;
+        const elements = $(sel);
+        if (!elements.length) continue;
 
-        if (tpl.readAttrIfMeta) {
-          const content = el.attr(tpl.readAttrIfMeta);
-          if (content) {
+        let bestPrice: number | null = null;
+        let bestCurrency: string | null = null;
+        let bestScore = Number.NEGATIVE_INFINITY;
+
+        elements.each((_, node) => {
+          const el = $(node);
+
+          if (tpl.readAttrIfMeta) {
+            const content = el.attr(tpl.readAttrIfMeta);
+            if (!content) return;
+
             const price = normalizePriceText(content, tpl.locale);
-            if (price != null) {
-              const currency = guessCurrencyFromText(content) || 'CLP';
-              return { source: tpl.name, selector: sel, price, currency };
+            if (price == null) return;
+
+            const currency = guessCurrencyFromText(content) || 'CLP';
+            const score = scorePriceElement($, el, isSingleProductPage);
+            if (score < 0) return;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestPrice = price;
+              bestCurrency = currency;
             }
+            return;
           }
-        } else {
+
           const text = el.text()?.trim();
-          if (text) {
-            const price = normalizePriceText(text, tpl.locale);
-            if (price != null) {
-              const currency = guessCurrencyFromText(text) || 'CLP';
-              return { source: tpl.name, selector: sel, price, currency };
-            }
+          if (!text) return;
+
+          const price = normalizePriceText(text, tpl.locale);
+          if (price == null) return;
+
+          const currency = guessCurrencyFromText(text) || 'CLP';
+          const score = scorePriceElement($, el, isSingleProductPage);
+          if (score < 0) return;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestPrice = price;
+            bestCurrency = currency;
           }
+        });
+
+        if (bestPrice != null && bestCurrency != null) {
+          return {
+            source: tpl.name,
+            selector: sel,
+            price: bestPrice,
+            currency: bestCurrency,
+          };
         }
       } catch { }
     }
