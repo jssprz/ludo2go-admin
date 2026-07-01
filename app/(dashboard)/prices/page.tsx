@@ -22,6 +22,54 @@ export default async function VariantPricesPage() {
     orderBy: [{ product: { name: 'asc' } }, { sku: 'asc' }],
   });
 
+  const variantIds = variants.map((variant) => variant.id);
+
+  const externalPriceRows = variantIds.length
+    ? await prisma.itemPriceInStore.findMany({
+        where: {
+          variantId: { in: variantIds },
+        },
+        include: {
+          store: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: [{ observedAt: 'desc' }],
+      })
+    : [];
+
+  const seenVariantStoreKeys: Record<string, true> = {};
+  const externalPricesByVariant: Record<
+    string,
+    Array<{
+      storeId: string;
+      storeName: string;
+      observedPrice: number;
+      currency: string;
+      observedAt: string;
+    }>
+  > = {};
+
+  externalPriceRows.forEach((row) => {
+    const key = `${row.variantId}:${row.storeId}`;
+    if (seenVariantStoreKeys[key]) return;
+    seenVariantStoreKeys[key] = true;
+    if (row.observedPrice == null) return;
+
+    const current = externalPricesByVariant[row.variantId] ?? [];
+    current.push({
+      storeId: row.storeId,
+      storeName: row.store.name,
+      observedPrice: row.observedPrice,
+      currency: row.currency,
+      observedAt: row.observedAt.toISOString(),
+    });
+    externalPricesByVariant[row.variantId] = current;
+  });
+
   const rows = variants.map((variant) => {
     const retailPrice = variant.prices.find((price) => price.type === 'retail');
     const salePrice = variant.prices.find((price) => price.type === 'sale');
@@ -29,13 +77,13 @@ export default async function VariantPricesPage() {
     return {
       id: variant.id,
       sku: variant.sku,
-      edition: variant.edition,
       product: variant.product,
       retailPriceId: retailPrice?.id ?? null,
       salePriceId: salePrice?.id ?? null,
       retailAmount: retailPrice?.amount ?? null,
       saleAmount: salePrice?.amount ?? null,
       currency: retailPrice?.currency ?? salePrice?.currency ?? 'CLP',
+      externalPrices: externalPricesByVariant[variant.id] ?? [],
     };
   });
 

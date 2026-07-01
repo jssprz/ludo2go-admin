@@ -20,7 +20,6 @@ import {
 type VariantPriceRow = {
   id: string;
   sku: string;
-  edition: string | null;
   product: {
     id: string;
     name: string;
@@ -31,13 +30,20 @@ type VariantPriceRow = {
   retailAmount: number | null;
   saleAmount: number | null;
   currency: string;
+  externalPrices: Array<{
+    storeId: string;
+    storeName: string;
+    observedPrice: number;
+    currency: string;
+    observedAt: string;
+  }>;
 };
 
 type Props = {
   variants: VariantPriceRow[];
 };
 
-type SortKey = 'product' | 'sku' | 'edition' | 'retail' | 'sale' | 'discountPct';
+type SortKey = 'product' | 'sku' | 'retail' | 'sale' | 'discountPct';
 
 type EditingState = {
   variantId: string;
@@ -65,6 +71,8 @@ function getDiscount(retailAmount: number | null, saleAmount: number | null) {
   };
 }
 
+const OUTLIER_DEVIATION_RATIO = 0.35;
+
 export function VariantPricesTable({ variants }: Props) {
   const router = useRouter();
 
@@ -73,6 +81,7 @@ export function VariantPricesTable({ variants }: Props) {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
+  const [isScrapingAll, setIsScrapingAll] = useState(false);
 
   function handleSort(col: SortKey) {
     if (sortCol === col) {
@@ -98,8 +107,7 @@ export function VariantPricesTable({ variants }: Props) {
     return variants.filter((variant) => {
       return (
         variant.product.name.toLowerCase().includes(query) ||
-        variant.sku.toLowerCase().includes(query) ||
-        (variant.edition ?? '').toLowerCase().includes(query)
+        variant.sku.toLowerCase().includes(query)
       );
     });
   }, [variants, searchQuery]);
@@ -113,8 +121,6 @@ export function VariantPricesTable({ variants }: Props) {
           return direction * a.product.name.localeCompare(b.product.name);
         case 'sku':
           return direction * a.sku.localeCompare(b.sku);
-        case 'edition':
-          return direction * (a.edition ?? '').localeCompare(b.edition ?? '');
         case 'retail':
           return direction * ((a.retailAmount ?? 0) - (b.retailAmount ?? 0));
         case 'sale':
@@ -235,6 +241,31 @@ export function VariantPricesTable({ variants }: Props) {
     }
   }
 
+  async function handleScrapeAllVariants() {
+    setIsScrapingAll(true);
+
+    try {
+      const res = await fetch('/api/prices/scrape-all', {
+        method: 'POST',
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.message || 'Failed to scrape prices for all variants');
+      }
+
+      const successCount = data.successCount ?? 0;
+      const failCount = data.failCount ?? 0;
+      alert(`Scraping completed. Success: ${successCount}, Failed: ${failCount}.`);
+      router.refresh();
+    } catch (error: any) {
+      alert(error?.message || 'Unexpected error while scraping prices');
+    } finally {
+      setIsScrapingAll(false);
+    }
+  }
+
   if (variants.length === 0) {
     return (
       <div className="rounded-lg border p-8 text-center text-muted-foreground">
@@ -278,12 +309,22 @@ export function VariantPricesTable({ variants }: Props) {
         <Input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search by product, SKU, or edition"
+          placeholder="Search by product or SKU"
           className="max-w-md"
         />
-        <p className="text-sm text-muted-foreground">
-          Showing {filteredVariants.length} of {variants.length} variants
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredVariants.length} of {variants.length} variants
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleScrapeAllVariants}
+            disabled={isScrapingAll || variants.length === 0}
+          >
+            {isScrapingAll ? 'Scraping all...' : 'Scrape all variants/stores'}
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-auto rounded-lg border">
@@ -296,9 +337,6 @@ export function VariantPricesTable({ variants }: Props) {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort('sku')}>
                 SKU <SortIcon col="sku" />
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('edition')}>
-                Edition <SortIcon col="edition" />
-              </TableHead>
               <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('retail')}>
                 Retail <SortIcon col="retail" />
               </TableHead>
@@ -308,6 +346,7 @@ export function VariantPricesTable({ variants }: Props) {
               <TableHead className="text-right cursor-pointer select-none" onClick={() => handleSort('discountPct')}>
                 Discount <SortIcon col="discountPct" />
               </TableHead>
+              <TableHead>External Scraped Prices</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -317,6 +356,11 @@ export function VariantPricesTable({ variants }: Props) {
               const retailAmount = rowEditing ? parseMoneyInput(editing.retailAmount) : variant.retailAmount;
               const saleAmount = rowEditing ? parseMoneyInput(editing.saleAmount) : variant.saleAmount;
               const discount = getDiscount(retailAmount, saleAmount);
+              const externalPrices = variant.externalPrices;
+              const externalMean =
+                externalPrices.length > 0
+                  ? externalPrices.reduce((sum, item) => sum + item.observedPrice, 0) / externalPrices.length
+                  : null;
 
               return (
                 <TableRow key={variant.id}>
@@ -329,7 +373,6 @@ export function VariantPricesTable({ variants }: Props) {
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{variant.sku}</TableCell>
-                  <TableCell>{variant.edition || '-'}</TableCell>
                   <TableCell className="text-right">
                     {rowEditing && editing ? (
                       <Input
@@ -390,6 +433,39 @@ export function VariantPricesTable({ variants }: Props) {
                       <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
+                  <TableCell>
+                    {externalPrices.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {externalPrices.map((item) => {
+                          const deviationRatio =
+                            externalMean && externalMean > 0
+                              ? Math.abs(item.observedPrice - externalMean) / externalMean
+                              : 0;
+                          const isOutlier = deviationRatio >= OUTLIER_DEVIATION_RATIO;
+
+                          return (
+                            <Badge
+                              key={`${variant.id}-${item.storeId}`}
+                              variant="outline"
+                              className={isOutlier ? 'border-rose-300 bg-rose-50 text-rose-700' : ''}
+                              title={`${item.storeName} · ${formatMoney(item.observedPrice, item.currency)}${
+                                isOutlier ? ' · Far from mean' : ''
+                              }`}
+                            >
+                              {item.storeName}: {formatMoney(item.observedPrice, item.currency)}
+                            </Badge>
+                          );
+                        })}
+                        {externalMean != null && (
+                          <Badge variant="secondary">
+                            Mean: {formatMoney(Math.round(externalMean), externalPrices[0]?.currency ?? 'CLP')}
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     {rowEditing ? (
                       <div className="flex justify-end gap-1">
@@ -420,7 +496,7 @@ export function VariantPricesTable({ variants }: Props) {
             })}
             {sortedVariants.length > 0 && (
               <TableRow className="border-t-2 border-t-border bg-muted/50 font-semibold">
-                <TableCell colSpan={3}>Total / Average</TableCell>
+                <TableCell colSpan={2}>Total / Average</TableCell>
                 <TableCell className="text-right">
                   {formatMoney(summary.retailTotal, 'CLP')} / {formatMoney(summary.retailAverage, 'CLP')}
                 </TableCell>
@@ -430,6 +506,7 @@ export function VariantPricesTable({ variants }: Props) {
                 <TableCell className="text-right">
                   {summary.discountAverage.toFixed(2)}% ({formatMoney(summary.discountAmountTotal, 'CLP')})
                 </TableCell>
+                <TableCell />
                 <TableCell />
               </TableRow>
             )}
