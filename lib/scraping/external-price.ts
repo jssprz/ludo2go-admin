@@ -17,8 +17,8 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
       selectors: [
         '.summary .price ins .amount bdi',
         '.summary .price > span.amount bdi',
-        '.product .price ins .amount bdi',
-        '.product .price > span.amount bdi',
+        '.single-product .summary .price ins .amount bdi',
+        '.single-product .summary .price > span.amount bdi',
         'p.price ins .woocommerce-Price-amount bdi',
         'p.price > span.woocommerce-Price-amount bdi'
       ],
@@ -29,8 +29,8 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
       selectors: [
         '.summary .price ins .amount',
         '.summary .price > span.amount',
-        '.product .price ins .amount',
-        '.product .price > span.amount',
+        '.single-product .summary .price ins .amount',
+        '.single-product .summary .price > span.amount',
         'p.price ins .woocommerce-Price-amount',
         'p.price > span.woocommerce-Price-amount'
       ],
@@ -112,10 +112,14 @@ const TEMPLATES: Record<string, TemplateConfig[]> = {
       // When discounted: <del>old price</del> <ins>sale price</ins>
       // When regular:    <span class="woocommerce-Price-amount">price</span>
       selectors: [
-        'p.price ins .woocommerce-Price-amount bdi',
-        'p.price > span.woocommerce-Price-amount bdi',
-        'p.price ins .woocommerce-Price-amount',
-        'p.price > span.woocommerce-Price-amount'
+        '.single-product .summary p.price ins .woocommerce-Price-amount bdi',
+        '.single-product .summary p.price > span.woocommerce-Price-amount bdi',
+        '.single-product .summary p.price ins .woocommerce-Price-amount',
+        '.single-product .summary p.price > span.woocommerce-Price-amount',
+        '.summary p.price ins .woocommerce-Price-amount bdi',
+        '.summary p.price > span.woocommerce-Price-amount bdi',
+        '.summary p.price ins .woocommerce-Price-amount',
+        '.summary p.price > span.woocommerce-Price-amount'
       ],
       locale: 'es-CL'
     }
