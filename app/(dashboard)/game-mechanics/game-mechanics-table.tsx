@@ -47,6 +47,23 @@ import {
   Check,
   XCircle,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type GameMechanic = {
   id: string;
@@ -69,6 +86,129 @@ type Props = {
   initialMechanics: GameMechanic[];
 };
 
+type SortableMechanicRowProps = {
+  mechanic: GameMechanic;
+  isBusy: boolean;
+  onToggleActive: (mechanic: GameMechanic) => void;
+  onOpenEdit: (mechanic: GameMechanic) => void;
+  onOpenDelete: (mechanic: GameMechanic) => void;
+  t: any;
+  tc: any;
+};
+
+function SortableMechanicRow({
+  mechanic,
+  isBusy,
+  onToggleActive,
+  onOpenEdit,
+  onOpenDelete,
+  t,
+  tc,
+}: SortableMechanicRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: mechanic.id,
+    disabled: isBusy,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-60' : ''}>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="cursor-grab rounded p-0.5 active:cursor-grabbing disabled:cursor-not-allowed"
+            disabled={isBusy}
+            aria-label="Drag to reorder"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <span className="text-sm text-muted-foreground">{mechanic.order}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div>
+          <div className="font-medium">{mechanic.name}</div>
+          {mechanic.description && (
+            <div className="text-sm text-muted-foreground line-clamp-1">{mechanic.description}</div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <code className="text-sm text-muted-foreground">{mechanic.slug}</code>
+      </TableCell>
+      <TableCell>
+        {mechanic.icon ? (
+          <code className="text-sm">{mechanic.icon}</code>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {mechanic.bggId ? (
+          <div>
+            <code className="text-sm">{mechanic.bggId}</code>
+            {mechanic.bggName && (
+              <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={mechanic.bggName}>
+                {mechanic.bggName}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-center">
+        <Badge variant={mechanic._count.games > 0 ? 'default' : 'secondary'}>{mechanic._count.games}</Badge>
+      </TableCell>
+      <TableCell className="text-center">
+        <Button variant="ghost" size="sm" onClick={() => onToggleActive(mechanic)} disabled={isBusy}>
+          {mechanic.isActive ? (
+            <Badge variant="default" className="gap-1">
+              <Check className="h-3 w-3" />
+              {t('active')}
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="gap-1">
+              <XCircle className="h-3 w-3" />
+              {t('inactive')}
+            </Badge>
+          )}
+        </Button>
+      </TableCell>
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" disabled={isBusy}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onOpenEdit(mechanic)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              {tc('edit')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onOpenDelete(mechanic)}
+              className="text-red-600"
+              disabled={mechanic._count.games > 0}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {tc('delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export function GameMechanicsTable({ initialMechanics }: Props) {
   const router = useRouter();
   const t = useTranslations('gameMechanics');
@@ -76,6 +216,8 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
   const [mechanics, setMechanics] = useState<GameMechanic[]>(initialMechanics);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
 
   // Dialog states
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -99,6 +241,70 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
       mechanic.name.toLowerCase().includes(search.toLowerCase()) ||
       mechanic.slug.toLowerCase().includes(search.toLowerCase())
   );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const isBusy = isLoading || isReordering;
+
+  async function handleDragEnd(event: DragEndEvent) {
+    if (search.trim()) return;
+
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const previousMechanics = mechanics;
+    const oldIndex = previousMechanics.findIndex((mechanic) => mechanic.id === active.id);
+    const newIndex = previousMechanics.findIndex((mechanic) => mechanic.id === over.id);
+
+    if (oldIndex < 0 || newIndex < 0) {
+      return;
+    }
+
+    const reorderedMechanics = arrayMove(previousMechanics, oldIndex, newIndex).map(
+      (mechanic, index) => ({
+        ...mechanic,
+        order: index,
+      })
+    );
+
+    setMechanics(reorderedMechanics);
+    setReorderError(null);
+    setIsReordering(true);
+
+    try {
+      const res = await fetch('/api/game-mechanics/reorder', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          updates: reorderedMechanics.map((mechanic) => ({
+            id: mechanic.id,
+            order: mechanic.order,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reorder mechanics');
+      }
+
+      router.refresh();
+    } catch (error: any) {
+      setMechanics(previousMechanics);
+      setReorderError(error.message);
+    } finally {
+      setIsReordering(false);
+    }
+  }
 
   function generateSlug(name: string) {
     return name
@@ -328,6 +534,10 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           </div>
         </CardHeader>
         <CardContent>
+          {reorderError && (
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{reorderError}</div>
+          )}
+
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -354,7 +564,16 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={filteredMechanics.map((mechanic) => mechanic.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <TableBody>
                 {filteredMechanics.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
@@ -363,99 +582,21 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                   </TableRow>
                 ) : (
                   filteredMechanics.map((mechanic) => (
-                    <TableRow key={mechanic.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">{mechanic.order}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{mechanic.name}</div>
-                          {mechanic.description && (
-                            <div className="text-sm text-muted-foreground line-clamp-1">
-                              {mechanic.description}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="text-sm text-muted-foreground">{mechanic.slug}</code>
-                      </TableCell>
-                      <TableCell>
-                        {mechanic.icon ? (
-                          <code className="text-sm">{mechanic.icon}</code>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {mechanic.bggId ? (
-                          <div>
-                            <code className="text-sm">{mechanic.bggId}</code>
-                            {mechanic.bggName && (
-                              <div className="text-xs text-muted-foreground truncate max-w-[120px]" title={mechanic.bggName}>
-                                {mechanic.bggName}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={mechanic._count.games > 0 ? 'default' : 'secondary'}>
-                          {mechanic._count.games}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleActive(mechanic)}
-                          disabled={isLoading}
-                        >
-                          {mechanic.isActive ? (
-                            <Badge variant="default" className="gap-1">
-                              <Check className="h-3 w-3" />
-                              {t('active')}
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="gap-1">
-                              <XCircle className="h-3 w-3" />
-                              {t('inactive')}
-                            </Badge>
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDialog(mechanic)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              {tc('edit')}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openDeleteDialog(mechanic)}
-                              className="text-red-600"
-                              disabled={mechanic._count.games > 0}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {tc('delete')}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                    <SortableMechanicRow
+                      key={mechanic.id}
+                      mechanic={mechanic}
+                      isBusy={isBusy || Boolean(search.trim())}
+                      onToggleActive={handleToggleActive}
+                      onOpenEdit={openEditDialog}
+                      onOpenDelete={openDeleteDialog}
+                      t={t}
+                      tc={tc}
+                    />
                   ))
                 )}
-              </TableBody>
+                  </TableBody>
+                </SortableContext>
+              </DndContext>
             </Table>
           </div>
         </CardContent>
