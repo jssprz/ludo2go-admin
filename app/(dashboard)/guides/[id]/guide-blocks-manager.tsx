@@ -632,110 +632,122 @@ export function GuideBlocksManager({ guide }: Props) {
 
       {/* Edit Dialog */}
       <Dialog key={`edit-${showEditDialog}`} open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{t('editBlock')}</DialogTitle>
             <DialogDescription>
               {t('editBlockDescription')}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-type">{t('blockType')} *</Label>
-              <Select value={formType} onValueChange={(value: GuideBlockType) => setFormType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={GuideBlockType.rich_text}>{t('blockTypeRichText')}</SelectItem>
-                  <SelectItem value={GuideBlockType.heading}>{t('blockTypeHeading')}</SelectItem>
-                  <SelectItem value={GuideBlockType.hero}>{t('blockTypeHero')}</SelectItem>
-                  <SelectItem value={GuideBlockType.intro}>{t('blockTypeIntro')}</SelectItem>
-                  <SelectItem value={GuideBlockType.image}>{t('blockTypeImage')}</SelectItem>
-                  <SelectItem value={GuideBlockType.criteria}>{t('blockTypeCriteria')}</SelectItem>
-                  <SelectItem value={GuideBlockType.quote}>{t('blockTypeQuote')}</SelectItem>
-                  <SelectItem value={GuideBlockType.faq}>{t('blockTypeFaq')}</SelectItem>
-                  <SelectItem value={GuideBlockType.product_list}>{t('blockTypeProductList')}</SelectItem>
-                  <SelectItem value={GuideBlockType.product_recommendation}>{t('blockTypeProductRecommendation')}</SelectItem>
-                  <SelectItem value={GuideBlockType.comparison}>{t('blockTypeComparison')}</SelectItem>
-                  <SelectItem value={GuideBlockType.product_grid}>{t('blockTypeProductGrid')}</SelectItem>
-                  <SelectItem value={GuideBlockType.cta}>{t('blockTypeCta')}</SelectItem>
-                  <SelectItem value={GuideBlockType.final_cta}>{t('blockTypeFinalCta')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-title">{t('title')}</Label>
-              <Input
-                id="edit-title"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                placeholder={t('blockTitlePlaceholder')}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-body">{t('body')}</Label>
-              <RichTextEditor
-                value={formBody}
-                onValueChange={setFormBody}
-                placeholder={t('blockBodyPlaceholder')}
-                className="min-h-[180px]"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="edit-imageUrl">{t('imageUrl')}</Label>
+                <Label htmlFor="edit-type">{t('blockType')} *</Label>
+                <Select value={formType} onValueChange={(value: GuideBlockType) => setFormType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={GuideBlockType.rich_text}>{t('blockTypeRichText')}</SelectItem>
+                    <SelectItem value={GuideBlockType.heading}>{t('blockTypeHeading')}</SelectItem>
+                    <SelectItem value={GuideBlockType.hero}>{t('blockTypeHero')}</SelectItem>
+                    <SelectItem value={GuideBlockType.intro}>{t('blockTypeIntro')}</SelectItem>
+                    <SelectItem value={GuideBlockType.image}>{t('blockTypeImage')}</SelectItem>
+                    <SelectItem value={GuideBlockType.criteria}>{t('blockTypeCriteria')}</SelectItem>
+                    <SelectItem value={GuideBlockType.quote}>{t('blockTypeQuote')}</SelectItem>
+                    <SelectItem value={GuideBlockType.faq}>{t('blockTypeFaq')}</SelectItem>
+                    <SelectItem value={GuideBlockType.product_list}>{t('blockTypeProductList')}</SelectItem>
+                    <SelectItem value={GuideBlockType.product_recommendation}>{t('blockTypeProductRecommendation')}</SelectItem>
+                    <SelectItem value={GuideBlockType.comparison}>{t('blockTypeComparison')}</SelectItem>
+                    <SelectItem value={GuideBlockType.product_grid}>{t('blockTypeProductGrid')}</SelectItem>
+                    <SelectItem value={GuideBlockType.cta}>{t('blockTypeCta')}</SelectItem>
+                    <SelectItem value={GuideBlockType.final_cta}>{t('blockTypeFinalCta')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-title">{t('title')}</Label>
                 <Input
-                  id="edit-imageUrl"
-                  value={formImageUrl}
-                  onChange={(e) => setFormImageUrl(e.target.value)}
-                  placeholder="https://..."
+                  id="edit-title"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder={t('blockTitlePlaceholder')}
                 />
               </div>
+
               <div>
-                <Label htmlFor="edit-imageAlt">{t('imageAlt')}</Label>
-                <Input
-                  id="edit-imageAlt"
-                  value={formImageAlt}
-                  onChange={(e) => setFormImageAlt(e.target.value)}
-                  placeholder={t('imageAltPlaceholder')}
+                <Label htmlFor="edit-body">{t('body')}</Label>
+                <RichTextEditor
+                  value={formBody}
+                  onValueChange={setFormBody}
+                  placeholder={t('blockBodyPlaceholder')}
+                  className="min-h-[180px]"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-imageUrl">{t('imageUrl')}</Label>
+                  <Input
+                    id="edit-imageUrl"
+                    value={formImageUrl}
+                    onChange={(e) => setFormImageUrl(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-imageAlt">{t('imageAlt')}</Label>
+                  <Input
+                    id="edit-imageAlt"
+                    value={formImageAlt}
+                    onChange={(e) => setFormImageAlt(e.target.value)}
+                    placeholder={t('imageAltPlaceholder')}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-buttonText">{t('buttonText')}</Label>
+                  <Input
+                    id="edit-buttonText"
+                    value={formButtonText}
+                    onChange={(e) => setFormButtonText(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-buttonUrl">{t('buttonUrl')}</Label>
+                  <Input
+                    id="edit-buttonUrl"
+                    value={formButtonUrl}
+                    onChange={(e) => setFormButtonUrl(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label htmlFor="edit-buttonText">{t('buttonText')}</Label>
-                <Input
-                  id="edit-buttonText"
-                  value={formButtonText}
-                  onChange={(e) => setFormButtonText(e.target.value)}
+                <Label htmlFor="edit-data">{t('blockDataJson')}</Label>
+                <Textarea
+                  id="edit-data"
+                  value={formDataJson}
+                  onChange={(e) => setFormDataJson(e.target.value)}
+                  placeholder={t('blockDataDescription')}
+                  rows={8}
                 />
               </div>
-              <div>
-                <Label htmlFor="edit-buttonUrl">{t('buttonUrl')}</Label>
-                <Input
-                  id="edit-buttonUrl"
-                  value={formButtonUrl}
-                  onChange={(e) => setFormButtonUrl(e.target.value)}
-                  placeholder="https://..."
-                />
-              </div>
+
+              {formError && (
+                <div className="text-sm text-destructive">{formError}</div>
+              )}
             </div>
-            <div>
-              <Label htmlFor="edit-data">{t('blockDataJson')}</Label>
-              <Textarea
-                id="edit-data"
-                value={formDataJson}
-                onChange={(e) => setFormDataJson(e.target.value)}
-                placeholder={t('blockDataDescription')}
-                rows={8}
-              />
-            </div>
-            {formError && (
-              <div className="text-sm text-destructive">{formError}</div>
-            )}
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="shrink-0 border-t pt-4">
             <Button
               variant="outline"
               onClick={() => setShowEditDialog(false)}
@@ -743,6 +755,7 @@ export function GuideBlocksManager({ guide }: Props) {
             >
               {tc('cancel')}
             </Button>
+
             <Button onClick={handleUpdate} disabled={isLoading}>
               {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {tc('save')}
