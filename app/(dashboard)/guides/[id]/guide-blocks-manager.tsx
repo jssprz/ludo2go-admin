@@ -105,35 +105,72 @@ function SortableItem({ block, onEdit, onDelete, getBlockTypeLabel, t }: Sortabl
   };
 
   return (
-    <Card ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between min-w-0 max-w-full overflow-hidden">
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`w-full max-w-full overflow-hidden ${isDragging ? "opacity-50" : ""}`}
+    >
+      <CardContent className="pt-6 max-w-full overflow-hidden">
+        <div className="flex items-start justify-between gap-2 min-w-0 max-w-full overflow-hidden">
           <div className="flex-1 min-w-0 flex items-start gap-4">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+            <div
+              {...attributes}
+              {...listeners}
+              className="shrink-0 cursor-grab active:cursor-grabbing"
+            >
               <GripVertical className="h-5 w-5 text-muted-foreground mt-1" />
             </div>
+
             <div className="flex-1 min-w-0 max-w-full overflow-hidden">
-              <div className="font-medium truncate">{block.title || getBlockTypeLabel(block.type)}</div>
-              <div className="text-sm text-muted-foreground truncate">
-                {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
+              <div className="font-medium truncate">
+                {block.title || getBlockTypeLabel(block.type)}
               </div>
+
+              <div className="text-sm text-muted-foreground truncate">
+                {getBlockTypeLabel(block.type)} • {t("order")}: {block.sortOrder + 1}
+              </div>
+
               {block.body ? (
                 <div
-                  className="text-sm mt-2 line-clamp-2 max-w-full overflow-hidden prose prose-sm dark:prose-invert text-muted-foreground"
+                  className="
+                text-sm mt-2 line-clamp-2
+                max-w-full overflow-hidden
+                prose prose-sm dark:prose-invert
+                text-muted-foreground
+                break-words
+                prose-p:my-0
+                prose-img:max-w-full prose-img:h-auto
+                prose-pre:max-w-full prose-pre:overflow-hidden
+                [&_*]:max-w-full
+              "
                   dangerouslySetInnerHTML={{ __html: block.body }}
                 />
               ) : block.data ? (
-                <pre className="text-xs mt-2 line-clamp-2 max-w-full overflow-hidden text-muted-foreground">
+                <pre
+                  className="
+                text-xs mt-2 line-clamp-2
+                max-w-full overflow-hidden
+                whitespace-pre-wrap break-words
+                text-muted-foreground
+              "
+                >
                   {JSON.stringify(block.data, null, 2)}
                 </pre>
               ) : null}
             </div>
           </div>
+
           <div className="flex shrink-0 gap-2">
             <Button variant="ghost" size="sm" onClick={() => onEdit(block)}>
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => onDelete(block)} className="text-destructive">
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(block)}
+              className="text-destructive"
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
