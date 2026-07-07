@@ -119,11 +119,11 @@ function SortableItem({ block, onEdit, onDelete, getBlockTypeLabel, t }: Sortabl
               </div>
               {block.body ? (
                 <div
-                  className="text-sm mt-2 line-clamp-2 prose prose-sm dark:prose-invert text-muted-foreground"
+                  className="text-sm mt-2 line-clamp-2 max-w-full overflow-hidden prose prose-sm dark:prose-invert text-muted-foreground"
                   dangerouslySetInnerHTML={{ __html: block.body }}
                 />
               ) : block.data ? (
-                <pre className="text-xs mt-2 line-clamp-2 overflow-hidden text-muted-foreground">
+                <pre className="text-xs mt-2 line-clamp-2 max-w-full overflow-hidden text-muted-foreground">
                   {JSON.stringify(block.data, null, 2)}
                 </pre>
               ) : null}
