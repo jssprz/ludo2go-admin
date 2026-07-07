@@ -197,6 +197,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       region: null,
       channelId: null, // Adjust if you have channels
       priceBookId: null, // Adjust if you have price books
+      sourceRuleId: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
