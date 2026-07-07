@@ -107,8 +107,8 @@ function SortableItem({ block, onEdit, onDelete, getBlockTypeLabel, t }: Sortabl
   return (
     <Card ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
       <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 flex items-start gap-4">
+        <div className="flex items-start justify-between min-w-0 max-w-full overflow-hidden">
+          <div className="flex-1 min-w-0 flex items-start gap-4">
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
               <GripVertical className="h-5 w-5 text-muted-foreground mt-1" />
             </div>
@@ -129,7 +129,7 @@ function SortableItem({ block, onEdit, onDelete, getBlockTypeLabel, t }: Sortabl
               ) : null}
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 gap-2">
             <Button variant="ghost" size="sm" onClick={() => onEdit(block)}>
               <Pencil className="h-4 w-4" />
             </Button>
