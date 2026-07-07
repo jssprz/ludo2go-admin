@@ -112,9 +112,9 @@ function SortableItem({ block, onEdit, onDelete, getBlockTypeLabel, t }: Sortabl
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
               <GripVertical className="h-5 w-5 text-muted-foreground mt-1" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium">{block.title || getBlockTypeLabel(block.type)}</div>
-              <div className="text-sm text-muted-foreground">
+            <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+              <div className="font-medium truncate">{block.title || getBlockTypeLabel(block.type)}</div>
+              <div className="text-sm text-muted-foreground truncate">
                 {getBlockTypeLabel(block.type)} • {t('order')}: {block.sortOrder + 1}
               </div>
               {block.body ? (
