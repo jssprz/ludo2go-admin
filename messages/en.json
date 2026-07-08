@@ -39,6 +39,7 @@
     "carousels": "Carousels",
     "earlyAccess": "Early Access",
     "mediaGallery": "Media Gallery",
+    "searchAnalytics": "Search Analytics",
     "analytics": "Analytics",
     "adminUsers": "Admin Users",
     "settings": "Settings",
@@ -142,6 +143,8 @@
       "table": {
         "title": "Top Searches",
         "search": "Search",
+        "rawQuery": "Raw Query",
+        "normalizedQuery": "Normalized Query",
         "count": "Count",
         "firstDatetime": "First Datetime",
         "lastDatetime": "Last Datetime",

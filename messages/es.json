@@ -39,6 +39,7 @@
     "carousels": "Carruseles",
     "earlyAccess": "Acceso Anticipado",
     "mediaGallery": "Galería de Medios",
+    "searchAnalytics": "Analítica de Búsquedas",
     "analytics": "Analíticas",
     "adminUsers": "Usuarios Admin",
     "settings": "Configuración",
@@ -141,6 +142,8 @@
       "table": {
         "title": "Búsquedas principales",
         "search": "Búsqueda",
+        "rawQuery": "Consulta original",
+        "normalizedQuery": "Consulta normalizada",
         "count": "Cantidad",
         "firstDatetime": "Primera fecha y hora",
         "lastDatetime": "Última fecha y hora",
