@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Package, ShoppingCart, Users, PlusCircle, LineChart, Workflow } from 'lucide-react';
 import Link from 'next/link';
 import { prisma } from '@jssprz/ludo2go-database';
@@ -12,6 +13,69 @@ const formatPrice = (price: number, locale: string) => {
     currency: 'CLP',
     minimumFractionDigits: 0
   }).format(price)
+}
+
+const formatDateTime = (date: Date, locale: string) => {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date)
+}
+
+function getSearchTermFromProperties(properties: unknown): string | null {
+  if (!properties || typeof properties !== 'object') return null;
+
+  const props = properties as {
+    normalizedQuery?: unknown;
+    query?: unknown;
+    search?: unknown;
+    term?: unknown;
+    text?: unknown;
+    value?: unknown;
+    keyword?: unknown;
+    searchQuery?: unknown;
+    searchTerm?: unknown;
+    filters?: { query?: unknown };
+  };
+
+  const candidates = [
+    props.normalizedQuery,
+    props.query,
+    props.search,
+    props.term,
+    props.text,
+    props.value,
+    props.keyword,
+    props.searchQuery,
+    props.searchTerm,
+    props.filters?.query,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const normalized = candidate.trim().toLowerCase();
+      if (normalized.length > 0) return normalized;
+    }
+  }
+
+  return null;
+}
+
+function getDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function getWeekKey(date: Date): string {
+  const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = (utcDate.getUTCDay() + 6) % 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() - day);
+  return utcDate.toISOString().slice(0, 10);
+}
+
+function getInclusiveDaySpan(start: Date, end: Date): number {
+  const startUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const endUtc = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  return Math.max(1, Math.floor((endUtc - startUtc) / 86_400_000) + 1);
 }
 
 function getUtmSourceFromProperties(properties: unknown): string | null {
@@ -113,6 +177,79 @@ export default async function AdminHomePage() {
 
   const channelCards = [0, 1, 2, 3, 4, 5].map((index) => topChannels[index] ?? null);
 
+  // Search analytics
+  const searchEvents = await prisma.event.findMany({
+    where: { eventType: EventType.search_performed },
+    select: { occurredAt: true, properties: true },
+    orderBy: { occurredAt: 'asc' },
+  });
+
+  const searchTermStats = new Map<
+    string,
+    {
+      count: number;
+      firstAt: Date;
+      lastAt: Date;
+    }
+  >();
+  const searchByDay = new Map<string, number>();
+  const searchByWeek = new Map<string, number>();
+  const weekdaySearchByDay = new Map<string, number>();
+
+  for (const searchEvent of searchEvents) {
+    const term = getSearchTermFromProperties(searchEvent.properties) ?? '__unknown__';
+    const existing = searchTermStats.get(term);
+
+    if (!existing) {
+      searchTermStats.set(term, {
+        count: 1,
+        firstAt: searchEvent.occurredAt,
+        lastAt: searchEvent.occurredAt,
+      });
+    } else {
+      existing.count += 1;
+      if (searchEvent.occurredAt < existing.firstAt) existing.firstAt = searchEvent.occurredAt;
+      if (searchEvent.occurredAt > existing.lastAt) existing.lastAt = searchEvent.occurredAt;
+    }
+
+    const dayKey = getDayKey(searchEvent.occurredAt);
+    searchByDay.set(dayKey, (searchByDay.get(dayKey) ?? 0) + 1);
+
+    const weekKey = getWeekKey(searchEvent.occurredAt);
+    searchByWeek.set(weekKey, (searchByWeek.get(weekKey) ?? 0) + 1);
+
+    const dayOfWeek = searchEvent.occurredAt.getUTCDay();
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      weekdaySearchByDay.set(dayKey, (weekdaySearchByDay.get(dayKey) ?? 0) + 1);
+    }
+  }
+
+  const searchRows = Array.from(searchTermStats.entries())
+    .map(([term, stats]) => {
+      const activeDays = getInclusiveDaySpan(stats.firstAt, stats.lastAt);
+      const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
+
+      return {
+        term,
+        count: stats.count,
+        firstAt: stats.firstAt,
+        lastAt: stats.lastAt,
+        avgDaily: stats.count / activeDays,
+        avgWeekly: stats.count / activeWeeks,
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+
+  const totalSearches = searchEvents.length;
+  const uniqueSearchTerms = searchRows.length;
+  const avgSearchesDaily = searchByDay.size ? totalSearches / searchByDay.size : 0;
+  const avgSearchesWeekly = searchByWeek.size ? totalSearches / searchByWeek.size : 0;
+  const weekdayAverageSearches = weekdaySearchByDay.size
+    ? Array.from(weekdaySearchByDay.values()).reduce((sum, count) => sum + count, 0) / weekdaySearchByDay.size
+    : 0;
+  const firstSearchAt = totalSearches ? searchEvents[0].occurredAt : null;
+  const lastSearchAt = totalSearches ? searchEvents[searchEvents.length - 1].occurredAt : null;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -170,7 +307,7 @@ export default async function AdminHomePage() {
               <div>
                 <div className="text-xl font-bold">{totalExpansions}</div>
                 <p className="text-xs text-muted-foreground">
-                  {td('catalog.games')}
+                  {td('catalog.expansions')}
                 </p>
               </div>
               <div>
@@ -464,6 +601,106 @@ export default async function AdminHomePage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search analytics */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">{td('searches.title')}</h2>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{td('searches.cards.weekdayAverage')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{weekdayAverageSearches.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{td('searches.cards.dailyAverage')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{avgSearchesDaily.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{td('searches.cards.weeklyAverage')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{avgSearchesWeekly.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{td('searches.cards.uniqueTerms')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{uniqueSearchTerms}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{td('searches.table.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 grid gap-3 text-sm md:grid-cols-3">
+              <div>
+                <p className="text-muted-foreground">{td('searches.summary.totalSearches')}</p>
+                <p className="text-lg font-semibold">{totalSearches}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">{td('searches.summary.firstSearch')}</p>
+                <p className="text-lg font-semibold">{firstSearchAt ? formatDateTime(firstSearchAt, locale) : '—'}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">{td('searches.summary.lastSearch')}</p>
+                <p className="text-lg font-semibold">{lastSearchAt ? formatDateTime(lastSearchAt, locale) : '—'}</p>
+              </div>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{td('searches.table.search')}</TableHead>
+                  <TableHead className="text-right">{td('searches.table.count')}</TableHead>
+                  <TableHead>{td('searches.table.firstDatetime')}</TableHead>
+                  <TableHead>{td('searches.table.lastDatetime')}</TableHead>
+                  <TableHead className="text-right">{td('searches.table.avgDaily')}</TableHead>
+                  <TableHead className="text-right">{td('searches.table.avgWeekly')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searchRows.length > 0 ? (
+                  searchRows.slice(0, 50).map((row) => (
+                    <TableRow key={row.term}>
+                      <TableCell>{row.term === '__unknown__' ? td('searches.unknownTerm') : row.term}</TableCell>
+                      <TableCell className="text-right">{row.count}</TableCell>
+                      <TableCell>{formatDateTime(row.firstAt, locale)}</TableCell>
+                      <TableCell>{formatDateTime(row.lastAt, locale)}</TableCell>
+                      <TableCell className="text-right">{row.avgDaily.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{row.avgWeekly.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      {td('searches.empty')}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>

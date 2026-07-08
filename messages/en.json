@@ -79,6 +79,7 @@
       "variants": "Variants",
       "avgPrice": "Avg Price",
       "games": "Games",
+      "expansions": "Expansions",
       "accessories": "Accessories",
       "bundles": "Bundles"
     },
@@ -122,6 +123,31 @@
     },
     "utm": {
       "title": "Traffic per UTM"
+    },
+    "searches": {
+      "title": "Searches",
+      "unknownTerm": "Unknown search",
+      "empty": "No search events found.",
+      "cards": {
+        "weekdayAverage": "Weekday Avg Searches",
+        "dailyAverage": "Daily Avg Searches",
+        "weeklyAverage": "Weekly Avg Searches",
+        "uniqueTerms": "Unique Search Terms"
+      },
+      "summary": {
+        "totalSearches": "Total Searches",
+        "firstSearch": "First Search",
+        "lastSearch": "Last Search"
+      },
+      "table": {
+        "title": "Top Searches",
+        "search": "Search",
+        "count": "Count",
+        "firstDatetime": "First Datetime",
+        "lastDatetime": "Last Datetime",
+        "avgDaily": "Avg Daily",
+        "avgWeekly": "Avg Weekly"
+      }
     },
     "quick": {
       "catalog": {
