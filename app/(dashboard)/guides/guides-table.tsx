@@ -75,6 +75,7 @@ type Guide = {
   updatedAt: Date;
   categoryId: string | null;
   category: GuideCategory | null;
+  visits: number;
   _count: {
     blocks: number;
     variants: number;
@@ -425,6 +426,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                 <TableHead>{t('title')}</TableHead>
                 <TableHead>{t('status')}</TableHead>
                 <TableHead>{t('category')}</TableHead>
+                <TableHead className="text-right">{t('visits')}</TableHead>
                 <TableHead>{t('blocks')}</TableHead>
                 <TableHead>{t('variants')}</TableHead>
                 <TableHead>{t('updated')}</TableHead>
@@ -448,6 +450,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                     </Badge>
                   </TableCell>
                   <TableCell>{guide.category?.name || '-'}</TableCell>
+                  <TableCell className="text-right">{guide.visits}</TableCell>
                   <TableCell>{guide._count.blocks}</TableCell>
                   <TableCell>{guide._count.variants}</TableCell>
                   <TableCell>{new Date(guide.updatedAt).toLocaleDateString()}</TableCell>

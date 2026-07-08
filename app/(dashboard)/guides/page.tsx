@@ -1,4 +1,5 @@
 import { prisma } from '@jssprz/ludo2go-database';
+import { EventType } from '@prisma/client';
 import { GuidesTable } from './guides-table';
 import { getTranslations } from 'next-intl/server';
 
@@ -10,7 +11,7 @@ export const metadata = {
 export default async function GuidesPage() {
   const t = await getTranslations('guides');
 
-  const [guides, categories] = await Promise.all([
+  const [guides, categories, pageViewEvents] = await Promise.all([
     prisma.guide.findMany({
       orderBy: { updatedAt: 'desc' },
       include: {
@@ -29,7 +30,27 @@ export default async function GuidesPage() {
     prisma.guideCategory.findMany({
       orderBy: { name: 'asc' },
     }),
+    prisma.event.findMany({
+      where: { eventType: EventType.page_view },
+      select: { properties: true },
+    }),
   ]);
+
+  // Count visits per guide
+  const visitsByGuideId = new Map<string, number>();
+  for (const event of pageViewEvents) {
+    if (!event.properties || typeof event.properties !== 'object') continue;
+    const props = event.properties as { guideId?: unknown };
+    if (typeof props.guideId === 'string') {
+      visitsByGuideId.set(props.guideId, (visitsByGuideId.get(props.guideId) ?? 0) + 1);
+    }
+  }
+
+  // Enrich guides with visit counts
+  const guidesWithVisits = guides.map(guide => ({
+    ...guide,
+    visits: visitsByGuideId.get(guide.id) ?? 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -42,7 +63,7 @@ export default async function GuidesPage() {
         </div>
       </div>
 
-      <GuidesTable initialGuides={guides as any} categories={categories} />
+      <GuidesTable initialGuides={guidesWithVisits as any} categories={categories} />
     </div>
   );
 }
