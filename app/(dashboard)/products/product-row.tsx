@@ -94,8 +94,8 @@ export function ProductRow({ product }: { product: SelectProduct }) {
         {product.brand?.name ?? '—'}
       </TableCell>
       <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
-      <TableCell className="hidden md:table-cell">{product.productViews}</TableCell>
-      <TableCell className="hidden md:table-cell">{product.productViewsLast7d}</TableCell>
+      <TableCell className="hidden sm:table-cell">{product.productViews}</TableCell>
+      <TableCell className="hidden sm:table-cell">{product.productViewsLast7d}</TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}

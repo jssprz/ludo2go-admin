@@ -39,18 +39,18 @@ function SortableHeader({ label, column, currentSortBy, currentSortOrder, classN
   return (
     <TableHead className={className}>
       <button
-        className="flex items-center gap-1 hover:text-foreground transition-colors"
+        className="flex items-center gap-1 whitespace-nowrap hover:text-foreground transition-colors"
         onClick={() => onSort(column, nextOrder)}
       >
         {label}
         {isActive ? (
           currentSortOrder === 'asc' ? (
-            <ArrowUp className="h-3.5 w-3.5" />
+            <ArrowUp className="h-3.5 w-3.5 shrink-0 text-foreground" />
           ) : (
-            <ArrowDown className="h-3.5 w-3.5" />
+            <ArrowDown className="h-3.5 w-3.5 shrink-0 text-foreground" />
           )
         ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />
+          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
         )}
       </button>
     </TableHead>
@@ -184,12 +184,17 @@ export function ProductsTable({
                 column="views"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
+                className="hidden sm:table-cell"
                 onSort={handleSort}
               />
-              <TableHead className="hidden md:table-cell">
-                {t('productViewsLast7d')}
-              </TableHead>
+              <SortableHeader
+                label={t('productViewsLast7d')}
+                column="viewsLast7d"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden sm:table-cell"
+                onSort={handleSort}
+              />
               <SortableHeader
                 label={t('stock')}
                 column="stock"
