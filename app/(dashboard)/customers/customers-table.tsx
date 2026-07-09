@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { EventType } from '@prisma/client';
 import {
   Table,
   TableBody,
@@ -50,8 +51,23 @@ export interface CustomerRow {
   cartItemCount: number;
   favoriteCategories: string[];
   lastVisitDate: string | null;
+  visitsCount: number;
+  itemsVisited: number;
+  searchesPerformed: number;
+  eventCounts: Partial<Record<EventType, number>>;
   newsletter: boolean;
   preferredLanguage: string | null;
+}
+
+export interface AnonymousVisitorRow {
+  visitorId: string;
+  firstVisitDate: string;
+  lastVisitDate: string;
+  visitsCount: number;
+  pageViews: number;
+  itemsVisited: number;
+  searchesPerformed: number;
+  eventCounts: Partial<Record<EventType, number>>;
 }
 
 type SortColumn = 'email' | 'firstName' | 'lastName' | 'createdAt' | 'orders';
@@ -81,6 +97,13 @@ function formatRelative(iso: string | null): string {
 
 function formatCurrency(amount: number, currency?: string | null): string {
   return `${currency ?? 'CLP'} ${amount.toLocaleString()}`;
+}
+
+function formatEventTypeLabel(eventType: string): string {
+  return eventType
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 interface SortableHeaderProps {
@@ -127,18 +150,22 @@ function SortableHeader({
 
 export function CustomersTable({
   customers,
+  anonymousVisitors,
   totalCustomers,
   offset,
   search,
   sortBy,
   sortOrder,
+  eventTypes,
 }: {
   customers: CustomerRow[];
+  anonymousVisitors: AnonymousVisitorRow[];
   totalCustomers: number;
   offset: number;
   search: string;
   sortBy: string;
   sortOrder: SortOrder;
+  eventTypes: EventType[];
 }) {
   const router = useRouter();
   const [searchValue, setSearchValue] = useState(search);
@@ -184,126 +211,178 @@ export function CustomersTable({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>
-              All Customers
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {totalCustomers}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              Customer accounts, purchase history, and activity.
-            </CardDescription>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                All Customers
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {totalCustomers}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Customer accounts, purchase history, and activity.
+              </CardDescription>
+            </div>
+            <form onSubmit={handleSearch} className="relative">
+              <Search className="absolute left-2.5 top-[0.55rem] h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                type="search"
+                placeholder="Search by name, email…"
+                className="h-9 w-[220px] lg:w-[300px] pl-8 text-sm"
+              />
+            </form>
           </div>
-          <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-2.5 top-[0.55rem] h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              type="search"
-              placeholder="Search by name, email…"
-              className="h-9 w-[220px] lg:w-[300px] pl-8 text-sm"
-            />
-          </form>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortableHeader
-                label="Customer"
-                column="firstName"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Email"
-                column="email"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Orders"
-                column="orders"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <TableHead className="hidden lg:table-cell">Last Purchase</TableHead>
-              <TableHead className="hidden lg:table-cell">Cart</TableHead>
-              <TableHead className="hidden xl:table-cell">
-                Preferred Categories
-              </TableHead>
-              <TableHead className="hidden lg:table-cell">Last Visit</TableHead>
-              <SortableHeader
-                label="Joined"
-                column="createdAt"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                className="hidden md:table-cell"
-                onSort={handleSort}
-              />
-              <TableHead className="hidden md:table-cell">Info</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {customers.length === 0 ? (
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                  No customers found.
-                </TableCell>
+                <SortableHeader
+                  label="Customer"
+                  column="firstName"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Email"
+                  column="email"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Orders"
+                  column="orders"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <TableHead className="hidden lg:table-cell">Last Purchase</TableHead>
+                <TableHead className="hidden lg:table-cell">Cart</TableHead>
+                <TableHead className="hidden xl:table-cell">Preferred Categories</TableHead>
+                <TableHead className="hidden lg:table-cell">Last Visit</TableHead>
+                <TableHead className="hidden lg:table-cell">Visits</TableHead>
+                <TableHead className="hidden lg:table-cell">Items Visited</TableHead>
+                <TableHead className="hidden lg:table-cell">Searches</TableHead>
+                <TableHead className="hidden xl:table-cell">Event Types</TableHead>
+                <SortableHeader
+                  label="Joined"
+                  column="createdAt"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  className="hidden md:table-cell"
+                  onSort={handleSort}
+                />
+                <TableHead className="hidden md:table-cell">Info</TableHead>
               </TableRow>
-            ) : (
-              customers.map((c) => (
-                <CustomerRowComponent key={c.id} customer={c} />
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-      <CardFooter>
-        <div className="flex items-center w-full justify-between">
-          <div className="text-xs text-muted-foreground">
-            Showing{' '}
-            <strong>
-              {Math.max(offset - customers.length + 1, 1)} –{' '}
-              {Math.min(offset, totalCustomers)}
-            </strong>{' '}
-            of <strong>{totalCustomers}</strong> customers
+            </TableHeader>
+            <TableBody>
+              {customers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    No customers found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                customers.map((c) => (
+                  <CustomerRowComponent key={c.id} customer={c} eventTypes={eventTypes} />
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+        <CardFooter>
+          <div className="flex items-center w-full justify-between">
+            <div className="text-xs text-muted-foreground">
+              Showing{' '}
+              <strong>
+                {Math.max(offset - customers.length + 1, 1)} – {Math.min(offset, totalCustomers)}
+              </strong>{' '}
+              of <strong>{totalCustomers}</strong> customers
+            </div>
+            <div className="flex">
+              <Button
+                onClick={prevPage}
+                variant="ghost"
+                size="sm"
+                disabled={offset <= perPage}
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Prev
+              </Button>
+              <Button
+                onClick={nextPage}
+                variant="ghost"
+                size="sm"
+                disabled={offset >= totalCustomers}
+              >
+                Next
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="flex">
-            <Button
-              onClick={prevPage}
-              variant="ghost"
-              size="sm"
-              disabled={offset <= perPage}
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Prev
-            </Button>
-            <Button
-              onClick={nextPage}
-              variant="ghost"
-              size="sm"
-              disabled={offset >= totalCustomers}
-            >
-              Next
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardFooter>
-    </Card>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Unregistered Visitors
+            <Badge variant="secondary" className="ml-2 text-xs">
+              {anonymousVisitors.length}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Anonymous visitor sessions and recent browsing activity.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Visitor</TableHead>
+                <TableHead className="hidden md:table-cell">First Visit</TableHead>
+                <TableHead>Last Visit</TableHead>
+                <TableHead className="hidden md:table-cell">Visits</TableHead>
+                <TableHead className="hidden md:table-cell">Page Views</TableHead>
+                <TableHead>Items Visited</TableHead>
+                <TableHead>Searches</TableHead>
+                <TableHead className="hidden lg:table-cell">Event Types</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {anonymousVisitors.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No unregistered visitors found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                anonymousVisitors.map((visitor) => (
+                    <AnonymousVisitorRowComponent key={visitor.visitorId} visitor={visitor} eventTypes={eventTypes} />
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
-function CustomerRowComponent({ customer: c }: { customer: CustomerRow }) {
+function CustomerRowComponent({
+  customer: c,
+  eventTypes,
+}: {
+  customer: CustomerRow;
+  eventTypes: EventType[];
+}) {
   const fullName =
     [c.firstName, c.lastName].filter(Boolean).join(' ') || c.username || '—';
 
@@ -406,6 +485,34 @@ function CustomerRowComponent({ customer: c }: { customer: CustomerRow }) {
         )}
       </TableCell>
 
+      <TableCell className="hidden lg:table-cell text-sm tabular-nums">
+        {c.visitsCount}
+      </TableCell>
+
+      <TableCell className="hidden lg:table-cell text-sm tabular-nums">
+        {c.itemsVisited}
+      </TableCell>
+
+      <TableCell className="hidden lg:table-cell text-sm tabular-nums">
+        {c.searchesPerformed}
+      </TableCell>
+
+      <TableCell className="hidden xl:table-cell">
+        <div className="flex max-w-[260px] flex-wrap gap-1">
+          {eventTypes.length === 0 ? (
+            <span className="text-sm text-muted-foreground">—</span>
+          ) : (
+            eventTypes
+              .filter((eventType) => (c.eventCounts[eventType] ?? 0) > 0)
+              .map((eventType) => (
+                <Badge key={eventType} variant="outline" className="text-[10px] px-1.5 py-0">
+                  {formatEventTypeLabel(eventType)}: {c.eventCounts[eventType]}
+                </Badge>
+              ))
+          )}
+        </div>
+      </TableCell>
+
       {/* Joined */}
       <TableCell className="hidden md:table-cell text-sm">
         <div className="space-y-0.5">
@@ -434,6 +541,51 @@ function CustomerRowComponent({ customer: c }: { customer: CustomerRow }) {
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
               {c.reviewsCount} reviews
             </Badge>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function AnonymousVisitorRowComponent({
+  visitor,
+  eventTypes,
+}: {
+  visitor: AnonymousVisitorRow;
+  eventTypes: EventType[];
+}) {
+  return (
+    <TableRow>
+      <TableCell className="font-mono text-xs">{visitor.visitorId.slice(0, 12)}...</TableCell>
+      <TableCell className="hidden md:table-cell text-sm">
+        <div className="space-y-0.5">
+          <div>{formatDate(visitor.firstVisitDate)}</div>
+          <div className="text-xs text-muted-foreground">{formatRelative(visitor.firstVisitDate)}</div>
+        </div>
+      </TableCell>
+      <TableCell className="text-sm">
+        <div className="space-y-0.5">
+          <div>{formatRelative(visitor.lastVisitDate)}</div>
+          <div className="text-[10px] text-muted-foreground">{formatDate(visitor.lastVisitDate)}</div>
+        </div>
+      </TableCell>
+      <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.visitsCount}</TableCell>
+      <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.pageViews}</TableCell>
+      <TableCell className="text-sm tabular-nums">{visitor.itemsVisited}</TableCell>
+      <TableCell className="text-sm tabular-nums">{visitor.searchesPerformed}</TableCell>
+      <TableCell className="hidden lg:table-cell">
+        <div className="flex max-w-[260px] flex-wrap gap-1">
+          {eventTypes.length === 0 ? (
+            <span className="text-sm text-muted-foreground">—</span>
+          ) : (
+            eventTypes
+              .filter((eventType) => (visitor.eventCounts[eventType] ?? 0) > 0)
+              .map((eventType) => (
+                <Badge key={eventType} variant="outline" className="text-[10px] px-1.5 py-0">
+                  {formatEventTypeLabel(eventType)}: {visitor.eventCounts[eventType]}
+                </Badge>
+              ))
           )}
         </div>
       </TableCell>

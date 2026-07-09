@@ -1,6 +1,19 @@
 import { prisma } from '@jssprz/ludo2go-database';
+import { EventType } from '@prisma/client';
 import { CustomersTable } from './customers-table';
 import { CreateCustomerDialog } from './create-customer-dialog';
+
+type EventCounts = Partial<Record<EventType, number>>;
+
+function getVisitorIdFromProperties(properties: unknown): string | null {
+  if (!properties || typeof properties !== 'object') return null;
+
+  const props = properties as { visitorId?: unknown };
+  if (typeof props.visitorId !== 'string') return null;
+
+  const normalized = props.visitorId.trim();
+  return normalized.length > 0 ? normalized : null;
+}
 
 export default async function CustomersPage(
   props: {
@@ -35,7 +48,7 @@ export default async function CustomersPage(
     orderBy = { createdAt: 'desc' };
   }
 
-  const [customers, totalCustomers, gameCategories] = await Promise.all([
+  const [customers, totalCustomers, gameCategories, anonymousEvents] = await Promise.all([
     prisma.customer.findMany({
       where,
       include: {
@@ -72,7 +85,120 @@ export default async function CustomersPage(
       where: { isActive: true },
       select: { id: true, name: true },
     }),
+    prisma.event.findMany({
+      where: {
+        customerId: null,
+      },
+      select: {
+        sessionId: true,
+        occurredAt: true,
+        eventType: true,
+        properties: true,
+      },
+      orderBy: { occurredAt: 'desc' },
+    }),
   ]);
+
+  const customerIds = customers.map((customer) => customer.id);
+  const customerEvents = customerIds.length
+    ? await prisma.event.findMany({
+        where: {
+          customerId: { in: customerIds },
+        },
+        select: {
+          customerId: true,
+          sessionId: true,
+          eventType: true,
+        },
+      })
+    : [];
+
+  const eventTypeTotals = new Map<EventType, number>();
+  const customerActivityMap = new Map<string, {
+    visitsCount: number;
+    itemsVisited: number;
+    searchesPerformed: number;
+    sessionIds: Set<string>;
+    eventCounts: EventCounts;
+  }>();
+  for (const event of customerEvents) {
+    if (!event.customerId) continue;
+    const current = customerActivityMap.get(event.customerId) ?? {
+      visitsCount: 0,
+      itemsVisited: 0,
+      searchesPerformed: 0,
+      sessionIds: new Set<string>(),
+      eventCounts: {},
+    };
+
+    current.sessionIds.add(event.sessionId);
+    current.visitsCount = current.sessionIds.size;
+    current.eventCounts[event.eventType] = (current.eventCounts[event.eventType] ?? 0) + 1;
+
+    eventTypeTotals.set(event.eventType, (eventTypeTotals.get(event.eventType) ?? 0) + 1);
+
+    if (event.eventType === EventType.product_view) current.itemsVisited += 1;
+    if (event.eventType === EventType.search_performed) current.searchesPerformed += 1;
+    customerActivityMap.set(event.customerId, current);
+  }
+
+  const anonymousVisitorsMap = new Map<string, {
+    visitorId: string;
+    firstVisitDate: string;
+    lastVisitDate: string;
+    visitsCount: number;
+    sessionIds: Set<string>;
+    pageViews: number;
+    itemsVisited: number;
+    searchesPerformed: number;
+    eventCounts: EventCounts;
+  }>();
+
+  for (const event of anonymousEvents) {
+    const visitorId = getVisitorIdFromProperties(event.properties);
+    if (!visitorId) continue;
+
+    const existing = anonymousVisitorsMap.get(visitorId);
+    const occurredAtIso = event.occurredAt.toISOString();
+
+    if (!existing) {
+      anonymousVisitorsMap.set(visitorId, {
+        visitorId,
+        firstVisitDate: occurredAtIso,
+        lastVisitDate: occurredAtIso,
+        visitsCount: 1,
+        sessionIds: new Set([event.sessionId]),
+        pageViews: event.eventType === EventType.page_view ? 1 : 0,
+        itemsVisited: event.eventType === EventType.product_view ? 1 : 0,
+        searchesPerformed: event.eventType === EventType.search_performed ? 1 : 0,
+        eventCounts: { [event.eventType]: 1 },
+      });
+
+      eventTypeTotals.set(event.eventType, (eventTypeTotals.get(event.eventType) ?? 0) + 1);
+      continue;
+    }
+
+    if (occurredAtIso < existing.firstVisitDate) existing.firstVisitDate = occurredAtIso;
+    if (occurredAtIso > existing.lastVisitDate) existing.lastVisitDate = occurredAtIso;
+    existing.sessionIds.add(event.sessionId);
+    existing.visitsCount = existing.sessionIds.size;
+    existing.eventCounts[event.eventType] = (existing.eventCounts[event.eventType] ?? 0) + 1;
+
+    eventTypeTotals.set(event.eventType, (eventTypeTotals.get(event.eventType) ?? 0) + 1);
+
+    if (event.eventType === EventType.page_view) existing.pageViews += 1;
+    if (event.eventType === EventType.product_view) existing.itemsVisited += 1;
+    if (event.eventType === EventType.search_performed) existing.searchesPerformed += 1;
+  }
+
+  const eventTypes = Array.from(eventTypeTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([eventType]) => eventType);
+
+  const anonymousVisitors = Array.from(anonymousVisitorsMap.values())
+    .map(({ sessionIds, ...visitor }) => visitor)
+    .sort((a, b) => new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime())
+    .slice(0, 100);
 
   // Build a map from category id -> name
   const categoryMap = new Map(gameCategories.map((c) => [c.id, c.name]));
@@ -112,6 +238,10 @@ export default async function CustomersPage(
       cartItemCount,
       favoriteCategories: favCategories,
       lastVisitDate: c.events[0]?.occurredAt?.toISOString() ?? null,
+      visitsCount: customerActivityMap.get(c.id)?.visitsCount ?? 0,
+      itemsVisited: customerActivityMap.get(c.id)?.itemsVisited ?? 0,
+      searchesPerformed: customerActivityMap.get(c.id)?.searchesPerformed ?? 0,
+      eventCounts: customerActivityMap.get(c.id)?.eventCounts ?? {},
       newsletter: c.newsletter ?? false,
       preferredLanguage: c.preferredLanguage,
     };
@@ -130,11 +260,13 @@ export default async function CustomersPage(
       </div>
       <CustomersTable
         customers={rows}
+        anonymousVisitors={anonymousVisitors}
         totalCustomers={totalCustomers}
         offset={offset + customers.length}
         search={search}
         sortBy={sortBy}
         sortOrder={sortOrder}
+        eventTypes={eventTypes}
       />
     </div>
   );
