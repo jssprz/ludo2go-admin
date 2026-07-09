@@ -39,6 +39,7 @@ export interface SelectProduct {
   mediaLinks: { media: { url: string } }[];
   variants: any[];
   productViews: number;
+  productViewsLast7d: number;
   createdByAdminUser: AuditUser;
   updatedByAdminUser: AuditUser;
 }
@@ -94,6 +95,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       </TableCell>
       <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
       <TableCell className="hidden md:table-cell">{product.productViews}</TableCell>
+      <TableCell className="hidden md:table-cell">{product.productViewsLast7d}</TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}

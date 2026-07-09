@@ -81,6 +81,8 @@ export async function getProducts(
   } as const;
 
   let totalProducts = await prisma.product.count({ where });
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   // Views sorting requires enriching products with event counts before pagination.
   if (sortBy === 'views') {
@@ -92,14 +94,21 @@ export async function getProducts(
     const productSlugs = allProducts.map((product) => product.slug);
     const slugSet = new Set(productSlugs);
 
-    const productViewEvents = productSlugs.length
-      ? await prisma.event.findMany({
-          where: { eventType: EventType.product_view },
-          select: { properties: true },
-        })
-      : [];
+    const [productViewEvents, productViewEventsLast7d] = productSlugs.length
+      ? await Promise.all([
+          prisma.event.findMany({
+            where: { eventType: EventType.product_view },
+            select: { properties: true },
+          }),
+          prisma.event.findMany({
+            where: { eventType: EventType.product_view, occurredAt: { gte: sevenDaysAgo } },
+            select: { properties: true },
+          }),
+        ])
+      : [[], []];
 
     const viewsBySlug = new Map<string, number>();
+    const viewsLast7dBySlug = new Map<string, number>();
     for (const event of productViewEvents) {
       if (!event.properties || typeof event.properties !== 'object') continue;
       const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
@@ -108,10 +117,19 @@ export async function getProducts(
       viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
     }
 
+    for (const event of productViewEventsLast7d) {
+      if (!event.properties || typeof event.properties !== 'object') continue;
+      const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
+      if (typeof productSlug !== 'string') continue;
+      if (!slugSet.has(productSlug)) continue;
+      viewsLast7dBySlug.set(productSlug, (viewsLast7dBySlug.get(productSlug) ?? 0) + 1);
+    }
+
     const sortedProducts = allProducts
       .map((product) => ({
         ...product,
         productViews: viewsBySlug.get(product.slug) ?? 0,
+        productViewsLast7d: viewsLast7dBySlug.get(product.slug) ?? 0,
       }))
       .sort((a, b) => {
         if (a.productViews === b.productViews) {
@@ -159,14 +177,21 @@ export async function getProducts(
   const productSlugs = moreProducts.map((product) => product.slug);
   const slugSet = new Set(productSlugs);
 
-  const productViewEvents = productSlugs.length
-    ? await prisma.event.findMany({
-        where: { eventType: EventType.product_view },
-        select: { properties: true },
-      })
-    : [];
+  const [productViewEvents, productViewEventsLast7d] = productSlugs.length
+    ? await Promise.all([
+        prisma.event.findMany({
+          where: { eventType: EventType.product_view },
+          select: { properties: true },
+        }),
+        prisma.event.findMany({
+          where: { eventType: EventType.product_view, occurredAt: { gte: sevenDaysAgo } },
+          select: { properties: true },
+        }),
+      ])
+    : [[], []];
 
   const viewsBySlug = new Map<string, number>();
+  const viewsLast7dBySlug = new Map<string, number>();
   for (const event of productViewEvents) {
     if (!event.properties || typeof event.properties !== 'object') continue;
     const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
@@ -175,9 +200,18 @@ export async function getProducts(
     viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
   }
 
+  for (const event of productViewEventsLast7d) {
+    if (!event.properties || typeof event.properties !== 'object') continue;
+    const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
+    if (typeof productSlug !== 'string') continue;
+    if (!slugSet.has(productSlug)) continue;
+    viewsLast7dBySlug.set(productSlug, (viewsLast7dBySlug.get(productSlug) ?? 0) + 1);
+  }
+
   const productsWithViews = moreProducts.map((product) => ({
     ...product,
     productViews: viewsBySlug.get(product.slug) ?? 0,
+    productViewsLast7d: viewsLast7dBySlug.get(product.slug) ?? 0,
   }));
 
   const newOffset = moreProducts.length + offset;
