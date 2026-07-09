@@ -4,6 +4,7 @@ import { CustomersTable } from './customers-table';
 import { CreateCustomerDialog } from './create-customer-dialog';
 
 type EventCounts = Partial<Record<EventType, number>>;
+type CountedValue = { value: string; count: number };
 
 function isCartEventType(eventType: EventType): boolean {
   return eventType.includes('cart');
@@ -17,6 +18,26 @@ function getVisitorIdFromProperties(properties: unknown): string | null {
 
   const normalized = props.visitorId.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function getStringProperty(properties: unknown, keys: string[]): string | null {
+  if (!properties || typeof properties !== 'object') return null;
+
+  const props = properties as Record<string, unknown>;
+  for (const key of keys) {
+    const value = props[key];
+    if (typeof value !== 'string') continue;
+    const normalized = value.trim();
+    if (normalized.length > 0) return normalized;
+  }
+
+  return null;
+}
+
+function mapToSortedCountedValues(map: Map<string, number>): CountedValue[] {
+  return Array.from(map.entries())
+    .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+    .map(([value, count]) => ({ value, count }));
 }
 
 export default async function CustomersPage(
@@ -158,11 +179,20 @@ export default async function CustomersPage(
     itemsVisited: number;
     searchesPerformed: number;
     eventCounts: EventCounts;
+    pageViewCounts: Map<string, number>;
+    itemVisitedCounts: Map<string, number>;
   }>();
 
   for (const event of anonymousEvents) {
     const visitorId = getVisitorIdFromProperties(event.properties);
     if (!visitorId) continue;
+
+    const pagePath = event.eventType === EventType.page_view
+      ? getStringProperty(event.properties, ['pagePath'])
+      : null;
+    const productLabel = event.eventType === EventType.product_view
+      ? getStringProperty(event.properties, ['productSlug', 'productId'])
+      : null;
 
     const existing = anonymousVisitorsMap.get(visitorId);
     const occurredAtIso = event.occurredAt.toISOString();
@@ -179,6 +209,8 @@ export default async function CustomersPage(
         itemsVisited: event.eventType === EventType.product_view ? 1 : 0,
         searchesPerformed: event.eventType === EventType.search_performed ? 1 : 0,
         eventCounts: { [event.eventType]: 1 },
+        pageViewCounts: pagePath ? new Map([[pagePath, 1]]) : new Map(),
+        itemVisitedCounts: productLabel ? new Map([[productLabel, 1]]) : new Map(),
       });
 
       anonymousEventTypeTotals.set(event.eventType, (anonymousEventTypeTotals.get(event.eventType) ?? 0) + 1);
@@ -191,6 +223,8 @@ export default async function CustomersPage(
     existing.visitsCount = existing.sessionIds.size;
     existing.eventCounts[event.eventType] = (existing.eventCounts[event.eventType] ?? 0) + 1;
     if (isCartEventType(event.eventType)) existing.cartActivity += 1;
+    if (pagePath) existing.pageViewCounts.set(pagePath, (existing.pageViewCounts.get(pagePath) ?? 0) + 1);
+    if (productLabel) existing.itemVisitedCounts.set(productLabel, (existing.itemVisitedCounts.get(productLabel) ?? 0) + 1);
 
     anonymousEventTypeTotals.set(event.eventType, (anonymousEventTypeTotals.get(event.eventType) ?? 0) + 1);
 
@@ -208,7 +242,11 @@ export default async function CustomersPage(
     .map(([eventType]) => eventType);
 
   const anonymousVisitors = Array.from(anonymousVisitorsMap.values())
-    .map(({ sessionIds, ...visitor }) => visitor)
+    .map(({ sessionIds, pageViewCounts, itemVisitedCounts, ...visitor }) => ({
+      ...visitor,
+      pageViewsList: mapToSortedCountedValues(pageViewCounts),
+      itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
+    }))
     .sort((a, b) => new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime())
     .slice(0, 100);
 

@@ -21,6 +21,14 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   ArrowUp,
@@ -69,6 +77,8 @@ export interface AnonymousVisitorRow {
   itemsVisited: number;
   searchesPerformed: number;
   eventCounts: Partial<Record<EventType, number>>;
+  pageViewsList: Array<{ value: string; count: number }>;
+  itemsVisitedList: Array<{ value: string; count: number }>;
 }
 
 type SortColumn = 'email' | 'firstName' | 'lastName' | 'createdAt' | 'orders';
@@ -105,6 +115,52 @@ function formatEventTypeLabel(eventType: string): string {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+function DetailListDialog({
+  trigger,
+  title,
+  description,
+  rows,
+}: {
+  trigger: React.ReactNode;
+  title: string;
+  description: string;
+  rows: Array<{ value: string; count: number }>;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {rows.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No records found.</div>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left font-medium">Value</th>
+                  <th className="px-3 py-2 text-right font-medium">Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.value} className="border-b last:border-b-0">
+                    <td className="px-3 py-2 break-all">{row.value}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 interface SortableHeaderProps {
@@ -559,9 +615,11 @@ function AnonymousVisitorRowComponent({
   visitor: AnonymousVisitorRow;
   eventTypes: EventType[];
 }) {
+  const visitorIdPrefix = `${visitor.visitorId.slice(0, 12)}...`;
+
   return (
     <TableRow>
-      <TableCell className="font-mono text-xs">{visitor.visitorId.slice(0, 12)}...</TableCell>
+      <TableCell className="font-mono text-xs">{visitorIdPrefix}</TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.cartActivity}</TableCell>
       <TableCell className="hidden md:table-cell text-sm">
         <div className="space-y-0.5">
@@ -576,8 +634,30 @@ function AnonymousVisitorRowComponent({
         </div>
       </TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.visitsCount}</TableCell>
-      <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.pageViews}</TableCell>
-      <TableCell className="text-sm tabular-nums">{visitor.itemsVisited}</TableCell>
+      <TableCell className="hidden md:table-cell text-sm tabular-nums">
+        <DetailListDialog
+          trigger={(
+            <button className="underline decoration-dotted underline-offset-2 hover:text-foreground">
+              {visitor.pageViews}
+            </button>
+          )}
+          title={`Page Views for ${visitorIdPrefix}`}
+          description="List of visited page paths"
+          rows={visitor.pageViewsList}
+        />
+      </TableCell>
+      <TableCell className="text-sm tabular-nums">
+        <DetailListDialog
+          trigger={(
+            <button className="underline decoration-dotted underline-offset-2 hover:text-foreground">
+              {visitor.itemsVisited}
+            </button>
+          )}
+          title={`Items Visited for ${visitorIdPrefix}`}
+          description="List of viewed products"
+          rows={visitor.itemsVisitedList}
+        />
+      </TableCell>
       <TableCell className="text-sm tabular-nums">{visitor.searchesPerformed}</TableCell>
       <TableCell className="hidden lg:table-cell">
         <div className="flex max-w-[260px] flex-wrap gap-1">
