@@ -5,6 +5,10 @@ import { CreateCustomerDialog } from './create-customer-dialog';
 
 type EventCounts = Partial<Record<EventType, number>>;
 
+function isCartEventType(eventType: EventType): boolean {
+  return eventType.includes('cart');
+}
+
 function getVisitorIdFromProperties(properties: unknown): string | null {
   if (!properties || typeof properties !== 'object') return null;
 
@@ -150,6 +154,7 @@ export default async function CustomersPage(
     visitsCount: number;
     sessionIds: Set<string>;
     pageViews: number;
+    cartActivity: number;
     itemsVisited: number;
     searchesPerformed: number;
     eventCounts: EventCounts;
@@ -170,6 +175,7 @@ export default async function CustomersPage(
         visitsCount: 1,
         sessionIds: new Set([event.sessionId]),
         pageViews: event.eventType === EventType.page_view ? 1 : 0,
+        cartActivity: isCartEventType(event.eventType) ? 1 : 0,
         itemsVisited: event.eventType === EventType.product_view ? 1 : 0,
         searchesPerformed: event.eventType === EventType.search_performed ? 1 : 0,
         eventCounts: { [event.eventType]: 1 },
@@ -184,6 +190,7 @@ export default async function CustomersPage(
     existing.sessionIds.add(event.sessionId);
     existing.visitsCount = existing.sessionIds.size;
     existing.eventCounts[event.eventType] = (existing.eventCounts[event.eventType] ?? 0) + 1;
+    if (isCartEventType(event.eventType)) existing.cartActivity += 1;
 
     anonymousEventTypeTotals.set(event.eventType, (anonymousEventTypeTotals.get(event.eventType) ?? 0) + 1);
 

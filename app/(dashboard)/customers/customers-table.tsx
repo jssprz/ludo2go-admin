@@ -65,6 +65,7 @@ export interface AnonymousVisitorRow {
   lastVisitDate: string;
   visitsCount: number;
   pageViews: number;
+  cartActivity: number;
   itemsVisited: number;
   searchesPerformed: number;
   eventCounts: Partial<Record<EventType, number>>;
@@ -258,6 +259,7 @@ export function CustomersTable({
                   currentOrder={sortOrder}
                   onSort={handleSort}
                 />
+                <TableHead className="hidden lg:table-cell">Cart</TableHead>
                 <SortableHeader
                   label="Orders"
                   column="orders"
@@ -266,7 +268,6 @@ export function CustomersTable({
                   onSort={handleSort}
                 />
                 <TableHead className="hidden lg:table-cell">Last Purchase</TableHead>
-                <TableHead className="hidden lg:table-cell">Cart</TableHead>
                 <TableHead className="hidden xl:table-cell">Preferred Categories</TableHead>
                 <TableHead className="hidden lg:table-cell">Last Visit</TableHead>
                 <TableHead className="hidden lg:table-cell">Visits</TableHead>
@@ -349,6 +350,7 @@ export function CustomersTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Visitor</TableHead>
+                <TableHead className="hidden md:table-cell">Cart</TableHead>
                 <TableHead className="hidden md:table-cell">First Visit</TableHead>
                 <TableHead>Last Visit</TableHead>
                 <TableHead className="hidden md:table-cell">Visits</TableHead>
@@ -361,7 +363,7 @@ export function CustomersTable({
             <TableBody>
               {anonymousVisitors.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No unregistered visitors found.
                   </TableCell>
                 </TableRow>
@@ -403,6 +405,23 @@ function CustomerRowComponent({
       {/* Email */}
       <TableCell className="text-sm">{c.email}</TableCell>
 
+      {/* Active cart */}
+      <TableCell className="hidden lg:table-cell">
+        {c.cartItemCount > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm tabular-nums">
+              {c.cartItemCount} items
+            </span>
+            <span className="text-xs text-muted-foreground">
+              ({formatCurrency(c.cartTotal)})
+            </span>
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">Empty</span>
+        )}
+      </TableCell>
+
       {/* Orders count */}
       <TableCell>
         <div className="flex items-center gap-1.5">
@@ -426,23 +445,6 @@ function CustomerRowComponent({
           </div>
         ) : (
           <span className="text-muted-foreground">—</span>
-        )}
-      </TableCell>
-
-      {/* Active cart */}
-      <TableCell className="hidden lg:table-cell">
-        {c.cartItemCount > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm tabular-nums">
-              {c.cartItemCount} items
-            </span>
-            <span className="text-xs text-muted-foreground">
-              ({formatCurrency(c.cartTotal)})
-            </span>
-          </div>
-        ) : (
-          <span className="text-sm text-muted-foreground">Empty</span>
         )}
       </TableCell>
 
@@ -560,6 +562,7 @@ function AnonymousVisitorRowComponent({
   return (
     <TableRow>
       <TableCell className="font-mono text-xs">{visitor.visitorId.slice(0, 12)}...</TableCell>
+      <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.cartActivity}</TableCell>
       <TableCell className="hidden md:table-cell text-sm">
         <div className="space-y-0.5">
           <div>{formatDate(visitor.firstVisitDate)}</div>
