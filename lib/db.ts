@@ -13,7 +13,8 @@ export type SortableProductColumn =
   | 'updatedAt'
   | 'variants'
   | 'stock'
-  | 'views';
+  | 'views'
+  | 'viewsLast7d';
 
 export type SortOrder = 'asc' | 'desc';
 
@@ -84,8 +85,8 @@ export async function getProducts(
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  // Views sorting requires enriching products with event counts before pagination.
-  if (sortBy === 'views') {
+  // Views-based sorting requires enriching products with event counts before pagination.
+  if (sortBy === 'views' || sortBy === 'viewsLast7d') {
     const allProducts = await prisma.product.findMany({
       include: includeProductRelations,
       where,
@@ -132,12 +133,15 @@ export async function getProducts(
         productViewsLast7d: viewsLast7dBySlug.get(product.slug) ?? 0,
       }))
       .sort((a, b) => {
-        if (a.productViews === b.productViews) {
+        const left = sortBy === 'viewsLast7d' ? a.productViewsLast7d : a.productViews;
+        const right = sortBy === 'viewsLast7d' ? b.productViewsLast7d : b.productViews;
+
+        if (left === right) {
           return b.createdAt.getTime() - a.createdAt.getTime();
         }
         return sortOrder === 'asc'
-          ? a.productViews - b.productViews
-          : b.productViews - a.productViews;
+          ? left - right
+          : right - left;
       });
 
     const pagedProducts = sortedProducts.slice(offset, offset + 10);
