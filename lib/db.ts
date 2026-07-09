@@ -12,7 +12,8 @@ export type SortableProductColumn =
   | 'createdAt'
   | 'updatedAt'
   | 'variants'
-  | 'stock';
+  | 'stock'
+  | 'views';
 
 export type SortOrder = 'asc' | 'desc';
 
@@ -66,6 +67,71 @@ export async function getProducts(
     where.tags = { hasSome: filters.tags };
   }
 
+  const includeProductRelations = {
+    brand: true,
+    bgg: { select: { id: true } },
+    mediaLinks: {
+      include: {
+        media: true
+      }
+    },
+    variants: { include: { inventory: true } },
+    createdByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
+    updatedByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
+  } as const;
+
+  let totalProducts = await prisma.product.count({ where });
+
+  // Views sorting requires enriching products with event counts before pagination.
+  if (sortBy === 'views') {
+    const allProducts = await prisma.product.findMany({
+      include: includeProductRelations,
+      where,
+    });
+
+    const productSlugs = allProducts.map((product) => product.slug);
+    const slugSet = new Set(productSlugs);
+
+    const productViewEvents = productSlugs.length
+      ? await prisma.event.findMany({
+          where: { eventType: EventType.product_view },
+          select: { properties: true },
+        })
+      : [];
+
+    const viewsBySlug = new Map<string, number>();
+    for (const event of productViewEvents) {
+      if (!event.properties || typeof event.properties !== 'object') continue;
+      const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
+      if (typeof productSlug !== 'string') continue;
+      if (!slugSet.has(productSlug)) continue;
+      viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
+    }
+
+    const sortedProducts = allProducts
+      .map((product) => ({
+        ...product,
+        productViews: viewsBySlug.get(product.slug) ?? 0,
+      }))
+      .sort((a, b) => {
+        if (a.productViews === b.productViews) {
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        }
+        return sortOrder === 'asc'
+          ? a.productViews - b.productViews
+          : b.productViews - a.productViews;
+      });
+
+    const pagedProducts = sortedProducts.slice(offset, offset + 10);
+    const newOffset = offset + pagedProducts.length;
+
+    return {
+      products: pagedProducts,
+      newOffset,
+      totalProducts,
+    };
+  }
+
   // Build orderBy – some columns map to relations / aggregates
   let orderBy: any;
   if (sortBy === 'variants') {
@@ -82,20 +148,8 @@ export async function getProducts(
     orderBy = { [sortBy]: sortOrder };
   }
 
-  let totalProducts = await prisma.product.count({ where });
-  let moreProducts = await prisma.product.findMany({
-    include: {
-      brand: true,
-      bgg: { select: { id: true } },
-      mediaLinks: {
-        include: {
-          media: true
-        }
-      },
-      variants: { include: { inventory: true } },
-      createdByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
-      updatedByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
-    },
+  const moreProducts = await prisma.product.findMany({
+    include: includeProductRelations,
     where,
     take: 10,
     skip: offset,
@@ -103,6 +157,8 @@ export async function getProducts(
   });
 
   const productSlugs = moreProducts.map((product) => product.slug);
+  const slugSet = new Set(productSlugs);
+
   const productViewEvents = productSlugs.length
     ? await prisma.event.findMany({
         where: { eventType: EventType.product_view },
@@ -115,7 +171,7 @@ export async function getProducts(
     if (!event.properties || typeof event.properties !== 'object') continue;
     const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
     if (typeof productSlug !== 'string') continue;
-    if (!productSlugs.includes(productSlug)) continue;
+    if (!slugSet.has(productSlug)) continue;
     viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
   }
 
@@ -124,12 +180,12 @@ export async function getProducts(
     productViews: viewsBySlug.get(product.slug) ?? 0,
   }));
 
-  let newOffset = moreProducts.length + offset;
+  const newOffset = moreProducts.length + offset;
 
   return {
     products: productsWithViews,
-    newOffset: newOffset,
-    totalProducts: totalProducts
+    newOffset,
+    totalProducts
   };
 }
 

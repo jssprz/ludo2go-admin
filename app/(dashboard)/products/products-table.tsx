@@ -179,9 +179,14 @@ export function ProductsTable({
                 className="hidden md:table-cell"
                 onSort={handleSort}
               />
-              <TableHead className="hidden md:table-cell">
-                {t('productViews')}
-              </TableHead>
+              <SortableHeader
+                label={t('productViews')}
+                column="views"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden md:table-cell"
+                onSort={handleSort}
+              />
               <SortableHeader
                 label={t('stock')}
                 column="stock"
