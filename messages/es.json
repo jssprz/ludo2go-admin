@@ -132,7 +132,9 @@
         "weekdayAverage": "Promedio búsquedas (días hábiles)",
         "dailyAverage": "Promedio diario de búsquedas",
         "weeklyAverage": "Promedio semanal de búsquedas",
-        "uniqueTerms": "Términos de búsqueda únicos"
+        "uniqueTerms": "Términos de búsqueda únicos",
+        "emptyResults": "Búsquedas sin resultados",
+        "avgResultItems": "Promedio de ítems en resultados"
       },
       "summary": {
         "totalSearches": "Búsquedas totales",

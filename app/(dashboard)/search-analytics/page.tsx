@@ -65,6 +65,29 @@ function getSearchQueriesFromProperties(properties: unknown): { rawQuery: string
   return { rawQuery, normalizedQuery };
 }
 
+function getResultCountFromProperties(properties: unknown): number | null {
+  if (!properties || typeof properties !== 'object') {
+    return null;
+  }
+
+  const props = properties as {
+    resultCount?: unknown;
+  };
+
+  if (typeof props.resultCount === 'number' && Number.isFinite(props.resultCount)) {
+    return Math.max(0, props.resultCount);
+  }
+
+  if (typeof props.resultCount === 'string') {
+    const parsed = Number(props.resultCount.trim());
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, parsed);
+    }
+  }
+
+  return null;
+}
+
 function getDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -107,9 +130,13 @@ export default async function SearchAnalyticsPage() {
   const searchByWeek = new Map<string, number>();
   const weekdaySearchByDay = new Map<string, number>();
   const uniqueNormalizedTerms = new Set<string>();
+  let totalResultCount = 0;
+  let searchesWithEmptyResults = 0;
+  let searchesWithResultCount = 0;
 
   for (const searchEvent of searchEvents) {
     const { rawQuery, normalizedQuery } = getSearchQueriesFromProperties(searchEvent.properties);
+    const resultCount = getResultCountFromProperties(searchEvent.properties);
     const rowKey = `${normalizedQuery ?? '__unknown_norm__'}::${rawQuery ?? '__unknown_raw__'}`;
     const existing = searchTermStats.get(rowKey);
 
@@ -138,6 +165,14 @@ export default async function SearchAnalyticsPage() {
     const dayOfWeek = searchEvent.occurredAt.getUTCDay();
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
       weekdaySearchByDay.set(dayKey, (weekdaySearchByDay.get(dayKey) ?? 0) + 1);
+    }
+
+    if (resultCount !== null) {
+      searchesWithResultCount += 1;
+      totalResultCount += resultCount;
+      if (resultCount === 0) {
+        searchesWithEmptyResults += 1;
+      }
     }
   }
 
@@ -172,6 +207,8 @@ export default async function SearchAnalyticsPage() {
   const weekdayAverageSearches = weekdaySearchByDay.size
     ? Array.from(weekdaySearchByDay.values()).reduce((sum, count) => sum + count, 0) / weekdaySearchByDay.size
     : 0;
+  const averageItemsInResults = searchesWithResultCount ? totalResultCount / searchesWithResultCount : 0;
+  const emptyResultsRate = searchesWithResultCount ? (searchesWithEmptyResults / searchesWithResultCount) * 100 : 0;
   const firstSearchAt = totalSearches ? searchEvents[0].occurredAt : null;
   const lastSearchAt = totalSearches ? searchEvents[searchEvents.length - 1].occurredAt : null;
 
@@ -182,7 +219,7 @@ export default async function SearchAnalyticsPage() {
         <p className="text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">{td('searches.cards.weekdayAverage')}</CardTitle>
@@ -216,6 +253,25 @@ export default async function SearchAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{uniqueSearchTerms}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{td('searches.cards.emptyResults')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{searchesWithEmptyResults}</div>
+            <p className="text-xs text-muted-foreground">{emptyResultsRate.toFixed(1)}%</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">{td('searches.cards.avgResultItems')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{averageItemsInResults.toFixed(2)}</div>
           </CardContent>
         </Card>
       </div>

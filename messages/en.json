@@ -133,7 +133,9 @@
         "weekdayAverage": "Weekday Avg Searches",
         "dailyAverage": "Daily Avg Searches",
         "weeklyAverage": "Weekly Avg Searches",
-        "uniqueTerms": "Unique Search Terms"
+        "uniqueTerms": "Unique Search Terms",
+        "emptyResults": "Empty Result Searches",
+        "avgResultItems": "Avg Result Items"
       },
       "summary": {
         "totalSearches": "Total Searches",
