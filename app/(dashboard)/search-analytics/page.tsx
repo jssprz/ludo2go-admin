@@ -157,7 +157,13 @@ export default async function SearchAnalyticsPage() {
         avgWeekly: stats.count / activeWeeks,
       };
     })
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+
+      return new Date(b.firstAt).getTime() - new Date(a.firstAt).getTime();
+    });
 
   const totalSearches = searchEvents.length;
   const uniqueSearchTerms = uniqueNormalizedTerms.size;
