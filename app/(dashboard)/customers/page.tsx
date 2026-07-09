@@ -250,7 +250,8 @@ export default async function CustomersPage(
       itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
     }))
     .sort((a, b) => {
-      return new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime()
+      return b.cartActivity - a.cartActivity
+        || new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime()
         || b.visitsCount - a.visitsCount
         || b.pageViews - a.pageViews
         || b.itemsVisited - a.itemsVisited
