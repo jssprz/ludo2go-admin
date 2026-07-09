@@ -156,7 +156,8 @@ export function CustomersTable({
   search,
   sortBy,
   sortOrder,
-  eventTypes,
+  customerEventTypes,
+  anonymousEventTypes,
 }: {
   customers: CustomerRow[];
   anonymousVisitors: AnonymousVisitorRow[];
@@ -165,7 +166,8 @@ export function CustomersTable({
   search: string;
   sortBy: string;
   sortOrder: SortOrder;
-  eventTypes: EventType[];
+  customerEventTypes: EventType[];
+  anonymousEventTypes: EventType[];
 }) {
   const router = useRouter();
   const [searchValue, setSearchValue] = useState(search);
@@ -291,7 +293,7 @@ export function CustomersTable({
                 </TableRow>
               ) : (
                 customers.map((c) => (
-                  <CustomerRowComponent key={c.id} customer={c} eventTypes={eventTypes} />
+                  <CustomerRowComponent key={c.id} customer={c} eventTypes={customerEventTypes} />
                 ))
               )}
             </TableBody>
@@ -365,7 +367,7 @@ export function CustomersTable({
                 </TableRow>
               ) : (
                 anonymousVisitors.map((visitor) => (
-                    <AnonymousVisitorRowComponent key={visitor.visitorId} visitor={visitor} eventTypes={eventTypes} />
+                    <AnonymousVisitorRowComponent key={visitor.visitorId} visitor={visitor} eventTypes={anonymousEventTypes} />
                 ))
               )}
             </TableBody>

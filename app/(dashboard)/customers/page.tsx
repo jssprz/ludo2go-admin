@@ -113,7 +113,8 @@ export default async function CustomersPage(
       })
     : [];
 
-  const eventTypeTotals = new Map<EventType, number>();
+  const customerEventTypeTotals = new Map<EventType, number>();
+  const anonymousEventTypeTotals = new Map<EventType, number>();
   const customerActivityMap = new Map<string, {
     visitsCount: number;
     itemsVisited: number;
@@ -135,7 +136,7 @@ export default async function CustomersPage(
     current.visitsCount = current.sessionIds.size;
     current.eventCounts[event.eventType] = (current.eventCounts[event.eventType] ?? 0) + 1;
 
-    eventTypeTotals.set(event.eventType, (eventTypeTotals.get(event.eventType) ?? 0) + 1);
+    customerEventTypeTotals.set(event.eventType, (customerEventTypeTotals.get(event.eventType) ?? 0) + 1);
 
     if (event.eventType === EventType.product_view) current.itemsVisited += 1;
     if (event.eventType === EventType.search_performed) current.searchesPerformed += 1;
@@ -174,7 +175,7 @@ export default async function CustomersPage(
         eventCounts: { [event.eventType]: 1 },
       });
 
-      eventTypeTotals.set(event.eventType, (eventTypeTotals.get(event.eventType) ?? 0) + 1);
+      anonymousEventTypeTotals.set(event.eventType, (anonymousEventTypeTotals.get(event.eventType) ?? 0) + 1);
       continue;
     }
 
@@ -184,14 +185,18 @@ export default async function CustomersPage(
     existing.visitsCount = existing.sessionIds.size;
     existing.eventCounts[event.eventType] = (existing.eventCounts[event.eventType] ?? 0) + 1;
 
-    eventTypeTotals.set(event.eventType, (eventTypeTotals.get(event.eventType) ?? 0) + 1);
+    anonymousEventTypeTotals.set(event.eventType, (anonymousEventTypeTotals.get(event.eventType) ?? 0) + 1);
 
     if (event.eventType === EventType.page_view) existing.pageViews += 1;
     if (event.eventType === EventType.product_view) existing.itemsVisited += 1;
     if (event.eventType === EventType.search_performed) existing.searchesPerformed += 1;
   }
 
-  const eventTypes = Array.from(eventTypeTotals.entries())
+  const customerEventTypes = Array.from(customerEventTypeTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([eventType]) => eventType);
+
+  const anonymousEventTypes = Array.from(anonymousEventTypeTotals.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([eventType]) => eventType);
 
@@ -266,7 +271,8 @@ export default async function CustomersPage(
         search={search}
         sortBy={sortBy}
         sortOrder={sortOrder}
-        eventTypes={eventTypes}
+        customerEventTypes={customerEventTypes}
+        anonymousEventTypes={anonymousEventTypes}
       />
     </div>
   );
