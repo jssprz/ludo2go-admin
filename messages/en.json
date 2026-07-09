@@ -64,6 +64,9 @@
     "loginTitle": "Sign in to your account",
     "loginDescription": "Enter your credentials to access the admin dashboard"
   },
+  "timezone": {
+    "placeholder": "Select time zone"
+  },
   "dashboard": {
     "title": "Admin Dashboard",
     "description": "Manage catalog, stock, orders, shipping, and customers of the store.",

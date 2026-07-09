@@ -63,6 +63,9 @@
     "loginTitle": "Inicia sesión en tu cuenta",
     "loginDescription": "Ingresa tus credenciales para acceder al panel de administración"
   },
+  "timezone": {
+    "placeholder": "Selecciona zona horaria"
+  },
   "dashboard": {
     "title": "Panel de Administración",
     "description": "Administra el catálogo, el stock, los pedidos, el envío y los clientes de la tienda.",

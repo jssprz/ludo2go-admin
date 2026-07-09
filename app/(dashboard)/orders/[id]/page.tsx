@@ -5,6 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft } from 'lucide-react';
+import { cookies } from 'next/headers';
+import {
+  ADMIN_TIME_ZONE_COOKIE,
+  formatDateInTimeZone,
+  normalizeTimeZone,
+} from '@/lib/date-time';
 
 type PageProps = {
   params: Promise<{
@@ -23,6 +29,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default async function OrderDetailPage({ params }: PageProps) {
   const { id } = await params;
+  const cookieStore = await cookies();
+  const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
 
   if (!id) {
     notFound();
@@ -70,6 +78,24 @@ export default async function OrderDetailPage({ params }: PageProps) {
     }).format(amount);
   }
 
+  function formatDateTime(value: Date | string) {
+    return formatDateInTimeZone(
+      value,
+      { dateStyle: 'medium', timeStyle: 'short' },
+      'en-US',
+      timeZone
+    );
+  }
+
+  function formatDate(value: Date | string) {
+    return formatDateInTimeZone(
+      value,
+      { dateStyle: 'medium' },
+      'en-US',
+      timeZone
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -84,7 +110,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             Order #{order.id.slice(0, 8)}
           </h1>
           <p className="text-muted-foreground">
-            Created {new Date(order.createdAt).toLocaleString()}
+            Created {formatDateTime(order.createdAt)}
           </p>
         </div>
       </div>
@@ -98,7 +124,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
           <CardContent>
             <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
             <p className="text-sm text-muted-foreground mt-2">
-              Last updated: {new Date(order.updatedAt).toLocaleString()}
+              Last updated: {formatDateTime(order.updatedAt)}
             </p>
           </CardContent>
         </Card>
@@ -220,7 +246,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
                               : 'No'
                             : null) ??
                           (customization.valueDate
-                            ? new Date(customization.valueDate).toLocaleDateString()
+                            ? formatDate(customization.valueDate)
                             : null) ??
                           (customization.valueJson
                             ? JSON.stringify(customization.valueJson)

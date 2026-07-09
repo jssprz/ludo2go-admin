@@ -51,6 +51,7 @@ import Providers from './providers';
 import { NavItem } from './nav-item';
 import { SearchInput } from './search';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { TimeZoneSwitcher } from '@/components/timezone-switcher';
 import { getTranslations } from 'next-intl/server';
 
 const LOGO_URL = `${process.env.NEXT_PUBLIC_BLOB_BASE_URL}/assets/jobys-logo-130x59.png`;
@@ -69,6 +70,7 @@ export default function DashboardLayout({
             <MobileNav />
             <DashboardBreadcrumb />
             <SearchInput />
+            <TimeZoneSwitcher />
             <LanguageSwitcher />
             <User />
           </header>

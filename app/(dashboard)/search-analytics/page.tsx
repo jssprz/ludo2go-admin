@@ -3,12 +3,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { prisma } from '@jssprz/ludo2go-database';
 import { EventType } from '@prisma/client';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { cookies } from 'next/headers';
+import {
+  ADMIN_TIME_ZONE_COOKIE,
+  formatDateInTimeZone,
+  normalizeTimeZone,
+} from '@/lib/date-time';
 
-const formatDateTime = (date: Date, locale: string) => {
-  return new Intl.DateTimeFormat(locale, {
+const formatDateTime = (date: Date, locale: string, timeZone: string) => {
+  return formatDateInTimeZone(date, {
     dateStyle: 'medium',
     timeStyle: 'short'
-  }).format(date)
+  }, locale, timeZone)
 }
 
 function getSearchQueriesFromProperties(properties: unknown): { rawQuery: string | null; normalizedQuery: string | null } {
@@ -109,6 +115,8 @@ export default async function SearchAnalyticsPage() {
   const t = await getTranslations('dashboard');
   const td = await getTranslations('dashboardPage');
   const locale = await getLocale();
+  const cookieStore = await cookies();
+  const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
 
   const searchEvents = await prisma.event.findMany({
     where: { eventType: EventType.search_performed },
@@ -288,11 +296,11 @@ export default async function SearchAnalyticsPage() {
             </div>
             <div>
               <p className="text-muted-foreground">{td('searches.summary.firstSearch')}</p>
-              <p className="text-lg font-semibold">{firstSearchAt ? formatDateTime(firstSearchAt, locale) : '—'}</p>
+              <p className="text-lg font-semibold">{firstSearchAt ? formatDateTime(firstSearchAt, locale, timeZone) : '—'}</p>
             </div>
             <div>
               <p className="text-muted-foreground">{td('searches.summary.lastSearch')}</p>
-              <p className="text-lg font-semibold">{lastSearchAt ? formatDateTime(lastSearchAt, locale) : '—'}</p>
+              <p className="text-lg font-semibold">{lastSearchAt ? formatDateTime(lastSearchAt, locale, timeZone) : '—'}</p>
             </div>
           </div>
 
@@ -315,8 +323,8 @@ export default async function SearchAnalyticsPage() {
                     <TableCell>{row.rawQuery ?? td('searches.unknownTerm')}</TableCell>
                     <TableCell>{row.normalizedQuery ?? td('searches.unknownTerm')}</TableCell>
                     <TableCell className="text-right">{row.count}</TableCell>
-                    <TableCell>{formatDateTime(row.firstAt, locale)}</TableCell>
-                    <TableCell>{formatDateTime(row.lastAt, locale)}</TableCell>
+                    <TableCell>{formatDateTime(row.firstAt, locale, timeZone)}</TableCell>
+                    <TableCell>{formatDateTime(row.lastAt, locale, timeZone)}</TableCell>
                     <TableCell className="text-right">{row.avgDaily.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{row.avgWeekly.toFixed(2)}</TableCell>
                   </TableRow>
