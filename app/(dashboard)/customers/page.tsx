@@ -118,6 +118,7 @@ export default async function CustomersPage(
         sessionId: true,
         occurredAt: true,
         eventType: true,
+        pagePath: true,
         properties: true,
       },
       orderBy: { occurredAt: 'desc' },
@@ -134,6 +135,7 @@ export default async function CustomersPage(
           customerId: true,
           sessionId: true,
           eventType: true,
+          pagePath: true,
         },
       })
     : [];
@@ -188,7 +190,7 @@ export default async function CustomersPage(
     if (!visitorId) continue;
 
     const pagePath = event.eventType === EventType.page_view
-      ? getStringProperty(event.properties, ['pagePath'])
+      ? event.pagePath
       : null;
     const productLabel = event.eventType === EventType.product_view
       ? getStringProperty(event.properties, ['productSlug', 'productId'])
