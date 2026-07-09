@@ -249,7 +249,13 @@ export default async function CustomersPage(
       pageViewsList: mapToSortedCountedValues(pageViewCounts),
       itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
     }))
-    .sort((a, b) => new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime())
+    .sort((a, b) => {
+      return new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime()
+        || b.visitsCount - a.visitsCount
+        || b.pageViews - a.pageViews
+        || b.itemsVisited - a.itemsVisited
+        || b.searchesPerformed - a.searchesPerformed;
+    })
     .slice(0, 100);
 
   // Build a map from category id -> name
