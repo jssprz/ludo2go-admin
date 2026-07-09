@@ -11,6 +11,11 @@ type CartSummary = {
   cartItemCount: number;
 };
 
+type CartDetailItem = {
+  value: string;
+  count: number;
+};
+
 function isCartEventType(eventType: EventType): boolean {
   return eventType.includes('cart');
 }
@@ -64,6 +69,43 @@ function getCartSummary(cart: {
   };
 }
 
+function getCartItemLabel(item: {
+  variant: {
+    displayTitleLong: string | null;
+    displayTitleShort: string | null;
+    sku: string;
+    product: { name: string };
+  };
+}): string {
+  return item.variant.displayTitleLong
+    ?? item.variant.displayTitleShort
+    ?? item.variant.product.name
+    ?? item.variant.sku;
+}
+
+function getCartItemsList(cart: {
+  items: Array<{
+    quantity: number;
+    variant: {
+      displayTitleLong: string | null;
+      displayTitleShort: string | null;
+      sku: string;
+      product: { name: string };
+    };
+  }>;
+} | null | undefined): CartDetailItem[] {
+  if (!cart) return [];
+
+  const quantitiesByLabel = new Map<string, number>();
+
+  for (const item of cart.items) {
+    const label = getCartItemLabel(item);
+    quantitiesByLabel.set(label, (quantitiesByLabel.get(label) ?? 0) + item.quantity);
+  }
+
+  return mapToSortedCountedValues(quantitiesByLabel);
+}
+
 export default async function CustomersPage(
   props: {
     searchParams: Promise<{ q?: string; offset?: string; sort?: string; order?: string }>;
@@ -113,7 +155,20 @@ export default async function CustomersPage(
           where: { status: 'active' },
           include: {
             items: {
-              select: { quantity: true, unitPriceAtAdd: true },
+              select: {
+                quantity: true,
+                unitPriceAtAdd: true,
+                variant: {
+                  select: {
+                    sku: true,
+                    displayTitleShort: true,
+                    displayTitleLong: true,
+                    product: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
             },
           },
           take: 1,
@@ -265,17 +320,33 @@ export default async function CustomersPage(
         },
         include: {
           items: {
-            select: { quantity: true, unitPriceAtAdd: true },
+            select: {
+              quantity: true,
+              unitPriceAtAdd: true,
+              variant: {
+                select: {
+                  sku: true,
+                  displayTitleShort: true,
+                  displayTitleLong: true,
+                  product: {
+                    select: { name: true },
+                  },
+                },
+              },
+            },
           },
         },
         orderBy: { updatedAt: 'desc' },
       })
     : [];
 
-  const anonymousCartMap = new Map<string, CartSummary>();
+  const anonymousCartMap = new Map<string, CartSummary & { cartItemsList: CartDetailItem[] }>();
   for (const cart of anonymousVisitorCarts) {
     if (!cart.visitorId || anonymousCartMap.has(cart.visitorId)) continue;
-    anonymousCartMap.set(cart.visitorId, getCartSummary(cart));
+    anonymousCartMap.set(cart.visitorId, {
+      ...getCartSummary(cart),
+      cartItemsList: getCartItemsList(cart),
+    });
   }
 
   const customerEventTypes = Array.from(customerEventTypeTotals.entries())
@@ -289,7 +360,7 @@ export default async function CustomersPage(
   const anonymousVisitors = Array.from(anonymousVisitorsMap.values())
     .map(({ sessionIds, pageViewCounts, itemVisitedCounts, ...visitor }) => ({
       ...visitor,
-      ...(anonymousCartMap.get(visitor.visitorId) ?? { cartTotal: 0, cartItemCount: 0 }),
+      ...(anonymousCartMap.get(visitor.visitorId) ?? { cartTotal: 0, cartItemCount: 0, cartItemsList: [] }),
       pageViewsList: mapToSortedCountedValues(pageViewCounts),
       itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
     }))

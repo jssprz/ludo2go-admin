@@ -75,6 +75,7 @@ export interface AnonymousVisitorRow {
   pageViews: number;
   cartTotal: number;
   cartItemCount: number;
+  cartItemsList: Array<{ value: string; count: number }>;
   itemsVisited: number;
   searchesPerformed: number;
   eventCounts: Partial<Record<EventType, number>>;
@@ -623,11 +624,18 @@ function AnonymousVisitorRowComponent({
       <TableCell className="font-mono text-xs">{visitorIdPrefix}</TableCell>
       <TableCell className="hidden md:table-cell">
         {visitor.cartItemCount > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm tabular-nums">{visitor.cartItemCount} items</span>
-            <span className="text-xs text-muted-foreground">({formatCurrency(visitor.cartTotal)})</span>
-          </div>
+          <DetailListDialog
+            trigger={(
+              <button className="flex items-center gap-1.5 underline decoration-dotted underline-offset-2 hover:text-foreground">
+                <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm tabular-nums">{visitor.cartItemCount} items</span>
+                <span className="text-xs text-muted-foreground">({formatCurrency(visitor.cartTotal)})</span>
+              </button>
+            )}
+            title={`Cart Items for ${visitorIdPrefix}`}
+            description="Items currently in the active cart"
+            rows={visitor.cartItemsList}
+          />
         ) : (
           <span className="text-sm text-muted-foreground">Empty</span>
         )}
