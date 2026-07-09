@@ -150,8 +150,8 @@
         "search": "Search",
         "rawQuery": "Raw Query",
         "normalizedQuery": "Normalized Query",
-        "count": "Count",
-        "firstDatetime": "First Datetime",
+        "count": "Count",            "clicks": "Clicks",
+            "ctr": "CTR",        "firstDatetime": "First Datetime",
         "lastDatetime": "Last Datetime",
         "avgDaily": "Avg Daily",
         "avgWeekly": "Avg Weekly"

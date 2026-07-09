@@ -149,8 +149,8 @@
         "search": "Búsqueda",
         "rawQuery": "Consulta original",
         "normalizedQuery": "Consulta normalizada",
-        "count": "Cantidad",
-        "firstDatetime": "Primera fecha y hora",
+        "count": "Cantidad",            "clicks": "Clics",
+            "ctr": "CTR",        "firstDatetime": "Primera fecha y hora",
         "lastDatetime": "Última fecha y hora",
         "avgDaily": "Promedio diario",
         "avgWeekly": "Promedio semanal"

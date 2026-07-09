@@ -118,11 +118,27 @@ export default async function SearchAnalyticsPage() {
   const cookieStore = await cookies();
   const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
 
-  const searchEvents = await prisma.event.findMany({
-    where: { eventType: EventType.search_performed },
-    select: { occurredAt: true, properties: true },
-    orderBy: { occurredAt: 'asc' },
-  });
+  const [searchEvents, clickEvents] = await Promise.all([
+    prisma.event.findMany({
+      where: { eventType: EventType.search_performed },
+      select: { occurredAt: true, properties: true },
+      orderBy: { occurredAt: 'asc' },
+    }),
+    prisma.event.findMany({
+      where: { eventType: 'search_result_click' as EventType },
+      select: { properties: true },
+    }),
+  ]);
+
+  // Build clicks-per-normalizedQuery map from search_result_click events
+  const clicksByNormalizedQuery = new Map<string, number>();
+  for (const clickEvent of clickEvents) {
+    const props = clickEvent.properties as Record<string, unknown> | null;
+    const sourceQuery = typeof props?.sourceQuery === 'string' ? props.sourceQuery.trim() : null;
+    if (!sourceQuery) continue;
+    const key = sourceQuery.toLowerCase();
+    clicksByNormalizedQuery.set(key, (clicksByNormalizedQuery.get(key) ?? 0) + 1);
+  }
 
   const searchTermStats = new Map<
     string,
@@ -188,12 +204,16 @@ export default async function SearchAnalyticsPage() {
     .map(([key, stats]) => {
       const activeDays = getInclusiveDaySpan(stats.firstAt, stats.lastAt);
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
+      const clicks = clicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
+      const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
 
       return {
         key,
         rawQuery: stats.rawQuery,
         normalizedQuery: stats.normalizedQuery,
         count: stats.count,
+        clicks,
+        ctr,
         firstAt: stats.firstAt,
         lastAt: stats.lastAt,
         avgDaily: stats.count / activeDays,
@@ -310,6 +330,8 @@ export default async function SearchAnalyticsPage() {
                 <TableHead>{td('searches.table.rawQuery')}</TableHead>
                 <TableHead>{td('searches.table.normalizedQuery')}</TableHead>
                 <TableHead className="text-right">{td('searches.table.count')}</TableHead>
+                <TableHead className="text-right">{td('searches.table.clicks')}</TableHead>
+                <TableHead className="text-right">{td('searches.table.ctr')}</TableHead>
                 <TableHead>{td('searches.table.firstDatetime')}</TableHead>
                 <TableHead>{td('searches.table.lastDatetime')}</TableHead>
                 <TableHead className="text-right">{td('searches.table.avgDaily')}</TableHead>
@@ -323,6 +345,8 @@ export default async function SearchAnalyticsPage() {
                     <TableCell>{row.rawQuery ?? td('searches.unknownTerm')}</TableCell>
                     <TableCell>{row.normalizedQuery ?? td('searches.unknownTerm')}</TableCell>
                     <TableCell className="text-right">{row.count}</TableCell>
+                    <TableCell className="text-right">{row.clicks}</TableCell>
+                    <TableCell className="text-right">{row.ctr.toFixed(1)}%</TableCell>
                     <TableCell>{formatDateTime(row.firstAt, locale, timeZone)}</TableCell>
                     <TableCell>{formatDateTime(row.lastAt, locale, timeZone)}</TableCell>
                     <TableCell className="text-right">{row.avgDaily.toFixed(2)}</TableCell>
@@ -331,7 +355,7 @@ export default async function SearchAnalyticsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     {td('searches.empty')}
                   </TableCell>
                 </TableRow>
