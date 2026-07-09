@@ -251,7 +251,7 @@ export default async function CustomersPage(
     }))
     .sort((a, b) => {
       return b.cartActivity - a.cartActivity
-        || new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime()
+        || new Date(b.lastVisitDate).getDate() - new Date(a.lastVisitDate).getDate()
         || b.visitsCount - a.visitsCount
         || b.pageViews - a.pageViews
         || b.itemsVisited - a.itemsVisited
