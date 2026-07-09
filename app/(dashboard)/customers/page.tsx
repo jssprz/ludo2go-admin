@@ -6,6 +6,11 @@ import { CreateCustomerDialog } from './create-customer-dialog';
 type EventCounts = Partial<Record<EventType, number>>;
 type CountedValue = { value: string; count: number };
 
+type CartSummary = {
+  cartTotal: number;
+  cartItemCount: number;
+};
+
 function isCartEventType(eventType: EventType): boolean {
   return eventType.includes('cart');
 }
@@ -38,6 +43,25 @@ function mapToSortedCountedValues(map: Map<string, number>): CountedValue[] {
   return Array.from(map.entries())
     .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
     .map(([value, count]) => ({ value, count }));
+}
+
+function getCartSummary(cart: {
+  items: Array<{ quantity: number; unitPriceAtAdd: number | null }>;
+} | null | undefined): CartSummary {
+  if (!cart) {
+    return {
+      cartTotal: 0,
+      cartItemCount: 0,
+    };
+  }
+
+  return {
+    cartTotal: cart.items.reduce(
+      (sum, item) => sum + (item.unitPriceAtAdd ?? 0) * item.quantity,
+      0
+    ),
+    cartItemCount: cart.items.reduce((sum, item) => sum + item.quantity, 0),
+  };
 }
 
 export default async function CustomersPage(
@@ -177,7 +201,6 @@ export default async function CustomersPage(
     visitsCount: number;
     sessionIds: Set<string>;
     pageViews: number;
-    cartActivity: number;
     itemsVisited: number;
     searchesPerformed: number;
     eventCounts: EventCounts;
@@ -207,7 +230,6 @@ export default async function CustomersPage(
         visitsCount: 1,
         sessionIds: new Set([event.sessionId]),
         pageViews: event.eventType === EventType.page_view ? 1 : 0,
-        cartActivity: isCartEventType(event.eventType) ? 1 : 0,
         itemsVisited: event.eventType === EventType.product_view ? 1 : 0,
         searchesPerformed: event.eventType === EventType.search_performed ? 1 : 0,
         eventCounts: { [event.eventType]: 1 },
@@ -224,7 +246,6 @@ export default async function CustomersPage(
     existing.sessionIds.add(event.sessionId);
     existing.visitsCount = existing.sessionIds.size;
     existing.eventCounts[event.eventType] = (existing.eventCounts[event.eventType] ?? 0) + 1;
-    if (isCartEventType(event.eventType)) existing.cartActivity += 1;
     if (pagePath) existing.pageViewCounts.set(pagePath, (existing.pageViewCounts.get(pagePath) ?? 0) + 1);
     if (productLabel) existing.itemVisitedCounts.set(productLabel, (existing.itemVisitedCounts.get(productLabel) ?? 0) + 1);
 
@@ -233,6 +254,28 @@ export default async function CustomersPage(
     if (event.eventType === EventType.page_view) existing.pageViews += 1;
     if (event.eventType === EventType.product_view) existing.itemsVisited += 1;
     if (event.eventType === EventType.search_performed) existing.searchesPerformed += 1;
+  }
+
+  const anonymousVisitorIds = Array.from(anonymousVisitorsMap.keys());
+  const anonymousVisitorCarts = anonymousVisitorIds.length
+    ? await prisma.cart.findMany({
+        where: {
+          visitorId: { in: anonymousVisitorIds },
+          status: 'active',
+        },
+        include: {
+          items: {
+            select: { quantity: true, unitPriceAtAdd: true },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+    : [];
+
+  const anonymousCartMap = new Map<string, CartSummary>();
+  for (const cart of anonymousVisitorCarts) {
+    if (!cart.visitorId || anonymousCartMap.has(cart.visitorId)) continue;
+    anonymousCartMap.set(cart.visitorId, getCartSummary(cart));
   }
 
   const customerEventTypes = Array.from(customerEventTypeTotals.entries())
@@ -246,11 +289,12 @@ export default async function CustomersPage(
   const anonymousVisitors = Array.from(anonymousVisitorsMap.values())
     .map(({ sessionIds, pageViewCounts, itemVisitedCounts, ...visitor }) => ({
       ...visitor,
+      ...(anonymousCartMap.get(visitor.visitorId) ?? { cartTotal: 0, cartItemCount: 0 }),
       pageViewsList: mapToSortedCountedValues(pageViewCounts),
       itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
     }))
     .sort((a, b) => {
-      return b.cartActivity - a.cartActivity
+      return b.cartItemCount - a.cartItemCount
         || new Date(b.lastVisitDate).getDate() - new Date(a.lastVisitDate).getDate()
         || b.visitsCount - a.visitsCount
         || b.pageViews - a.pageViews
@@ -265,15 +309,7 @@ export default async function CustomersPage(
   // Transform the data for the table
   const rows = customers.map((c) => {
     const activeCart = c.carts[0];
-    const cartTotal = activeCart
-      ? activeCart.items.reduce(
-          (sum, item) => sum + (item.unitPriceAtAdd ?? 0) * item.quantity,
-          0
-        )
-      : 0;
-    const cartItemCount = activeCart
-      ? activeCart.items.reduce((sum, item) => sum + item.quantity, 0)
-      : 0;
+    const { cartTotal, cartItemCount } = getCartSummary(activeCart);
 
     const favCategories = (c.favoriteGameCategories ?? [])
       .map((id) => categoryMap.get(id))

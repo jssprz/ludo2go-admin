@@ -73,7 +73,8 @@ export interface AnonymousVisitorRow {
   lastVisitDate: string;
   visitsCount: number;
   pageViews: number;
-  cartActivity: number;
+  cartTotal: number;
+  cartItemCount: number;
   itemsVisited: number;
   searchesPerformed: number;
   eventCounts: Partial<Record<EventType, number>>;
@@ -620,7 +621,17 @@ function AnonymousVisitorRowComponent({
   return (
     <TableRow>
       <TableCell className="font-mono text-xs">{visitorIdPrefix}</TableCell>
-      <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.cartActivity}</TableCell>
+      <TableCell className="hidden md:table-cell">
+        {visitor.cartItemCount > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm tabular-nums">{visitor.cartItemCount} items</span>
+            <span className="text-xs text-muted-foreground">({formatCurrency(visitor.cartTotal)})</span>
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">Empty</span>
+        )}
+      </TableCell>
       <TableCell className="hidden md:table-cell text-sm">
         <div className="space-y-0.5">
           <div>{formatDate(visitor.firstVisitDate)}</div>
