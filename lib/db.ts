@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { prisma } from '@jssprz/ludo2go-database';
-import { ProductStatus, ProductKind } from '@prisma/client';
+import { ProductStatus, ProductKind, EventType } from '@prisma/client';
 
 export type SortableProductColumn =
   | 'name'
@@ -101,10 +101,33 @@ export async function getProducts(
     skip: offset,
     orderBy
   });
+
+  const productSlugs = moreProducts.map((product) => product.slug);
+  const productViewEvents = productSlugs.length
+    ? await prisma.event.findMany({
+        where: { eventType: EventType.product_view },
+        select: { properties: true },
+      })
+    : [];
+
+  const viewsBySlug = new Map<string, number>();
+  for (const event of productViewEvents) {
+    if (!event.properties || typeof event.properties !== 'object') continue;
+    const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
+    if (typeof productSlug !== 'string') continue;
+    if (!productSlugs.includes(productSlug)) continue;
+    viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
+  }
+
+  const productsWithViews = moreProducts.map((product) => ({
+    ...product,
+    productViews: viewsBySlug.get(product.slug) ?? 0,
+  }));
+
   let newOffset = moreProducts.length + offset;
 
   return {
-    products: moreProducts,
+    products: productsWithViews,
     newOffset: newOffset,
     totalProducts: totalProducts
   };

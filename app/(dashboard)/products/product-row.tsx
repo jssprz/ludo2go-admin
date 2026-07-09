@@ -38,6 +38,7 @@ export interface SelectProduct {
   createdAt: Date;
   mediaLinks: { media: { url: string } }[];
   variants: any[];
+  productViews: number;
   createdByAdminUser: AuditUser;
   updatedByAdminUser: AuditUser;
 }
@@ -92,7 +93,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
         {product.brand?.name ?? '—'}
       </TableCell>
       <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
-      <TableCell className="hidden md:table-cell">0</TableCell>
+      <TableCell className="hidden md:table-cell">{product.productViews}</TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}

@@ -180,7 +180,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <TableHead className="hidden md:table-cell">
-                {t('totalSales')}
+                {t('productViews')}
               </TableHead>
               <SortableHeader
                 label={t('stock')}
