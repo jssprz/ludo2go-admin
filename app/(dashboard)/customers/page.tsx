@@ -51,7 +51,11 @@ function mapToSortedCountedValues(map: Map<string, number>): CountedValue[] {
 }
 
 function getCartSummary(cart: {
-  items: Array<{ quantity: number; unitPriceAtAdd: number | null }>;
+  items: Array<{
+    quantity: number;
+    unitPriceAtAdd: number | null;
+    variant?: { prices?: Array<{ amount: number }> } | null;
+  }>;
 } | null | undefined): CartSummary {
   if (!cart) {
     return {
@@ -61,10 +65,10 @@ function getCartSummary(cart: {
   }
 
   return {
-    cartTotal: cart.items.reduce(
-      (sum, item) => sum + (item.unitPriceAtAdd ?? 0) * item.quantity,
-      0
-    ),
+    cartTotal: cart.items.reduce((sum, item) => {
+      const unitPrice = item.unitPriceAtAdd ?? item.variant?.prices?.[0]?.amount ?? 0;
+      return sum + unitPrice * item.quantity;
+    }, 0),
     cartItemCount: cart.items.reduce((sum, item) => sum + item.quantity, 0),
   };
 }
@@ -165,6 +169,11 @@ export default async function CustomersPage(
                     displayTitleLong: true,
                     product: {
                       select: { name: true },
+                    },
+                    prices: {
+                      where: { active: true },
+                      select: { amount: true },
+                      take: 1,
                     },
                   },
                 },
@@ -330,6 +339,11 @@ export default async function CustomersPage(
                   displayTitleLong: true,
                   product: {
                     select: { name: true },
+                  },
+                  prices: {
+                    where: { active: true },
+                    select: { amount: true },
+                    take: 1,
                   },
                 },
               },
