@@ -211,7 +211,7 @@ export default async function SearchAnalyticsPage() {
       orderBy: { occurredAt: 'asc' },
     }),
     prisma.event.findMany({
-      where: { eventType: 'typeahead_results_click' as EventType },
+      where: { eventType: 'typeahead_result_click' as EventType },
       select: { properties: true },
     }),
   ]);
@@ -326,7 +326,7 @@ export default async function SearchAnalyticsPage() {
   const firstSearchAt = totalSearches ? searchEvents[0].occurredAt : null;
   const lastSearchAt = totalSearches ? searchEvents[searchEvents.length - 1].occurredAt : null;
 
-  // Build clicks-per-normalizedQuery map from typeahead_results_click events
+  // Build clicks-per-normalizedQuery map from typeahead_result_click events
   const typeaheadClicksByNormalizedQuery = new Map<string, number>();
   for (const clickEvent of typeaheadClickEvents) {
     const props = clickEvent.properties as Record<string, unknown> | null;
