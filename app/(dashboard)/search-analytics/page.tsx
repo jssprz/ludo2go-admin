@@ -171,6 +171,43 @@ function getTypeaheadResultCountFromProperties(properties: unknown): number | nu
   return null;
 }
 
+function getClickSourceQuery(properties: unknown): string | null {
+  if (!properties || typeof properties !== 'object') {
+    return null;
+  }
+
+  const props = properties as {
+    sourceQuery?: unknown;
+    normalizedQuery?: unknown;
+    query?: unknown;
+    rawQuery?: unknown;
+    searchQuery?: unknown;
+    searchTerm?: unknown;
+    term?: unknown;
+  };
+
+  const candidates = [
+    props.sourceQuery,
+    props.normalizedQuery,
+    props.query,
+    props.rawQuery,
+    props.searchQuery,
+    props.searchTerm,
+    props.term,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const normalized = candidate.trim().toLowerCase();
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
+  }
+
+  return null;
+}
+
 function getDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -219,10 +256,8 @@ export default async function SearchAnalyticsPage() {
   // Build clicks-per-normalizedQuery map from search_result_click events
   const clicksByNormalizedQuery = new Map<string, number>();
   for (const clickEvent of clickEvents) {
-    const props = clickEvent.properties as Record<string, unknown> | null;
-    const sourceQuery = typeof props?.sourceQuery === 'string' ? props.sourceQuery.trim() : null;
-    if (!sourceQuery) continue;
-    const key = sourceQuery.toLowerCase();
+    const key = getClickSourceQuery(clickEvent.properties);
+    if (!key) continue;
     clicksByNormalizedQuery.set(key, (clicksByNormalizedQuery.get(key) ?? 0) + 1);
   }
 
@@ -329,10 +364,8 @@ export default async function SearchAnalyticsPage() {
   // Build clicks-per-normalizedQuery map from typeahead_result_click events
   const typeaheadClicksByNormalizedQuery = new Map<string, number>();
   for (const clickEvent of typeaheadClickEvents) {
-    const props = clickEvent.properties as Record<string, unknown> | null;
-    const sourceQuery = typeof props?.sourceQuery === 'string' ? props.sourceQuery.trim() : null;
-    if (!sourceQuery) continue;
-    const key = sourceQuery.toLowerCase();
+    const key = getClickSourceQuery(clickEvent.properties);
+    if (!key) continue;
     typeaheadClicksByNormalizedQuery.set(key, (typeaheadClicksByNormalizedQuery.get(key) ?? 0) + 1);
   }
 
