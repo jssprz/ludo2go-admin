@@ -211,6 +211,7 @@ export function CustomersTable({
   customers,
   anonymousVisitors,
   totalCustomers,
+  totalAnonymusVisitors,
   offset,
   search,
   sortBy,
@@ -221,6 +222,7 @@ export function CustomersTable({
   customers: CustomerRow[];
   anonymousVisitors: AnonymousVisitorRow[];
   totalCustomers: number;
+  totalAnonymusVisitors: number;
   offset: number;
   search: string;
   sortBy: string;
@@ -396,7 +398,7 @@ export function CustomersTable({
           <CardTitle>
             Unregistered Visitors
             <Badge variant="secondary" className="ml-2 text-xs">
-              {anonymousVisitors.length}
+              {`Showing ${anonymousVisitors.length} of ${totalAnonymusVisitors}`}
             </Badge>
           </CardTitle>
           <CardDescription>
@@ -427,7 +429,7 @@ export function CustomersTable({
                 </TableRow>
               ) : (
                 anonymousVisitors.map((visitor) => (
-                    <AnonymousVisitorRowComponent key={visitor.visitorId} visitor={visitor} eventTypes={anonymousEventTypes} />
+                  <AnonymousVisitorRowComponent key={visitor.visitorId} visitor={visitor} eventTypes={anonymousEventTypes} />
                 ))
               )}
             </TableBody>

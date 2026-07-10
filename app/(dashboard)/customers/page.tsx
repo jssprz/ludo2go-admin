@@ -442,6 +442,7 @@ export default async function CustomersPage(
         customers={rows}
         anonymousVisitors={anonymousVisitors}
         totalCustomers={totalCustomers}
+        totalAnonymusVisitors={anonymousVisitorsMap.size}
         offset={offset + customers.length}
         search={search}
         sortBy={sortBy}
