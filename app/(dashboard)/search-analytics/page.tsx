@@ -155,17 +155,41 @@ function getTypeaheadResultCountFromProperties(properties: unknown): number | nu
 
   const props = properties as {
     resultCount?: unknown;
+    productCount?: unknown;
+    suggestionCount?: unknown;
+    itemCount?: unknown;
   };
 
-  if (typeof props.resultCount === 'number' && Number.isFinite(props.resultCount)) {
-    return Math.max(0, props.resultCount);
+  const parseCount = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, value);
+    }
+
+    if (typeof value === 'string') {
+      const parsed = Number(value.trim());
+      if (Number.isFinite(parsed)) {
+        return Math.max(0, parsed);
+      }
+    }
+
+    return null;
+  };
+
+  const explicitResultCount = parseCount(props.resultCount);
+  if (explicitResultCount !== null) {
+    return explicitResultCount;
   }
 
-  if (typeof props.resultCount === 'string') {
-    const parsed = Number(props.resultCount.trim());
-    if (Number.isFinite(parsed)) {
-      return Math.max(0, parsed);
-    }
+  const itemCount = parseCount(props.itemCount);
+  if (itemCount !== null) {
+    return itemCount;
+  }
+
+  const productCount = parseCount(props.productCount);
+  const suggestionCount = parseCount(props.suggestionCount);
+
+  if (productCount !== null || suggestionCount !== null) {
+    return (productCount ?? 0) + (suggestionCount ?? 0);
   }
 
   return null;
