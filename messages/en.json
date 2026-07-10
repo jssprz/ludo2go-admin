@@ -157,6 +157,36 @@
         "avgWeekly": "Avg Weekly"
       }
     },
+    "typeaheads": {
+      "title": "Typeaheads",
+      "unknownTerm": "Unknown typeahead",
+      "empty": "No typeahead events found.",
+      "cards": {
+        "weekdayAverage": "Weekday Avg Typeaheads",
+        "dailyAverage": "Daily Avg Typeaheads",
+        "weeklyAverage": "Weekly Avg Typeaheads",
+        "uniqueTerms": "Unique Typeahead Terms",
+        "emptyResults": "Empty Result Typeaheads",
+        "avgResultItems": "Avg Result Items"
+      },
+      "summary": {
+        "totalTypeaheads": "Total Typeaheads",
+        "firstTypeahead": "First Typeahead",
+        "lastTypeahead": "Last Typeahead"
+      },
+      "table": {
+        "title": "Top Typeaheads",
+        "rawQuery": "Raw Query",
+        "normalizedQuery": "Normalized Query",
+        "count": "Count",
+        "clicks": "Clicks",
+        "ctr": "CTR",
+        "firstDatetime": "First Datetime",
+        "lastDatetime": "Last Datetime",
+        "avgDaily": "Avg Daily",
+        "avgWeekly": "Avg Weekly"
+      }
+    },
     "quick": {
       "catalog": {
         "title": "Catalog",

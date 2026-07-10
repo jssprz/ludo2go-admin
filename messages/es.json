@@ -156,6 +156,36 @@
         "avgWeekly": "Promedio semanal"
       }
     },
+    "typeaheads": {
+      "title": "Typeaheads",
+      "unknownTerm": "Typeahead desconocido",
+      "empty": "No se encontraron eventos de typeahead.",
+      "cards": {
+        "weekdayAverage": "Promedio typeaheads (días hábiles)",
+        "dailyAverage": "Promedio diario de typeaheads",
+        "weeklyAverage": "Promedio semanal de typeaheads",
+        "uniqueTerms": "Términos de typeahead únicos",
+        "emptyResults": "Typeaheads sin resultados",
+        "avgResultItems": "Promedio de ítems en resultados"
+      },
+      "summary": {
+        "totalTypeaheads": "Typeaheads totales",
+        "firstTypeahead": "Primer typeahead",
+        "lastTypeahead": "Último typeahead"
+      },
+      "table": {
+        "title": "Typeaheads principales",
+        "rawQuery": "Consulta original",
+        "normalizedQuery": "Consulta normalizada",
+        "count": "Cantidad",
+        "clicks": "Clics",
+        "ctr": "CTR",
+        "firstDatetime": "Primera fecha y hora",
+        "lastDatetime": "Última fecha y hora",
+        "avgDaily": "Promedio diario",
+        "avgWeekly": "Promedio semanal"
+      }
+    },
     "quick": {
       "catalog": {
         "title": "Catálogo",
