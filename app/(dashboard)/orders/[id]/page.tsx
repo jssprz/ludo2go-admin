@@ -38,22 +38,61 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: {
-      customer: true,
+    select: {
+      id: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      subtotal: true,
+      tax: true,
+      shipping: true,
+      total: true,
+      currency: true,
+      notes: true,
+      customer: {
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+        },
+      },
       items: {
-        include: {
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          currency: true,
           variant: {
-            include: {
-              product: true,
+            select: {
+              sku: true,
+              edition: true,
+              product: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
           customizations: {
-            include: {
+            select: {
+              id: true,
+              priceDelta: true,
+              valueString: true,
+              valueText: true,
+              valueBoolean: true,
+              valueDate: true,
+              valueJson: true,
               group: true,
               option: true,
               selectedVariant: {
-                include: {
-                  product: true,
+                select: {
+                  sku: true,
+                  product: {
+                    select: {
+                      name: true,
+                    },
+                  },
                 },
               },
               selectedAddress: true,
@@ -62,8 +101,6 @@ export default async function OrderDetailPage({ params }: PageProps) {
         },
       },
       shippingAddr: true,
-      billingAddr: true,
-      payments: true,
     },
   });
 
@@ -137,10 +174,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
           <CardContent className="space-y-2">
             <div>
               <p className="font-medium">
-                {order.customer.firstName} {order.customer.lastName}
+                {order.customer
+                  ? `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim() || order.customer.email
+                  : 'Guest / Missing customer'}
               </p>
-              <p className="text-sm text-muted-foreground">{order.customer.email}</p>
-              {order.customer.phone && (
+              <p className="text-sm text-muted-foreground">{order.customer?.email ?? 'No email'}</p>
+              {order.customer?.phone && (
                 <p className="text-sm text-muted-foreground">{order.customer.phone}</p>
               )}
             </div>
@@ -207,10 +246,10 @@ export default async function OrderDetailPage({ params }: PageProps) {
                 className="flex items-center justify-between border-b pb-4 last:border-0"
               >
                 <div className="flex-1">
-                  <p className="font-medium">{item.variant.product.name}</p>
+                  <p className="font-medium">{item.variant?.product?.name ?? 'Unknown product'}</p>
                   <p className="text-sm text-muted-foreground">
-                    SKU: {item.variant.sku}
-                    {item.variant.edition && ` • ${item.variant.edition}`}
+                    SKU: {item.variant?.sku ?? '—'}
+                    {item.variant?.edition && ` • ${item.variant.edition}`}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Quantity: {item.quantity}
@@ -224,7 +263,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
                         const selectedValue =
                           customization.option?.label ??
                           (customization.selectedVariant
-                            ? `${customization.selectedVariant.product.name} (${customization.selectedVariant.sku})`
+                            ? `${customization.selectedVariant.product?.name ?? 'Unknown product'} (${customization.selectedVariant.sku})`
                             : null) ??
                           (customization.selectedAddress
                             ? [
