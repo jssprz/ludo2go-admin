@@ -194,6 +194,8 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-sm space-y-1">
+                <p>{`${order.shippingAddr.firstName} ${order.shippingAddr.lastName}`}</p>
+                <p>{order.shippingAddr.phone}</p>
                 <p>{order.shippingAddr.line1}</p>
                 {order.shippingAddr.line2 && <p>{order.shippingAddr.line2}</p>}
                 <p>
