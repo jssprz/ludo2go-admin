@@ -6,7 +6,12 @@ import { OrdersTable } from './orders-table';
 
 export default async function OrdersPage() {
   const orders = await prisma.order.findMany({
-    include: {
+    select: {
+      id: true,
+      status: true,
+      total: true,
+      currency: true,
+      createdAt: true,
       customer: {
         select: {
           id: true,
@@ -16,9 +21,13 @@ export default async function OrdersPage() {
         },
       },
       items: {
-        include: {
+        select: {
+          id: true,
+          quantity: true,
           variant: {
-            include: {
+            select: {
+              id: true,
+              sku: true,
               product: {
                 select: {
                   id: true,
@@ -29,7 +38,6 @@ export default async function OrdersPage() {
           },
         },
       },
-      shippingAddr: true,
     },
     orderBy: {
       createdAt: 'desc',

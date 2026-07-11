@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Order, Customer, OrderItem, ProductVariant, Product, Address, OrderStatus } from '@prisma/client';
+import type { OrderStatus } from '@prisma/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,14 +21,30 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type OrderWithDetails = Order & {
-  customer: Pick<Customer, 'id' | 'email' | 'firstName' | 'lastName'>;
-  items: (OrderItem & {
-    variant: ProductVariant & {
-      product: Pick<Product, 'id' | 'name'>;
-    };
-  })[];
-  shippingAddr: Address | null;
+type OrderWithDetails = {
+  id: string;
+  status: OrderStatus;
+  total: number;
+  currency: string;
+  createdAt: Date;
+  customer: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
+  items: Array<{
+    id: string;
+    quantity: number;
+    variant: {
+      id: string;
+      sku: string;
+      product: {
+        id: string;
+        name: string;
+      } | null;
+    } | null;
+  }>;
 };
 
 type Props = {
@@ -87,6 +103,10 @@ export function OrdersTable({ orders }: Props) {
   }
 
   function getCustomerName(customer: OrderWithDetails['customer']) {
+    if (!customer) {
+      return 'Guest / Missing customer';
+    }
+
     if (customer.firstName || customer.lastName) {
       return `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
     }
@@ -127,7 +147,7 @@ export function OrdersTable({ orders }: Props) {
                     {getCustomerName(order.customer)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {order.customer.email}
+                    {order.customer?.email ?? 'No email'}
                   </span>
                 </div>
               </TableCell>
@@ -135,7 +155,7 @@ export function OrdersTable({ orders }: Props) {
                 <div className="flex flex-col gap-1">
                   {order.items.slice(0, 2).map((item) => (
                     <div key={item.id} className="text-xs">
-                      {item.quantity}x {item.variant.product.name}
+                      {item.quantity}x {item.variant?.product?.name ?? item.variant?.sku ?? 'Unknown variant'}
                     </div>
                   ))}
                   {order.items.length > 2 && (
