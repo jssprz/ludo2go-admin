@@ -255,8 +255,13 @@ export default async function CustomersPage(
         },
         orders: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: { createdAt: true, total: true, currency: true },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            total: true,
+            currency: true,
+          },
         },
         carts: {
           where: { status: 'active' },
@@ -556,6 +561,7 @@ export default async function CustomersPage(
   const rows = customers.map((c) => {
     const activeCart = c.carts[0];
     const { cartTotal, cartItemCount } = getCartSummary(activeCart);
+    const cartItemsList = getCartItemsList(activeCart);
 
     const favCategories = (c.favoriteGameCategories ?? [])
       .map((id) => categoryMap.get(id))
@@ -587,8 +593,16 @@ export default async function CustomersPage(
       lastOrderDate: c.orders[0]?.createdAt?.toISOString() ?? null,
       lastOrderTotal: c.orders[0]?.total ?? null,
       lastOrderCurrency: c.orders[0]?.currency ?? null,
+      orders: c.orders.map((order) => ({
+        id: order.id,
+        status: order.status,
+        createdAt: order.createdAt.toISOString(),
+        total: order.total,
+        currency: order.currency,
+      })),
       cartTotal,
       cartItemCount,
+      cartItemsList,
       favoriteCategories: favCategories,
       lastVisitDate: c.events[0]?.occurredAt?.toISOString() ?? null,
       visitsCount: customerActivityMap.get(c.id)?.visitsCount ?? 0,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { EventType } from '@prisma/client';
 import {
@@ -55,8 +56,16 @@ export interface CustomerRow {
   lastOrderDate: string | null;
   lastOrderTotal: number | null;
   lastOrderCurrency: string | null;
+  orders: Array<{
+    id: string;
+    status: string;
+    createdAt: string;
+    total: number;
+    currency: string;
+  }>;
   cartTotal: number;
   cartItemCount: number;
+  cartItemsList: Array<{ value: string; count: number }>;
   favoriteCategories: string[];
   lastVisitDate: string | null;
   visitsCount: number;
@@ -128,6 +137,13 @@ function formatCurrency(amount: number, currency?: string | null): string {
 
 function formatEventTypeLabel(eventType: string): string {
   return eventType
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatStatusLabel(status: string): string {
+  return status
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
@@ -239,6 +255,69 @@ function AddressListDialog({
                       ) : (
                         <span className="text-xs text-muted-foreground">No</span>
                       )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CustomerOrdersDialog({
+  trigger,
+  title,
+  description,
+  orders,
+}: {
+  trigger: React.ReactNode;
+  title: string;
+  description: string;
+  orders: CustomerRow['orders'];
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {orders.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No orders found.</div>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left font-medium">Order</th>
+                  <th className="px-3 py-2 text-left font-medium">Date</th>
+                  <th className="px-3 py-2 text-left font-medium">Status</th>
+                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id} className="border-b last:border-b-0">
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+                      >
+                        {order.id.slice(0, 12)}...
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">{formatDate(order.createdAt)}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 uppercase">
+                        {formatStatusLabel(order.status)}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCurrency(order.total, order.currency)}
                     </td>
                   </tr>
                 ))}
@@ -414,9 +493,9 @@ export function CustomersTable({
                   onSort={handleSort}
                 />
                 <TableHead className="hidden lg:table-cell">Last Purchase</TableHead>
-                <TableHead className="hidden xl:table-cell">Preferred Categories</TableHead>
-                <TableHead className="hidden lg:table-cell">Addresses</TableHead>
+                <TableHead className="hidden xl:table-cell">Pref Cat</TableHead>
                 <TableHead className="hidden lg:table-cell">Last Visit</TableHead>
+                <TableHead className="hidden lg:table-cell">Addresses</TableHead>
                 <TableHead className="hidden lg:table-cell">Visits</TableHead>
                 <TableHead className="hidden lg:table-cell">Items Visited</TableHead>
                 <TableHead className="hidden lg:table-cell">Searches</TableHead>
@@ -429,7 +508,7 @@ export function CustomersTable({
                   className="hidden md:table-cell"
                   onSort={handleSort}
                 />
-                <TableHead className="hidden md:table-cell">Info</TableHead>
+                <TableHead className="hidden md:table-cell">Reviews</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -556,15 +635,22 @@ function CustomerRowComponent({
       {/* Active cart */}
       <TableCell className="hidden lg:table-cell">
         {c.cartItemCount > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm tabular-nums">
-              {c.cartItemCount} items
-            </span>
-            <span className="text-xs text-muted-foreground">
-              ({formatCurrency(c.cartTotal)})
-            </span>
-          </div>
+          <DetailListDialog
+            trigger={(
+              <button className="flex items-center gap-1.5 underline decoration-dotted underline-offset-2 hover:text-foreground">
+                <ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm tabular-nums">
+                  {c.cartItemCount} items
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  ({formatCurrency(c.cartTotal)})
+                </span>
+              </button>
+            )}
+            title={`Cart Items for ${fullName}`}
+            description="Items currently in the active cart"
+            rows={c.cartItemsList}
+          />
         ) : (
           <span className="text-sm text-muted-foreground">Empty</span>
         )}
@@ -573,7 +659,16 @@ function CustomerRowComponent({
       {/* Orders count */}
       <TableCell>
         <div className="flex items-center gap-1.5">
-          <span className="font-medium tabular-nums">{c.ordersCount}</span>
+          <CustomerOrdersDialog
+            trigger={(
+              <button className="font-medium tabular-nums underline decoration-dotted underline-offset-2 hover:text-foreground">
+                {c.ordersCount}
+              </button>
+            )}
+            title={`Orders for ${fullName}`}
+            description="Click an order ID to open its admin detail page."
+            orders={c.orders}
+          />
           {c.lastOrderTotal !== null && (
             <span className="text-xs text-muted-foreground">
               (last: {formatCurrency(c.lastOrderTotal, c.lastOrderCurrency)})
@@ -692,26 +787,9 @@ function CustomerRowComponent({
         </div>
       </TableCell>
 
-      {/* Info badges */}
-      <TableCell className="hidden md:table-cell">
-        <div className="flex flex-wrap gap-1">
-          {c.newsletter && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
-              <Mail className="h-2.5 w-2.5" />
-              Newsletter
-            </Badge>
-          )}
-          {c.preferredLanguage && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 uppercase">
-              {c.preferredLanguage}
-            </Badge>
-          )}
-          {c.reviewsCount > 0 && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-              {c.reviewsCount} reviews
-            </Badge>
-          )}
-        </div>
+      {/* Reviews */}
+      <TableCell className="hidden lg:table-cell text-sm tabular-nums">
+        {c.reviewsCount}
       </TableCell>
     </TableRow>
   );
