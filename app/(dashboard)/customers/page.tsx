@@ -16,6 +16,29 @@ type CartDetailItem = {
   count: number;
 };
 
+type AddressRow = {
+  id: string;
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  isPreferred: boolean;
+};
+
+type AddressEventValue = {
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  isPreferred: boolean;
+};
+
 function isCartEventType(eventType: EventType): boolean {
   return eventType.includes('cart');
 }
@@ -42,6 +65,86 @@ function getStringProperty(properties: unknown, keys: string[]): string | null {
   }
 
   return null;
+}
+
+function getBooleanProperty(obj: Record<string, unknown>, keys: string[]): boolean {
+  for (const key of keys) {
+    if (typeof obj[key] === 'boolean') return obj[key] as boolean;
+  }
+
+  return false;
+}
+
+function parseAddressFromRecord(record: Record<string, unknown>): AddressEventValue | null {
+  const line1 = getStringProperty(record, ['line1', 'addressLine1']);
+  const city = getStringProperty(record, ['city']);
+  const country = getStringProperty(record, ['country']);
+
+  if (!line1 || !city || !country) return null;
+
+  return {
+    label: getStringProperty(record, ['label', 'name', 'type']),
+    line1,
+    line2: getStringProperty(record, ['line2', 'addressLine2']),
+    city,
+    region: getStringProperty(record, ['region', 'state']),
+    postalCode: getStringProperty(record, ['postalCode', 'zip']),
+    country,
+    isPreferred: getBooleanProperty(record, ['isPreferred', 'preferred', 'isDefault']),
+  };
+}
+
+function extractAddressesFromProperties(properties: unknown): AddressEventValue[] {
+  const found: AddressEventValue[] = [];
+
+  function walk(value: unknown, depth: number) {
+    if (depth > 5 || value === null || value === undefined) return;
+
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item, depth + 1);
+      return;
+    }
+
+    if (typeof value !== 'object') return;
+    const record = value as Record<string, unknown>;
+
+    const parsed = parseAddressFromRecord(record);
+    if (parsed) found.push(parsed);
+
+    for (const child of Object.values(record)) {
+      if (child && typeof child === 'object') {
+        walk(child, depth + 1);
+      }
+    }
+  }
+
+  walk(properties, 0);
+
+  const deduped = new Map<string, AddressEventValue>();
+  for (const address of found) {
+    const key = [
+      address.line1,
+      address.line2 ?? '',
+      address.city,
+      address.region ?? '',
+      address.postalCode ?? '',
+      address.country,
+    ].join('|').toLowerCase();
+
+    const existing = deduped.get(key);
+    if (!existing) {
+      deduped.set(key, address);
+      continue;
+    }
+
+    deduped.set(key, {
+      ...existing,
+      label: existing.label ?? address.label,
+      isPreferred: existing.isPreferred || address.isPreferred,
+    });
+  }
+
+  return Array.from(deduped.values());
 }
 
 function mapToSortedCountedValues(map: Map<string, number>): CountedValue[] {
@@ -188,6 +291,18 @@ export default async function CustomersPage(
           take: 1,
           select: { occurredAt: true },
         },
+        addresses: {
+          select: {
+            id: true,
+            label: true,
+            line1: true,
+            line2: true,
+            city: true,
+            region: true,
+            postalCode: true,
+            country: true,
+          },
+        },
       },
       orderBy,
       skip: offset,
@@ -271,6 +386,7 @@ export default async function CustomersPage(
     pageViewCounts: Map<string, number>;
     itemVisitedCounts: Map<string, number>;
   }>();
+  const anonymousAddressCandidates = new Map<string, Map<string, AddressRow>>();
 
   for (const event of anonymousEvents) {
     const visitorId = getVisitorIdFromProperties(event.properties);
@@ -282,6 +398,45 @@ export default async function CustomersPage(
     const productLabel = event.eventType === EventType.product_view
       ? getStringProperty(event.properties, ['productSlug', 'productId'])
       : null;
+    const addressesInEvent = extractAddressesFromProperties(event.properties);
+
+    if (addressesInEvent.length > 0) {
+      const current = anonymousAddressCandidates.get(visitorId) ?? new Map<string, AddressRow>();
+      for (const address of addressesInEvent) {
+        const key = [
+          address.line1,
+          address.line2 ?? '',
+          address.city,
+          address.region ?? '',
+          address.postalCode ?? '',
+          address.country,
+        ].join('|').toLowerCase();
+
+        const existing = current.get(key);
+        if (!existing) {
+          current.set(key, {
+            id: key,
+            label: address.label,
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            region: address.region,
+            postalCode: address.postalCode,
+            country: address.country,
+            isPreferred: address.isPreferred,
+          });
+          continue;
+        }
+
+        current.set(key, {
+          ...existing,
+          label: existing.label ?? address.label,
+          isPreferred: existing.isPreferred || address.isPreferred,
+        });
+      }
+
+      anonymousAddressCandidates.set(visitorId, current);
+    }
 
     const existing = anonymousVisitorsMap.get(visitorId);
     const occurredAtIso = event.occurredAt.toISOString();
@@ -363,6 +518,11 @@ export default async function CustomersPage(
     });
   }
 
+  const anonymousAddressMap = new Map<string, AddressRow[]>();
+  for (const [visitorId, addressesMap] of Array.from(anonymousAddressCandidates.entries())) {
+    anonymousAddressMap.set(visitorId, Array.from(addressesMap.values()));
+  }
+
   const customerEventTypes = Array.from(customerEventTypeTotals.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([eventType]) => eventType);
@@ -375,6 +535,7 @@ export default async function CustomersPage(
     .map(({ sessionIds, pageViewCounts, itemVisitedCounts, ...visitor }) => ({
       ...visitor,
       ...(anonymousCartMap.get(visitor.visitorId) ?? { cartTotal: 0, cartItemCount: 0, cartItemsList: [] }),
+      addresses: anonymousAddressMap.get(visitor.visitorId) ?? [],
       pageViewsList: mapToSortedCountedValues(pageViewCounts),
       itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
     }))
@@ -400,6 +561,18 @@ export default async function CustomersPage(
       .map((id) => categoryMap.get(id))
       .filter(Boolean) as string[];
 
+    const addresses: AddressRow[] = c.addresses.map((address) => ({
+      id: address.id,
+      label: address.label,
+      line1: address.line1,
+      line2: address.line2,
+      city: address.city,
+      region: address.region,
+      postalCode: address.postalCode,
+      country: address.country,
+      isPreferred: c.preferredAddressId === address.id,
+    }));
+
     return {
       id: c.id,
       email: c.email,
@@ -424,6 +597,7 @@ export default async function CustomersPage(
       eventCounts: customerActivityMap.get(c.id)?.eventCounts ?? {},
       newsletter: c.newsletter ?? false,
       preferredLanguage: c.preferredLanguage,
+      addresses,
     };
   });
 

@@ -65,6 +65,19 @@ export interface CustomerRow {
   eventCounts: Partial<Record<EventType, number>>;
   newsletter: boolean;
   preferredLanguage: string | null;
+  addresses: AddressRow[];
+}
+
+interface AddressRow {
+  id: string;
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  isPreferred: boolean;
 }
 
 export interface AnonymousVisitorRow {
@@ -81,6 +94,7 @@ export interface AnonymousVisitorRow {
   eventCounts: Partial<Record<EventType, number>>;
   pageViewsList: Array<{ value: string; count: number }>;
   itemsVisitedList: Array<{ value: string; count: number }>;
+  addresses: AddressRow[];
 }
 
 type SortColumn = 'email' | 'firstName' | 'lastName' | 'createdAt' | 'orders';
@@ -119,6 +133,17 @@ function formatEventTypeLabel(eventType: string): string {
     .join(' ');
 }
 
+function formatAddress(address: AddressRow): string {
+  return [
+    address.line1,
+    address.line2,
+    address.city,
+    address.region,
+    address.postalCode,
+    address.country,
+  ].filter(Boolean).join(', ');
+}
+
 function DetailListDialog({
   trigger,
   title,
@@ -154,6 +179,67 @@ function DetailListDialog({
                   <tr key={row.value} className="border-b last:border-b-0">
                     <td className="px-3 py-2 break-all">{row.value}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddressListDialog({
+  trigger,
+  title,
+  description,
+  addresses,
+}: {
+  trigger: React.ReactNode;
+  title: string;
+  description: string;
+  addresses: AddressRow[];
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {addresses.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No addresses found.</div>
+        ) : (
+          <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background">
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-left font-medium">Address</th>
+                  <th className="px-3 py-2 text-left font-medium">Preferred</th>
+                </tr>
+              </thead>
+              <tbody>
+                {addresses.map((address) => (
+                  <tr key={address.id} className="border-b last:border-b-0 align-top">
+                    <td className="px-3 py-2">
+                      {address.label && (
+                        <div className="text-xs text-muted-foreground mb-0.5">
+                          {address.label}
+                        </div>
+                      )}
+                      <div className="break-all">{formatAddress(address)}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      {address.isPreferred ? (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Preferred
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -329,6 +415,7 @@ export function CustomersTable({
                 />
                 <TableHead className="hidden lg:table-cell">Last Purchase</TableHead>
                 <TableHead className="hidden xl:table-cell">Preferred Categories</TableHead>
+                <TableHead className="hidden lg:table-cell">Addresses</TableHead>
                 <TableHead className="hidden lg:table-cell">Last Visit</TableHead>
                 <TableHead className="hidden lg:table-cell">Visits</TableHead>
                 <TableHead className="hidden lg:table-cell">Items Visited</TableHead>
@@ -348,7 +435,7 @@ export function CustomersTable({
             <TableBody>
               {customers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                     No customers found.
                   </TableCell>
                 </TableRow>
@@ -413,6 +500,7 @@ export function CustomersTable({
                 <TableHead className="hidden md:table-cell">Cart</TableHead>
                 <TableHead className="hidden md:table-cell">First Visit</TableHead>
                 <TableHead>Last Visit</TableHead>
+                <TableHead className="hidden md:table-cell">Addresses</TableHead>
                 <TableHead className="hidden md:table-cell">Visits</TableHead>
                 <TableHead className="hidden md:table-cell">Page Views</TableHead>
                 <TableHead>Items Visited</TableHead>
@@ -423,7 +511,7 @@ export function CustomersTable({
             <TableBody>
               {anonymousVisitors.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     No unregistered visitors found.
                   </TableCell>
                 </TableRow>
@@ -550,6 +638,23 @@ function CustomerRowComponent({
       </TableCell>
 
       <TableCell className="hidden lg:table-cell text-sm tabular-nums">
+        {c.addresses.length > 0 ? (
+          <AddressListDialog
+            trigger={(
+              <button className="underline decoration-dotted underline-offset-2 hover:text-foreground">
+                {c.addresses.length}
+              </button>
+            )}
+            title={`Addresses for ${fullName}`}
+            description="Customer saved addresses. Preferred address is explicitly marked."
+            addresses={c.addresses}
+          />
+        ) : (
+          <span className="text-muted-foreground">0</span>
+        )}
+      </TableCell>
+
+      <TableCell className="hidden lg:table-cell text-sm tabular-nums">
         {c.visitsCount}
       </TableCell>
 
@@ -653,6 +758,22 @@ function AnonymousVisitorRowComponent({
           <div>{formatRelative(visitor.lastVisitDate)}</div>
           <div className="text-[10px] text-muted-foreground">{formatDate(visitor.lastVisitDate)}</div>
         </div>
+      </TableCell>
+      <TableCell className="hidden md:table-cell text-sm tabular-nums">
+        {visitor.addresses.length > 0 ? (
+          <AddressListDialog
+            trigger={(
+              <button className="underline decoration-dotted underline-offset-2 hover:text-foreground">
+                {visitor.addresses.length}
+              </button>
+            )}
+            title={`Addresses for ${visitorIdPrefix}`}
+            description="Visitor addresses found for this visitor ID."
+            addresses={visitor.addresses}
+          />
+        ) : (
+          <span className="text-muted-foreground">0</span>
+        )}
       </TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.visitsCount}</TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">
