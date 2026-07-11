@@ -36,7 +36,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const order = await prisma.order.findUnique({
+  const order = await prisma.order.findFirst({
     where: { id },
     select: {
       id: true,
