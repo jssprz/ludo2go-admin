@@ -11,6 +11,7 @@ import {
   formatDateInTimeZone,
   normalizeTimeZone,
 } from '@/lib/date-time';
+import { FulfillmentMethod } from '@prisma/client';
 
 type PageProps = {
   params: Promise<{
@@ -100,7 +101,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
           },
         },
       },
+      fulfillmentMethod: true,
       shippingAddr: true,
+      pickupLocation: true,
     },
   });
 
@@ -186,13 +189,13 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        {/* Shipping Address */}
-        {order.shippingAddr && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Shipping Address</CardTitle>
-            </CardHeader>
-            <CardContent>
+        {/* Fullfilment Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Fullfilment Info</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {order.fulfillmentMethod == FulfillmentMethod.delivery && order.shippingAddr && (
               <div className="text-sm space-y-1">
                 <p>{`${order.shippingAddr.firstName} ${order.shippingAddr.lastName}`}</p>
                 <p>{order.shippingAddr.phone}</p>
@@ -205,9 +208,23 @@ export default async function OrderDetailPage({ params }: PageProps) {
                 </p>
                 <p>{order.shippingAddr.country}</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+            {order.fulfillmentMethod == FulfillmentMethod.pickup && order.pickupLocation && (
+              <div className="text-sm space-y-1">
+                <p>{order.pickupLocation.name}</p>
+                <p>{order.pickupLocation.addressLine1}</p>
+                {order.pickupLocation.addressLine2 && <p>{order.pickupLocation.addressLine2}</p>}
+                <p>
+                  {order.pickupLocation.city}
+                  {order.pickupLocation.region && `, ${order.pickupLocation.region}`}
+                  {order.pickupLocation.postalCode && ` ${order.pickupLocation.postalCode}`}
+                </p>
+                <p>{order.pickupLocation.country}</p>
+                <p>{order.pickupLocation.description}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Order Summary */}
         <Card>
@@ -269,15 +286,15 @@ export default async function OrderDetailPage({ params }: PageProps) {
                             : null) ??
                           (customization.selectedAddress
                             ? [
-                                customization.selectedAddress.line1,
-                                customization.selectedAddress.line2,
-                                customization.selectedAddress.city,
-                                customization.selectedAddress.region,
-                                customization.selectedAddress.postalCode,
-                                customization.selectedAddress.country,
-                              ]
-                                .filter(Boolean)
-                                .join(', ')
+                              customization.selectedAddress.line1,
+                              customization.selectedAddress.line2,
+                              customization.selectedAddress.city,
+                              customization.selectedAddress.region,
+                              customization.selectedAddress.postalCode,
+                              customization.selectedAddress.country,
+                            ]
+                              .filter(Boolean)
+                              .join(', ')
                             : null) ??
                           customization.valueString ??
                           customization.valueText ??
