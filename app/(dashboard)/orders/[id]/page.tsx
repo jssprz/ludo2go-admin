@@ -147,17 +147,28 @@ export default async function OrderDetailPage({ params }: PageProps) {
   if (order.notes) {
     try {
       const raw = JSON.parse(order.notes) as Record<string, unknown>;
+      parsedNotes = raw;
       if (raw && typeof raw === 'object' && 'shippingInventoryAllocationPlan' in raw) {
         allocationPlan = raw.shippingInventoryAllocationPlan as AllocationEntry[];
-        const { shippingInventoryAllocationPlan: _, ...rest } = raw;
-        parsedNotes = rest;
-      } else {
-        parsedNotes = raw;
       }
     } catch {
       // not JSON — render as plain text
     }
   }
+
+  const locationIds = allocationPlan
+    ? Array.from(new Set(allocationPlan.flatMap((e) => e.allocations.map((a) => a.locationId))))
+    : [];
+
+  const allocationLocations =
+    locationIds.length > 0
+      ? await prisma.location.findMany({
+          where: { id: { in: locationIds } },
+          select: { id: true, name: true, code: true },
+        })
+      : [];
+
+  const locationMap = Object.fromEntries(allocationLocations.map((l) => [l.id, l]));
 
   return (
     <div className="space-y-6">
@@ -381,12 +392,24 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   Variant: <span className="font-mono text-xs">{entry.variantId}</span>
                 </p>
                 <div className="space-y-1">
-                  {entry.allocations.map((alloc, j) => (
-                    <div key={j} className="flex justify-between text-sm text-muted-foreground">
-                      <span className="font-mono text-xs">{alloc.locationId}</span>
-                      <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
-                    </div>
-                  ))}
+                  {entry.allocations.map((alloc, j) => {
+                    const loc = locationMap[alloc.locationId];
+                    return (
+                      <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                        <span>
+                          {loc ? (
+                            <>
+                              <span className="font-medium text-foreground">{loc.name}</span>
+                              <span className="ml-1 font-mono text-xs">({loc.code})</span>
+                            </>
+                          ) : (
+                            <span className="font-mono text-xs">{alloc.locationId}</span>
+                          )}
+                        </span>
+                        <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
