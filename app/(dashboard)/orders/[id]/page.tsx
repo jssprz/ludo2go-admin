@@ -184,9 +184,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
   const allocationLocations =
     locationIds.length > 0
       ? await prisma.location.findMany({
-          where: { id: { in: locationIds } },
-          select: { id: true, name: true, code: true },
-        })
+        where: { id: { in: locationIds } },
+        select: { id: true, name: true, code: true },
+      })
       : [];
 
   const locationMap = Object.fromEntries(allocationLocations.map((l) => [l.id, l]));
@@ -310,189 +310,189 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Order Items */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Order Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {order.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between border-b pb-4 last:border-0"
-              >
-                <div className="flex-1">
-                  <p className="font-medium">{item.variant?.product?.name ?? 'Unknown product'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    SKU: {item.variant?.sku ?? '—'}
-                    {item.variant?.edition && ` • ${item.variant.edition}`}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Quantity: {item.quantity}
-                  </p>
-                  {item.customizations.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Customizations:
-                      </p>
-                      {item.customizations.map((customization) => {
-                        const selectedValue =
-                          customization.option?.label ??
-                          (customization.selectedVariant
-                            ? `${customization.selectedVariant.product?.name ?? 'Unknown product'} (${customization.selectedVariant.sku})`
-                            : null) ??
-                          (customization.selectedAddress
-                            ? [
-                              customization.selectedAddress.line1,
-                              customization.selectedAddress.line2,
-                              customization.selectedAddress.city,
-                              customization.selectedAddress.region,
-                              customization.selectedAddress.postalCode,
-                              customization.selectedAddress.country,
-                            ]
-                              .filter(Boolean)
-                              .join(', ')
-                            : null) ??
-                          customization.valueString ??
-                          customization.valueText ??
-                          (customization.valueBoolean !== null
-                            ? customization.valueBoolean
-                              ? 'Yes'
-                              : 'No'
-                            : null) ??
-                          (customization.valueDate
-                            ? formatDate(customization.valueDate)
-                            : null) ??
-                          (customization.valueJson
-                            ? JSON.stringify(customization.valueJson)
-                            : 'Selected');
-
-                        return (
-                          <p key={customization.id} className="text-xs text-muted-foreground">
-                            <span className="font-medium text-foreground">
-                              {customization.group.name}:
-                            </span>{' '}
-                            {selectedValue}
-                            {customization.priceDelta !== 0 && (
-                              <span className="ml-1">
-                                ({customization.priceDelta > 0 ? '+' : '-'}
-                                {formatCurrency(
-                                  Math.abs(customization.priceDelta),
-                                  item.currency
-                                )})
-                              </span>
-                            )}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">
-                    {formatCurrency(item.unitPrice * item.quantity, item.currency)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatCurrency(item.unitPrice, item.currency)} each
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Shipping Inventory Allocation Plan */}
-      {((allocationPlan && allocationPlan.length > 0) || (decrementPlan && decrementPlan.length > 0)) && (
+        {/* Order Items */}
         <Card>
           <CardHeader>
-            <CardTitle>Inventory Allocation</CardTitle>
+            <CardTitle>Order Items</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {allocationPlan && allocationPlan.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">Shipping Inventory Allocation Plan</p>
-                {allocationPlan.map((entry, i) => (
-                  <div key={i} className="rounded border p-3 space-y-2">
-                    <p className="text-sm font-medium">
-                      Variant: <span className="font-mono text-xs">{entry.variantId}</span>
+          <CardContent>
+            <div className="space-y-4">
+              {order.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between border-b pb-4 last:border-0"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium">{item.variant?.product?.name ?? 'Unknown product'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      SKU: {item.variant?.sku ?? '—'}
+                      {item.variant?.edition && ` • ${item.variant.edition}`}
                     </p>
-                    <div className="space-y-1">
-                      {entry.allocations.map((alloc, j) => {
-                        const loc = locationMap[alloc.locationId];
-                        return (
-                          <div key={j} className="flex justify-between text-sm text-muted-foreground">
-                            <span>
-                              {loc ? (
-                                <>
-                                  <span className="font-medium text-foreground">{loc.name}</span>
-                                  <span className="ml-1 font-mono text-xs">({loc.code})</span>
-                                </>
-                              ) : (
-                                <span className="font-mono text-xs">{alloc.locationId}</span>
-                              )}
-                            </span>
-                            <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    <p className="text-sm text-muted-foreground">
+                      Quantity: {item.quantity}
+                    </p>
+                    {item.customizations.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Customizations:
+                        </p>
+                        {item.customizations.map((customization) => {
+                          const selectedValue =
+                            customization.option?.label ??
+                            (customization.selectedVariant
+                              ? `${customization.selectedVariant.product?.name ?? 'Unknown product'} (${customization.selectedVariant.sku})`
+                              : null) ??
+                            (customization.selectedAddress
+                              ? [
+                                customization.selectedAddress.line1,
+                                customization.selectedAddress.line2,
+                                customization.selectedAddress.city,
+                                customization.selectedAddress.region,
+                                customization.selectedAddress.postalCode,
+                                customization.selectedAddress.country,
+                              ]
+                                .filter(Boolean)
+                                .join(', ')
+                              : null) ??
+                            customization.valueString ??
+                            customization.valueText ??
+                            (customization.valueBoolean !== null
+                              ? customization.valueBoolean
+                                ? 'Yes'
+                                : 'No'
+                              : null) ??
+                            (customization.valueDate
+                              ? formatDate(customization.valueDate)
+                              : null) ??
+                            (customization.valueJson
+                              ? JSON.stringify(customization.valueJson)
+                              : 'Selected');
 
-            {decrementPlan && decrementPlan.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-baseline gap-3">
-                  <p className="text-sm font-semibold">Final Applied Decrement Plan</p>
-                  {decrementPlanAt && (
-                    <p className="text-xs text-muted-foreground">{formatDateTime(decrementPlanAt)}</p>
-                  )}
-                </div>
-                {decrementPlan.map((entry, i) => (
-                  <div key={i} className="rounded border p-3 space-y-2">
-                    <p className="text-sm font-medium">
-                      Variant: <span className="font-mono text-xs">{entry.variantId}</span>
-                    </p>
-                    <div className="flex gap-4 text-xs text-muted-foreground">
-                      <span>Requested: <span className="font-medium text-foreground">{entry.requestedQuantity}</span></span>
-                      <span>Applied: <span className="font-medium text-foreground">{entry.appliedQuantity}</span></span>
-                      <span>Remaining: <span className="font-medium text-foreground">{entry.remainingQuantity}</span></span>
-                    </div>
-                    <div className="space-y-1">
-                      {entry.allocations.map((alloc, j) => {
-                        const loc = locationMap[alloc.locationId];
-                        return (
-                          <div key={j} className="flex justify-between text-sm text-muted-foreground">
-                            <span>
-                              {loc ? (
-                                <>
-                                  <span className="font-medium text-foreground">{loc.name}</span>
-                                  <span className="ml-1 font-mono text-xs">({loc.code})</span>
-                                </>
-                              ) : (
-                                <span className="font-mono text-xs">{alloc.locationId}</span>
+                          return (
+                            <p key={customization.id} className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">
+                                {customization.group.name}:
+                              </span>{' '}
+                              {selectedValue}
+                              {customization.priceDelta !== 0 && (
+                                <span className="ml-1">
+                                  ({customization.priceDelta > 0 ? '+' : '-'}
+                                  {formatCurrency(
+                                    Math.abs(customization.priceDelta),
+                                    item.currency
+                                  )})
+                                </span>
                               )}
-                              {alloc.source && (
-                                <span className="ml-1 text-xs text-muted-foreground">· {alloc.source}</span>
-                              )}
-                            </span>
-                            <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            </p>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="text-right">
+                    <p className="font-medium">
+                      {formatCurrency(item.unitPrice * item.quantity, item.currency)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatCurrency(item.unitPrice, item.currency)} each
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
-      )}
+
+        {/* Shipping Inventory Allocation Plan */}
+        {((allocationPlan && allocationPlan.length > 0) || (decrementPlan && decrementPlan.length > 0)) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Inventory Allocation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {allocationPlan && allocationPlan.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">Shipping Inventory Allocation Plan</p>
+                  {allocationPlan.map((entry, i) => (
+                    <div key={i} className="rounded border p-3 space-y-2">
+                      <p className="text-sm font-medium">
+                        Variant: <span className="font-mono text-xs">{entry.variantId}</span>
+                      </p>
+                      <div className="space-y-1">
+                        {entry.allocations.map((alloc, j) => {
+                          const loc = locationMap[alloc.locationId];
+                          return (
+                            <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                              <span>
+                                {loc ? (
+                                  <>
+                                    <span className="font-medium text-foreground">{loc.name}</span>
+                                    <span className="ml-1 font-mono text-xs">({loc.code})</span>
+                                  </>
+                                ) : (
+                                  <span className="font-mono text-xs">{alloc.locationId}</span>
+                                )}
+                              </span>
+                              <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {decrementPlan && decrementPlan.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-3">
+                    <p className="text-sm font-semibold">Final Applied Decrement Plan</p>
+                    {decrementPlanAt && (
+                      <p className="text-xs text-muted-foreground">{formatDateTime(decrementPlanAt)}</p>
+                    )}
+                  </div>
+                  {decrementPlan.map((entry, i) => (
+                    <div key={i} className="rounded border p-3 space-y-2">
+                      <p className="text-sm font-medium">
+                        Variant: <span className="font-mono text-xs">{entry.variantId}</span>
+                      </p>
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span>Requested: <span className="font-medium text-foreground">{entry.requestedQuantity}</span></span>
+                        <span>Applied: <span className="font-medium text-foreground">{entry.appliedQuantity}</span></span>
+                        <span>Remaining: <span className="font-medium text-foreground">{entry.remainingQuantity}</span></span>
+                      </div>
+                      <div className="space-y-1">
+                        {entry.allocations.map((alloc, j) => {
+                          const loc = locationMap[alloc.locationId];
+                          return (
+                            <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                              <span>
+                                {loc ? (
+                                  <>
+                                    <span className="font-medium text-foreground">{loc.name}</span>
+                                    <span className="ml-1 font-mono text-xs">({loc.code})</span>
+                                  </>
+                                ) : (
+                                  <span className="font-mono text-xs">{alloc.locationId}</span>
+                                )}
+                                {alloc.source && (
+                                  <span className="ml-1 text-xs text-muted-foreground">· {alloc.source}</span>
+                                )}
+                              </span>
+                              <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Notes */}
       {order.notes && (
