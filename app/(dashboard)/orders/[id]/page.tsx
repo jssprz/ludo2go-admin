@@ -11,6 +11,7 @@ import {
   formatDateInTimeZone,
   normalizeTimeZone,
 } from '@/lib/date-time';
+import { FulfillmentMethod } from '@prisma/client';
 
 type PageProps = {
   params: Promise<{
@@ -100,7 +101,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
           },
         },
       },
+      fulfillmentMethod: true,
       shippingAddr: true,
+      pickupLocation: true,
     },
   });
 
@@ -131,6 +134,29 @@ export default async function OrderDetailPage({ params }: PageProps) {
       'en-US',
       timeZone
     );
+  }
+
+  type AllocationEntry = {
+    variantId: string;
+    allocations: Array<{ locationId: string; quantity: number }>;
+  };
+
+  let parsedNotes: Record<string, unknown> | null = null;
+  let allocationPlan: AllocationEntry[] | null = null;
+
+  if (order.notes) {
+    try {
+      const raw = JSON.parse(order.notes) as Record<string, unknown>;
+      if (raw && typeof raw === 'object' && 'shippingInventoryAllocationPlan' in raw) {
+        allocationPlan = raw.shippingInventoryAllocationPlan as AllocationEntry[];
+        const { shippingInventoryAllocationPlan: _, ...rest } = raw;
+        parsedNotes = rest;
+      } else {
+        parsedNotes = raw;
+      }
+    } catch {
+      // not JSON — render as plain text
+    }
   }
 
   return (
@@ -186,13 +212,13 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        {/* Shipping Address */}
-        {order.shippingAddr && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Shipping Address</CardTitle>
-            </CardHeader>
-            <CardContent>
+        {/* Fullfilment Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Fullfilment Info</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {order.fulfillmentMethod == FulfillmentMethod.delivery && order.shippingAddr && (
               <div className="text-sm space-y-1">
                 <p>{`${order.shippingAddr.firstName} ${order.shippingAddr.lastName}`}</p>
                 <p>{order.shippingAddr.phone}</p>
@@ -205,9 +231,23 @@ export default async function OrderDetailPage({ params }: PageProps) {
                 </p>
                 <p>{order.shippingAddr.country}</p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+            {order.fulfillmentMethod == FulfillmentMethod.pickup && order.pickupLocation && (
+              <div className="text-sm space-y-1">
+                <p>{order.pickupLocation.name}</p>
+                <p>{order.pickupLocation.addressLine1}</p>
+                {order.pickupLocation.addressLine2 && <p>{order.pickupLocation.addressLine2}</p>}
+                <p>
+                  {order.pickupLocation.city}
+                  {order.pickupLocation.region && `, ${order.pickupLocation.region}`}
+                  {order.pickupLocation.postalCode && ` ${order.pickupLocation.postalCode}`}
+                </p>
+                <p>{order.pickupLocation.country}</p>
+                <p>{order.pickupLocation.description}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Order Summary */}
         <Card>
@@ -269,15 +309,15 @@ export default async function OrderDetailPage({ params }: PageProps) {
                             : null) ??
                           (customization.selectedAddress
                             ? [
-                                customization.selectedAddress.line1,
-                                customization.selectedAddress.line2,
-                                customization.selectedAddress.city,
-                                customization.selectedAddress.region,
-                                customization.selectedAddress.postalCode,
-                                customization.selectedAddress.country,
-                              ]
-                                .filter(Boolean)
-                                .join(', ')
+                              customization.selectedAddress.line1,
+                              customization.selectedAddress.line2,
+                              customization.selectedAddress.city,
+                              customization.selectedAddress.region,
+                              customization.selectedAddress.postalCode,
+                              customization.selectedAddress.country,
+                            ]
+                              .filter(Boolean)
+                              .join(', ')
                             : null) ??
                           customization.valueString ??
                           customization.valueText ??
@@ -328,6 +368,32 @@ export default async function OrderDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* Shipping Inventory Allocation Plan */}
+      {allocationPlan && allocationPlan.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Shipping Inventory Allocation Plan</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {allocationPlan.map((entry, i) => (
+              <div key={i} className="rounded border p-3 space-y-2">
+                <p className="text-sm font-medium">
+                  Variant: <span className="font-mono text-xs">{entry.variantId}</span>
+                </p>
+                <div className="space-y-1">
+                  {entry.allocations.map((alloc, j) => (
+                    <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                      <span className="font-mono text-xs">{alloc.locationId}</span>
+                      <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Notes */}
       {order.notes && (
         <Card>
@@ -335,7 +401,13 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <CardTitle>Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">{order.notes}</p>
+            {parsedNotes ? (
+              <pre className="text-xs bg-muted rounded p-3 overflow-auto whitespace-pre-wrap break-all">
+                {JSON.stringify(parsedNotes, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-sm">{order.notes}</p>
+            )}
           </CardContent>
         </Card>
       )}
