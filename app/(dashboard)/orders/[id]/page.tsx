@@ -141,24 +141,45 @@ export default async function OrderDetailPage({ params }: PageProps) {
     allocations: Array<{ locationId: string; quantity: number }>;
   };
 
+  type DecrementEntry = {
+    variantId: string;
+    requestedQuantity: number;
+    appliedQuantity: number;
+    remainingQuantity: number;
+    allocations: Array<{ locationId: string; quantity: number; source?: string }>;
+  };
+
   let parsedNotes: Record<string, unknown> | null = null;
   let allocationPlan: AllocationEntry[] | null = null;
+  let decrementPlan: DecrementEntry[] | null = null;
+  let decrementPlanAt: string | null = null;
 
   if (order.notes) {
     try {
       const raw = JSON.parse(order.notes) as Record<string, unknown>;
       parsedNotes = raw;
-      if (raw && typeof raw === 'object' && 'shippingInventoryAllocationPlan' in raw) {
-        allocationPlan = raw.shippingInventoryAllocationPlan as AllocationEntry[];
+      if (raw && typeof raw === 'object') {
+        if ('shippingInventoryAllocationPlan' in raw && raw.shippingInventoryAllocationPlan != null) {
+          allocationPlan = raw.shippingInventoryAllocationPlan as AllocationEntry[];
+        }
+        if ('finalAppliedDecrementPlan' in raw && raw.finalAppliedDecrementPlan != null) {
+          decrementPlan = raw.finalAppliedDecrementPlan as DecrementEntry[];
+        }
+        if ('finalAppliedDecrementPlanAt' in raw && typeof raw.finalAppliedDecrementPlanAt === 'string') {
+          decrementPlanAt = raw.finalAppliedDecrementPlanAt;
+        }
       }
     } catch {
       // not JSON — render as plain text
     }
   }
 
-  const locationIds = allocationPlan
-    ? Array.from(new Set(allocationPlan.flatMap((e) => e.allocations.map((a) => a.locationId))))
-    : [];
+  const locationIds = Array.from(
+    new Set([
+      ...(allocationPlan?.flatMap((e) => e.allocations.map((a) => a.locationId)) ?? []),
+      ...(decrementPlan?.flatMap((e) => e.allocations.map((a) => a.locationId)) ?? []),
+    ])
+  );
 
   const allocationLocations =
     locationIds.length > 0
@@ -380,39 +401,90 @@ export default async function OrderDetailPage({ params }: PageProps) {
       </Card>
 
       {/* Shipping Inventory Allocation Plan */}
-      {allocationPlan && allocationPlan.length > 0 && (
+      {((allocationPlan && allocationPlan.length > 0) || (decrementPlan && decrementPlan.length > 0)) && (
         <Card>
           <CardHeader>
-            <CardTitle>Shipping Inventory Allocation Plan</CardTitle>
+            <CardTitle>Inventory Allocation</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {allocationPlan.map((entry, i) => (
-              <div key={i} className="rounded border p-3 space-y-2">
-                <p className="text-sm font-medium">
-                  Variant: <span className="font-mono text-xs">{entry.variantId}</span>
-                </p>
-                <div className="space-y-1">
-                  {entry.allocations.map((alloc, j) => {
-                    const loc = locationMap[alloc.locationId];
-                    return (
-                      <div key={j} className="flex justify-between text-sm text-muted-foreground">
-                        <span>
-                          {loc ? (
-                            <>
-                              <span className="font-medium text-foreground">{loc.name}</span>
-                              <span className="ml-1 font-mono text-xs">({loc.code})</span>
-                            </>
-                          ) : (
-                            <span className="font-mono text-xs">{alloc.locationId}</span>
-                          )}
-                        </span>
-                        <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
-                      </div>
-                    );
-                  })}
-                </div>
+          <CardContent className="space-y-6">
+            {allocationPlan && allocationPlan.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Shipping Inventory Allocation Plan</p>
+                {allocationPlan.map((entry, i) => (
+                  <div key={i} className="rounded border p-3 space-y-2">
+                    <p className="text-sm font-medium">
+                      Variant: <span className="font-mono text-xs">{entry.variantId}</span>
+                    </p>
+                    <div className="space-y-1">
+                      {entry.allocations.map((alloc, j) => {
+                        const loc = locationMap[alloc.locationId];
+                        return (
+                          <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                            <span>
+                              {loc ? (
+                                <>
+                                  <span className="font-medium text-foreground">{loc.name}</span>
+                                  <span className="ml-1 font-mono text-xs">({loc.code})</span>
+                                </>
+                              ) : (
+                                <span className="font-mono text-xs">{alloc.locationId}</span>
+                              )}
+                            </span>
+                            <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {decrementPlan && decrementPlan.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-3">
+                  <p className="text-sm font-semibold">Final Applied Decrement Plan</p>
+                  {decrementPlanAt && (
+                    <p className="text-xs text-muted-foreground">{formatDateTime(decrementPlanAt)}</p>
+                  )}
+                </div>
+                {decrementPlan.map((entry, i) => (
+                  <div key={i} className="rounded border p-3 space-y-2">
+                    <p className="text-sm font-medium">
+                      Variant: <span className="font-mono text-xs">{entry.variantId}</span>
+                    </p>
+                    <div className="flex gap-4 text-xs text-muted-foreground">
+                      <span>Requested: <span className="font-medium text-foreground">{entry.requestedQuantity}</span></span>
+                      <span>Applied: <span className="font-medium text-foreground">{entry.appliedQuantity}</span></span>
+                      <span>Remaining: <span className="font-medium text-foreground">{entry.remainingQuantity}</span></span>
+                    </div>
+                    <div className="space-y-1">
+                      {entry.allocations.map((alloc, j) => {
+                        const loc = locationMap[alloc.locationId];
+                        return (
+                          <div key={j} className="flex justify-between text-sm text-muted-foreground">
+                            <span>
+                              {loc ? (
+                                <>
+                                  <span className="font-medium text-foreground">{loc.name}</span>
+                                  <span className="ml-1 font-mono text-xs">({loc.code})</span>
+                                </>
+                              ) : (
+                                <span className="font-mono text-xs">{alloc.locationId}</span>
+                              )}
+                              {alloc.source && (
+                                <span className="ml-1 text-xs text-muted-foreground">· {alloc.source}</span>
+                              )}
+                            </span>
+                            <span>Qty: <span className="font-medium text-foreground">{alloc.quantity}</span></span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
