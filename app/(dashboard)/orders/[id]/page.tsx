@@ -247,7 +247,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
         {/* Fullfilment Info */}
         <Card>
           <CardHeader>
-            <CardTitle>Fullfilment Info</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Fullfilment Info</CardTitle>
+              <Badge className={order.fulfillmentMethod === FulfillmentMethod.pickup ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}>
+                {order.fulfillmentMethod === FulfillmentMethod.pickup ? 'Pickup' : 'Delivery'}
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
             {order.fulfillmentMethod == FulfillmentMethod.delivery && order.shippingAddr && (
