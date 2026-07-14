@@ -28,10 +28,36 @@ export default async function OrdersPage() {
             select: {
               id: true,
               sku: true,
+              mediaLinks: {
+                where: {
+                  role: 'primary',
+                  media: { kind: 'image' },
+                },
+                select: {
+                  media: {
+                    select: { url: true },
+                  },
+                },
+                orderBy: { sort: 'asc' },
+                take: 1,
+              },
               product: {
                 select: {
                   id: true,
                   name: true,
+                  mediaLinks: {
+                    where: {
+                      role: 'primary',
+                      media: { kind: 'image' },
+                    },
+                    select: {
+                      media: {
+                        select: { url: true },
+                      },
+                    },
+                    orderBy: { sort: 'asc' },
+                    take: 1,
+                  },
                 },
               },
             },

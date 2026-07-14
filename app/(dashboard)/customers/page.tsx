@@ -14,6 +14,7 @@ type CartSummary = {
 type CartDetailItem = {
   value: string;
   count: number;
+  mediaUrl: string | null;
 };
 
 type AddressRow = {
@@ -181,13 +182,30 @@ function getCartItemLabel(item: {
     displayTitleLong: string | null;
     displayTitleShort: string | null;
     sku: string;
-    product: { name: string };
+    product: {
+      name: string;
+      mediaLinks?: Array<{ media: { url: string } }>;
+    };
+    mediaLinks?: Array<{ media: { url: string } }>;
   };
 }): string {
   return item.variant.displayTitleLong
     ?? item.variant.displayTitleShort
     ?? item.variant.product.name
     ?? item.variant.sku;
+}
+
+function getCartItemMediaUrl(item: {
+  variant: {
+    mediaLinks?: Array<{ media: { url: string } }>;
+    product: {
+      mediaLinks?: Array<{ media: { url: string } }>;
+    };
+  };
+}): string | null {
+  return item.variant.mediaLinks?.[0]?.media.url
+    ?? item.variant.product.mediaLinks?.[0]?.media.url
+    ?? null;
 }
 
 function getCartItemsList(cart: {
@@ -197,20 +215,36 @@ function getCartItemsList(cart: {
       displayTitleLong: string | null;
       displayTitleShort: string | null;
       sku: string;
-      product: { name: string };
+      product: {
+        name: string;
+        mediaLinks?: Array<{ media: { url: string } }>;
+      };
+      mediaLinks?: Array<{ media: { url: string } }>;
     };
   }>;
 } | null | undefined): CartDetailItem[] {
   if (!cart) return [];
 
-  const quantitiesByLabel = new Map<string, number>();
+  const detailsByLabel = new Map<string, { count: number; mediaUrl: string | null }>();
 
   for (const item of cart.items) {
     const label = getCartItemLabel(item);
-    quantitiesByLabel.set(label, (quantitiesByLabel.get(label) ?? 0) + item.quantity);
+    const mediaUrl = getCartItemMediaUrl(item);
+    const current = detailsByLabel.get(label);
+    if (!current) {
+      detailsByLabel.set(label, { count: item.quantity, mediaUrl });
+      continue;
+    }
+
+    detailsByLabel.set(label, {
+      count: current.count + item.quantity,
+      mediaUrl: current.mediaUrl ?? mediaUrl,
+    });
   }
 
-  return mapToSortedCountedValues(quantitiesByLabel);
+  return Array.from(detailsByLabel.entries())
+    .sort((a, b) => (b[1].count - a[1].count) || a[0].localeCompare(b[0]))
+    .map(([value, detail]) => ({ value, count: detail.count, mediaUrl: detail.mediaUrl }));
 }
 
 export default async function CustomersPage(
@@ -275,8 +309,36 @@ export default async function CustomersPage(
                     sku: true,
                     displayTitleShort: true,
                     displayTitleLong: true,
+                    mediaLinks: {
+                      where: {
+                        role: 'primary',
+                        media: { kind: 'image' },
+                      },
+                      select: {
+                        media: {
+                          select: { url: true },
+                        },
+                      },
+                      orderBy: { sort: 'asc' },
+                      take: 1,
+                    },
                     product: {
-                      select: { name: true },
+                      select: {
+                        name: true,
+                        mediaLinks: {
+                          where: {
+                            role: 'primary',
+                            media: { kind: 'image' },
+                          },
+                          select: {
+                            media: {
+                              select: { url: true },
+                            },
+                          },
+                          orderBy: { sort: 'asc' },
+                          take: 1,
+                        },
+                      },
                     },
                     prices: {
                       where: { active: true },
@@ -497,8 +559,36 @@ export default async function CustomersPage(
                   sku: true,
                   displayTitleShort: true,
                   displayTitleLong: true,
+                  mediaLinks: {
+                    where: {
+                      role: 'primary',
+                      media: { kind: 'image' },
+                    },
+                    select: {
+                      media: {
+                        select: { url: true },
+                      },
+                    },
+                    orderBy: { sort: 'asc' },
+                    take: 1,
+                  },
                   product: {
-                    select: { name: true },
+                    select: {
+                      name: true,
+                      mediaLinks: {
+                        where: {
+                          role: 'primary',
+                          media: { kind: 'image' },
+                        },
+                        select: {
+                          media: {
+                            select: { url: true },
+                          },
+                        },
+                        orderBy: { sort: 'asc' },
+                        take: 1,
+                      },
+                    },
                   },
                   prices: {
                     where: { active: true },

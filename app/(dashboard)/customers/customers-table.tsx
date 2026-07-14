@@ -65,7 +65,7 @@ export interface CustomerRow {
   }>;
   cartTotal: number;
   cartItemCount: number;
-  cartItemsList: Array<{ value: string; count: number }>;
+  cartItemsList: Array<{ value: string; count: number; mediaUrl?: string | null }>;
   favoriteCategories: string[];
   lastVisitDate: string | null;
   visitsCount: number;
@@ -97,7 +97,7 @@ export interface AnonymousVisitorRow {
   pageViews: number;
   cartTotal: number;
   cartItemCount: number;
-  cartItemsList: Array<{ value: string; count: number }>;
+  cartItemsList: Array<{ value: string; count: number; mediaUrl?: string | null }>;
   itemsVisited: number;
   searchesPerformed: number;
   eventCounts: Partial<Record<EventType, number>>;
@@ -169,7 +169,7 @@ function DetailListDialog({
   trigger: React.ReactNode;
   title: string;
   description: string;
-  rows: Array<{ value: string; count: number }>;
+  rows: Array<{ value: string; count: number; mediaUrl?: string | null }>;
 }) {
   return (
     <Dialog>
@@ -193,7 +193,18 @@ function DetailListDialog({
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.value} className="border-b last:border-b-0">
-                    <td className="px-3 py-2 break-all">{row.value}</td>
+                    <td className="px-3 py-2 break-all">
+                      <div className="flex items-center gap-2">
+                        {row.mediaUrl && (
+                          <img
+                            src={row.mediaUrl}
+                            alt={row.value}
+                            className="h-9 w-9 rounded object-cover border"
+                          />
+                        )}
+                        <span>{row.value}</span>
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
                   </tr>
                 ))}

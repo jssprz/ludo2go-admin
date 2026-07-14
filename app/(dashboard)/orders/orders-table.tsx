@@ -39,9 +39,19 @@ type OrderWithDetails = {
     variant: {
       id: string;
       sku: string;
+      mediaLinks: Array<{
+        media: {
+          url: string;
+        };
+      }>;
       product: {
         id: string;
         name: string;
+        mediaLinks: Array<{
+          media: {
+            url: string;
+          };
+        }>;
       } | null;
     } | null;
   }>;
@@ -155,7 +165,18 @@ export function OrdersTable({ orders }: Props) {
                 <div className="flex flex-col gap-1">
                   {order.items.slice(0, 2).map((item) => (
                     <div key={item.id} className="text-xs">
-                      {item.quantity}x {item.variant?.product?.name ?? item.variant?.sku ?? 'Unknown variant'}
+                      <div className="flex items-center gap-2">
+                        {(item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url) && (
+                          <img
+                            src={item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url}
+                            alt={item.variant?.product?.name ?? item.variant?.sku ?? 'Item'}
+                            className="h-7 w-7 rounded object-cover border"
+                          />
+                        )}
+                        <span>
+                          {item.quantity}x {item.variant?.product?.name ?? item.variant?.sku ?? 'Unknown variant'}
+                        </span>
+                      </div>
                     </div>
                   ))}
                   {order.items.length > 2 && (

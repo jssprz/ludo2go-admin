@@ -68,9 +68,35 @@ export default async function OrderDetailPage({ params }: PageProps) {
             select: {
               sku: true,
               edition: true,
+              mediaLinks: {
+                where: {
+                  role: 'primary',
+                  media: { kind: 'image' },
+                },
+                select: {
+                  media: {
+                    select: { url: true },
+                  },
+                },
+                orderBy: { sort: 'asc' },
+                take: 1,
+              },
               product: {
                 select: {
                   name: true,
+                  mediaLinks: {
+                    where: {
+                      role: 'primary',
+                      media: { kind: 'image' },
+                    },
+                    select: {
+                      media: {
+                        select: { url: true },
+                      },
+                    },
+                    orderBy: { sort: 'asc' },
+                    take: 1,
+                  },
                 },
               },
             },
@@ -323,7 +349,15 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   key={item.id}
                   className="flex items-center justify-between border-b pb-4 last:border-0"
                 >
-                  <div className="flex-1">
+                  <div className="flex flex-1 items-start gap-3">
+                    {(item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url) && (
+                      <img
+                        src={item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url}
+                        alt={item.variant?.product?.name ?? item.variant?.sku ?? 'Order item'}
+                        className="h-14 w-14 rounded object-cover border"
+                      />
+                    )}
+                    <div className="flex-1">
                     <p className="font-medium">{item.variant?.product?.name ?? 'Unknown product'}</p>
                     <p className="text-sm text-muted-foreground">
                       SKU: {item.variant?.sku ?? '—'}
@@ -389,6 +423,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
                         })}
                       </div>
                     )}
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-medium">
