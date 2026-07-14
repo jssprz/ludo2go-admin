@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, ShoppingCart, Users, PlusCircle, LineChart, Workflow } from 'lucide-react';
+import { Package, ShoppingCart, Users, PlusCircle, LineChart, Workflow, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { prisma } from '@jssprz/ludo2go-database';
 import { OrderStatus, EventType, DeviceType } from '@prisma/client';
@@ -639,6 +639,26 @@ export default async function AdminHomePage() {
               </Button>
               <Button variant="outline" size="sm" disabled>
                 {td('quick.reportsAnalytics.topProductsComingSoon')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Match Tool Analytics */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Match Tool Analytics
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              View detailed engagement analysis and statistics for the Match Tool including completion rates, popular filters, and top recommendations.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/match-tool-analytics">View Analytics</Link>
               </Button>
             </div>
           </CardContent>
