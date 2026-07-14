@@ -249,42 +249,7 @@ export default async function MatchToolAnalyticsPage() {
         </CardContent>
       </Card>
 
-      {/* Detailed Analysis - Grid */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Step-by-Step Option Rankings</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {stepOptionRankings.map(({ stepIndex, stepId, options }) => (
-            <Card key={stepIndex}>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Step {stepIndex + 1}: {stepId}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {options.map((option, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <p className="text-sm truncate flex-1">{option.optionLabel}</p>
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 bg-secondary rounded-full h-2">
-                          <div 
-                            className="bg-primary rounded-full h-2" 
-                            style={{ width: `${(option.count / Math.max(...options.map(o => o.count))) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-medium w-8 text-right">{option.count}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {options.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No option data available</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Additional Detailed Analysis - Grid */}
+      {/* Additional Key Analysis - Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Step Completion Analysis */}
         <Card>
@@ -369,6 +334,41 @@ export default async function MatchToolAnalyticsPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Detailed Analysis - Grid */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Step-by-Step Option Rankings</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {stepOptionRankings.map(({ stepIndex, stepId, options }) => (
+            <Card key={stepIndex}>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Step {stepIndex + 1}: {stepId}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {options.map((option, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <p className="text-sm truncate flex-1">{option.optionLabel}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 bg-secondary rounded-full h-2">
+                          <div 
+                            className="bg-primary rounded-full h-2" 
+                            style={{ width: `${(option.count / Math.max(...options.map(o => o.count))) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-8 text-right">{option.count}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {options.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No option data available</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* Device Distribution */}
