@@ -1,35 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart } from 'lucide-react';
 import { prisma } from '@jssprz/ludo2go-database';
-import { DeviceType } from '@prisma/client';
+import { DeviceType, EventType } from '@prisma/client';
 
 export default async function MatchToolAnalyticsPage() {
   // Match Tool Analytics
   const matchToolEvents = await prisma.event.findMany({
     where: {
       eventType: {
-        in: ['match_tool_start', 'match_tool_option_click', 'match_tool_result_click']
+        in: ['match_tool_start', 'match_tool_option_click', 'match_tool_result_click'] as unknown as EventType[]
       }
     },
     orderBy: { occurredAt: 'asc' }
   });
 
   // Calculate Match Tool Metrics
-  const matchToolStarts = matchToolEvents.filter(e => e.eventType === 'match_tool_start').length;
-  const matchToolClicks = matchToolEvents.filter(e => e.eventType === 'match_tool_option_click').length;
-  const matchToolResultClicks = matchToolEvents.filter(e => e.eventType === 'match_tool_result_click').length;
+  const matchToolStarts = matchToolEvents.filter(e => e.eventType === ('match_tool_start' as EventType)).length;
+  const matchToolClicks = matchToolEvents.filter(e => e.eventType === ('match_tool_option_click' as EventType)).length;
+  const matchToolResultClicks = matchToolEvents.filter(e => e.eventType === ('match_tool_result_click' as EventType)).length;
   
   // Sessions with results (users who completed the match tool)
   const sessionsWithResults = new Set(
     matchToolEvents
-      .filter(e => e.eventType === 'match_tool_result_click')
+      .filter(e => e.eventType === ('match_tool_result_click' as EventType))
       .map(e => e.sessionId)
   ).size;
   
   // All unique sessions that started match tool
   const matchToolSessions = new Set(
     matchToolEvents
-      .filter(e => e.eventType === 'match_tool_start')
+      .filter(e => e.eventType === ('match_tool_start' as EventType))
       .map(e => e.sessionId)
   ).size;
 
@@ -48,16 +48,39 @@ export default async function MatchToolAnalyticsPage() {
 
   // Popular options selected (step completion analysis)
   const stepCompletionMap = new Map<number, number>();
+  
+  // Options selected by step (nested map: stepIndex -> stepId -> (option label -> count))
+  const stepOptionsMap = new Map<number, Map<string, { stepId: string; optionLabel: string; count: number }>>();
+  
   matchToolEvents
-    .filter(e => e.eventType === 'match_tool_option_click')
+    .filter(e => e.eventType === ('match_tool_option_click' as EventType))
     .forEach(event => {
       try {
         const props = typeof event.properties === 'string' 
           ? JSON.parse(event.properties) 
           : event.properties;
         const stepIndex = props?.stepIndex ?? -1;
+        const stepId = props?.stepId ?? 'unknown';
+        const optionLabel = props?.optionLabel ?? '—';
+        
         if (stepIndex >= 0) {
+          // Track step completion
           stepCompletionMap.set(stepIndex, (stepCompletionMap.get(stepIndex) ?? 0) + 1);
+          
+          // Track options per step
+          if (!stepOptionsMap.has(stepIndex)) {
+            stepOptionsMap.set(stepIndex, new Map());
+          }
+          
+          const stepOptions = stepOptionsMap.get(stepIndex)!;
+          const key = optionLabel;
+          
+          if (!stepOptions.has(key)) {
+            stepOptions.set(key, { stepId, optionLabel, count: 0 });
+          }
+          
+          const option = stepOptions.get(key)!;
+          option.count++;
         }
       } catch (e) {
         // Handle JSON parse errors
@@ -66,10 +89,10 @@ export default async function MatchToolAnalyticsPage() {
 
   const totalSteps = stepCompletionMap.size > 0 ? Math.max(...Array.from(stepCompletionMap.keys())) + 1 : 0;
 
-  // Most popular vibes selected
+  // Most popular vibes selected (for top vibe display)
   const vibesSelectionMap = new Map<string, number>();
   matchToolEvents
-    .filter(e => e.eventType === 'match_tool_option_click')
+    .filter(e => e.eventType === ('match_tool_option_click' as EventType))
     .forEach(event => {
       try {
         const props = typeof event.properties === 'string' 
@@ -91,7 +114,7 @@ export default async function MatchToolAnalyticsPage() {
   // Most clicked results
   const resultClicksMap = new Map<string, number>();
   matchToolEvents
-    .filter(e => e.eventType === 'match_tool_result_click')
+    .filter(e => e.eventType === ('match_tool_result_click' as EventType))
     .forEach(event => {
       try {
         const props = typeof event.properties === 'string' 
@@ -114,6 +137,17 @@ export default async function MatchToolAnalyticsPage() {
   const stepDetails = Array.from(stepCompletionMap.entries())
     .sort((a, b) => a[0] - b[0])
     .map(([stepIndex, count]) => ({ stepIndex, count }));
+
+  // Get step-wise option rankings
+  const stepOptionRankings = Array.from(stepOptionsMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([stepIndex, optionsMap]) => ({
+      stepIndex,
+      stepId: Array.from(optionsMap.values())[0]?.stepId ?? 'unknown',
+      options: Array.from(optionsMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5) // Get top 5 options per step
+    }));
 
   // Get top vibes for detailed analysis
   const topVibes = Array.from(vibesSelectionMap.entries())
@@ -216,11 +250,46 @@ export default async function MatchToolAnalyticsPage() {
       </Card>
 
       {/* Detailed Analysis - Grid */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Step-by-Step Option Rankings</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {stepOptionRankings.map(({ stepIndex, stepId, options }) => (
+            <Card key={stepIndex}>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Step {stepIndex + 1}: {stepId}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {options.map((option, idx) => (
+                    <div key={idx} className="flex items-center justify-between">
+                      <p className="text-sm truncate flex-1">{option.optionLabel}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 bg-secondary rounded-full h-2">
+                          <div 
+                            className="bg-primary rounded-full h-2" 
+                            style={{ width: `${(option.count / Math.max(...options.map(o => o.count))) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-8 text-right">{option.count}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {options.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No option data available</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Additional Detailed Analysis - Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Step Completion Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Step Completion Analysis</CardTitle>
+            <CardTitle className="text-sm font-medium">Step Completion Volume</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
