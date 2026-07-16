@@ -412,7 +412,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
     setFormError(null);
 
     try {
-      const res = await fetch(`/api/bgg/${formBggId}`);
+      const res = await fetch(`/api/bgg/${formBggId}?entity=mechanic`);
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {

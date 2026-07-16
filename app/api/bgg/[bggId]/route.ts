@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { bgg } from '@/lib/bgg/client';
 import { prisma } from '@jssprz/ludo2go-database';
 import { translateText } from '@/lib/google-translation';
+import * as cheerio from 'cheerio';
 
 type MechanicSummary = {
   id: string;
@@ -16,6 +17,78 @@ type MechanicPrefill = {
   name: string;
   description?: string;
 };
+
+const BGG_SCRAPE_USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeMechanicTitle(value: string): string {
+  const normalized = normalizeWhitespace(value);
+  return normalized
+    .replace(/\s*[|\-]\s*board\s*game\s*geek\s*$/i, '')
+    .replace(/\s*[|\-]\s*board\s*game\s*mechanic\s*$/i, '')
+    .replace(/\s*[|\-]\s*boardgamegeek\s*$/i, '')
+    .replace(/\s*[|\-]\s*boardgamemechanic\s*$/i, '')
+    .trim();
+}
+
+function pickFirstNonEmpty(values: Array<string | undefined | null>): string {
+  for (const value of values) {
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+async function scrapeBggMechanicPage(mechanicId: number): Promise<{ name: string; description: string }> {
+  const mechanicUrl = `https://boardgamegeek.com/boardgamemechanic/${mechanicId}`;
+  const response = await fetch(mechanicUrl, {
+    headers: {
+      'User-Agent': BGG_SCRAPE_USER_AGENT,
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9,es;q=0.8',
+      'Cache-Control': 'no-cache',
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to fetch BGG mechanic page (HTTP ${response.status})`);
+  }
+
+  const html = await response.text();
+  const cfBlocked = /Just a moment\.\.\.|cf_chl|Enable JavaScript and cookies to continue/i.test(html);
+  if (cfBlocked) {
+    throw new Error('BGG blocked the scrape request with Cloudflare challenge');
+  }
+
+  const $ = cheerio.load(html);
+  const rawTitle = pickFirstNonEmpty([
+    $('meta[property="og:title"]').attr('content'),
+    $('h1').first().text(),
+    $('title').first().text(),
+  ]);
+  const rawDescription = pickFirstNonEmpty([
+    $('meta[property="og:description"]').attr('content'),
+    $('meta[name="description"]').attr('content'),
+    $('[data-testid="description"]').first().text(),
+    $('.item-overview-description').first().text(),
+    $('#description').first().text(),
+  ]);
+
+  const name = normalizeMechanicTitle(rawTitle);
+  const description = normalizeWhitespace(rawDescription);
+
+  if (!name) {
+    throw new Error('Could not extract mechanic name from BGG mechanic page');
+  }
+
+  return { name, description };
+}
 
 function slugify(value: string): string {
   return value
@@ -44,10 +117,12 @@ async function buildUniqueMechanicSlug(baseName: string): Promise<string> {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ bggId: string }> }
 ) {
   const { bggId } = await params;
+  const url = new URL(req.url);
+  const entity = url.searchParams.get('entity');
 
   if (!bggId) {
     return NextResponse.json(
@@ -57,20 +132,18 @@ export async function GET(
   }
 
   try {
-    const things = await bgg.thing(bggId, { stats: true });
-    const thing = things[0];
+    if (entity === 'mechanic') {
+      const mechanicId = Number(bggId);
+      if (!Number.isFinite(mechanicId) || mechanicId <= 0) {
+        return NextResponse.json(
+          { message: 'Invalid mechanic bggId' },
+          { status: 400 }
+        );
+      }
 
-    if (!thing) {
-      return NextResponse.json(
-        { message: 'Game not found in BGG' },
-        { status: 404 }
-      );
-    }
-
-    if (thing.type === 'boardgamemechanic') {
-      const mechanicId = Number(thing.id);
-      const sourceName = (thing.name || '').trim();
-      const sourceDescription = (thing.description || '').trim();
+      const scraped = await scrapeBggMechanicPage(mechanicId);
+      const sourceName = (scraped.name || '').trim();
+      const sourceDescription = (scraped.description || '').trim();
       const translatedName = sourceName
         ? await translateText(sourceName, 'es', 'en')
         : '';
@@ -92,15 +165,25 @@ export async function GET(
 
       return NextResponse.json({
         id: mechanicId,
-        type: thing.type,
-        name: thing.name,
-        description: thing.description || undefined,
+        type: 'boardgamemechanic',
+        name: sourceName,
+        description: sourceDescription || undefined,
         mechanicPrefill,
         matchedMechanics: existingMechanic ? [existingMechanic] : [],
         unmatchedMechanics: existingMechanic || !sourceName
           ? []
           : [{ bggId: mechanicId, name: sourceName }],
       });
+    }
+
+    const things = await bgg.thing(bggId, { stats: true });
+    const thing = things[0];
+
+    if (!thing) {
+      return NextResponse.json(
+        { message: 'Game not found in BGG' },
+        { status: 404 }
+      );
     }
 
     // Extract mechanic BGG IDs from the links
@@ -125,11 +208,6 @@ export async function GET(
       );
 
       if (missingMechanicBggIds.length > 0) {
-        const missingMechanicDetails = await bgg.thing(missingMechanicBggIds, { stats: false });
-        const missingById = new Map(
-          missingMechanicDetails.map((mechanic) => [Number(mechanic.id), mechanic])
-        );
-
         const maxOrder = await prisma.gameMechanic.aggregate({
           _max: { order: true },
         });
@@ -146,16 +224,22 @@ export async function GET(
             continue;
           }
 
-          const rawLinkName = mechanicLinks.find((link) => link.id === mechanicBggId)?.value;
-          const bggMechanic = missingById.get(mechanicBggId);
+          const rawLinkName = mechanicLinks.find((link) => link.id === mechanicBggId)?.value || '';
+          const scrapedMechanic = await scrapeBggMechanicPage(mechanicBggId).catch((error) => {
+            console.error('Failed to scrape mechanic page, falling back to link value', {
+              mechanicBggId,
+              error,
+            });
+            return { name: rawLinkName, description: '' };
+          });
 
-          const sourceName = (bggMechanic?.name || rawLinkName || '').trim();
+          const sourceName = (scrapedMechanic.name || rawLinkName || '').trim();
           if (!sourceName) {
             continue;
           }
 
           const translatedName = await translateText(sourceName, 'es', 'en');
-          const sourceDescription = (bggMechanic?.description || '').trim();
+          const sourceDescription = (scrapedMechanic.description || '').trim();
           const translatedDescription = sourceDescription
             ? await translateText(sourceDescription, 'es', 'en')
             : '';
