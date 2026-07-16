@@ -10,6 +10,13 @@ type MechanicSummary = {
   bggId: number | null;
 };
 
+type MechanicPrefill = {
+  bggId: number;
+  bggName: string;
+  name: string;
+  description?: string;
+};
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -58,6 +65,42 @@ export async function GET(
         { message: 'Game not found in BGG' },
         { status: 404 }
       );
+    }
+
+    if (thing.type === 'boardgamemechanic') {
+      const mechanicId = Number(thing.id);
+      const sourceName = (thing.name || '').trim();
+      const sourceDescription = (thing.description || '').trim();
+      const translatedName = sourceName
+        ? await translateText(sourceName, 'es', 'en')
+        : '';
+      const translatedDescription = sourceDescription
+        ? await translateText(sourceDescription, 'es', 'en')
+        : '';
+
+      const existingMechanic = await prisma.gameMechanic.findFirst({
+        where: { bggId: mechanicId },
+        select: { id: true, name: true, slug: true, bggId: true },
+      });
+
+      const mechanicPrefill: MechanicPrefill = {
+        bggId: mechanicId,
+        bggName: sourceName,
+        name: translatedName || sourceName,
+        description: translatedDescription || sourceDescription || undefined,
+      };
+
+      return NextResponse.json({
+        id: mechanicId,
+        type: thing.type,
+        name: thing.name,
+        description: thing.description || undefined,
+        mechanicPrefill,
+        matchedMechanics: existingMechanic ? [existingMechanic] : [],
+        unmatchedMechanics: existingMechanic || !sourceName
+          ? []
+          : [{ bggId: mechanicId, name: sourceName }],
+      });
     }
 
     // Extract mechanic BGG IDs from the links

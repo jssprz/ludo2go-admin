@@ -235,6 +235,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
   const [formOrder, setFormOrder] = useState(0);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isFetchingBggMechanic, setIsFetchingBggMechanic] = useState(false);
 
   const filteredMechanics = mechanics.filter(
     (mechanic) =>
@@ -398,6 +399,54 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
       setFormError(error.message);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleFetchMechanicFromBGG() {
+    if (formBggId === '') {
+      setFormError('BGG ID is required to fetch mechanic data.');
+      return;
+    }
+
+    setIsFetchingBggMechanic(true);
+    setFormError(null);
+
+    try {
+      const res = await fetch(`/api/bgg/${formBggId}`);
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.message || 'Failed to fetch mechanic from BGG');
+      }
+
+      const prefill = data?.mechanicPrefill;
+      const translatedName = (prefill?.name || data?.name || '').trim();
+      const translatedDescription = (prefill?.description || data?.description || '').trim();
+      const sourceBggName = (prefill?.bggName || data?.name || '').trim();
+
+      if (translatedName) {
+        handleNameChange(translatedName);
+      }
+
+      if (translatedDescription) {
+        setFormDescription(translatedDescription);
+      }
+
+      if (sourceBggName) {
+        setFormBggName(sourceBggName);
+      }
+
+      if (typeof data?.id === 'number') {
+        setFormBggId(data.id);
+      }
+
+      if (Array.isArray(data?.matchedMechanics) && data.matchedMechanics.length > 0) {
+        setFormError(`A mechanic with this BGG ID already exists: ${data.matchedMechanics[0].name}.`);
+      }
+    } catch (error: any) {
+      setFormError(error.message || 'Failed to fetch mechanic from BGG');
+    } finally {
+      setIsFetchingBggMechanic(false);
     }
   }
 
@@ -656,13 +705,24 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="create-bggId">BGG ID</Label>
-                <Input
-                  id="create-bggId"
-                  type="number"
-                  value={formBggId}
-                  onChange={(e) => setFormBggId(e.target.value ? parseInt(e.target.value) : '')}
-                  placeholder="e.g. 2040"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="create-bggId"
+                    type="number"
+                    value={formBggId}
+                    onChange={(e) => setFormBggId(e.target.value ? parseInt(e.target.value) : '')}
+                    placeholder="e.g. 2040"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleFetchMechanicFromBGG}
+                    disabled={isLoading || isFetchingBggMechanic || formBggId === ''}
+                  >
+                    {(isLoading || isFetchingBggMechanic) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Fetch
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="create-bggName">BGG Name</Label>
