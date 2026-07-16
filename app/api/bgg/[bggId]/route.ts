@@ -68,11 +68,15 @@ async function scrapeBggMechanicPage(mechanicId: number): Promise<{ name: string
 
   const $ = cheerio.load(html);
   const rawTitle = pickFirstNonEmpty([
-    $('meta[property="og:title"]').attr('content'),
+    $('h1 a[href*="/boardgamemechanic/"]').first().text(),
     $('h1').first().text(),
+    $('meta[property="og:title"]').attr('content'),
     $('title').first().text(),
   ]);
   const rawDescription = pickFirstNonEmpty([
+    $('article.game-description-body div[ng-bind-html]').first().text(),
+    $('description-module article.game-description-body').first().text(),
+    $('div.game-description article.game-description-body').first().text(),
     $('meta[property="og:description"]').attr('content'),
     $('meta[name="description"]').attr('content'),
     $('[data-testid="description"]').first().text(),
@@ -145,10 +149,10 @@ export async function GET(
       const sourceName = (scraped.name || '').trim();
       const sourceDescription = (scraped.description || '').trim();
       const translatedName = sourceName
-        ? await translateText(sourceName, 'es', 'en')
+        ? await translateText(sourceName, 'es')
         : '';
       const translatedDescription = sourceDescription
-        ? await translateText(sourceDescription, 'es', 'en')
+        ? await translateText(sourceDescription, 'es')
         : '';
 
       const existingMechanic = await prisma.gameMechanic.findFirst({
@@ -238,10 +242,10 @@ export async function GET(
             continue;
           }
 
-          const translatedName = await translateText(sourceName, 'es', 'en');
+          const translatedName = await translateText(sourceName, 'es');
           const sourceDescription = (scrapedMechanic.description || '').trim();
           const translatedDescription = sourceDescription
-            ? await translateText(sourceDescription, 'es', 'en')
+            ? await translateText(sourceDescription, 'es')
             : '';
           const slug = await buildUniqueMechanicSlug(translatedName || sourceName);
 

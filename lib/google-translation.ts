@@ -2,6 +2,8 @@ type GoogleTranslateResponse = {
   data?: {
     translations?: Array<{
       translatedText?: string;
+      detectedSourceLanguage?: string;
+      model?: string;
     }>;
   };
   error?: {
@@ -21,28 +23,36 @@ function decodeHtmlEntities(value: string): string {
 export async function translateText(
   text: string,
   targetLanguage = 'es',
-  sourceLanguage = 'en'
+  sourceLanguage?: string
 ): Promise<string> {
   const apiKey = process.env.GOOGLE_TRANSLATION_API_KEY;
+  const resolvedApiKey = apiKey?.trim();
   const input = text.trim();
 
   if (!input) return text;
-  if (!apiKey) return text;
+  if (!resolvedApiKey) return text;
+  const apiKeyValue: string = resolvedApiKey;
 
-  try {
+  async function runTranslateRequest() {
+    const queryParams = new URLSearchParams({ key: apiKeyValue });
+    const bodyParams = new URLSearchParams({
+      q: input,
+      target: targetLanguage,
+      format: 'text',
+    });
+
+    if (sourceLanguage) {
+      bodyParams.set('source', sourceLanguage);
+    }
+
     const response = await fetch(
-      `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
+      `https://translation.googleapis.com/language/translate/v2?${queryParams.toString()}`,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
         },
-        body: JSON.stringify({
-          q: input,
-          source: sourceLanguage,
-          target: targetLanguage,
-          format: 'text',
-        }),
+        body: bodyParams.toString(),
       }
     );
 
@@ -52,7 +62,7 @@ export async function translateText(
         status: response.status,
         message: errorPayload?.error?.message,
       });
-      return text;
+      throw new Error(errorPayload?.error?.message || `HTTP ${response.status}`);
     }
 
     const payload = (await response.json()) as GoogleTranslateResponse;
@@ -60,8 +70,19 @@ export async function translateText(
 
     if (!translated) return text;
     return decodeHtmlEntities(translated);
+  }
+
+  try {
+    return await runTranslateRequest();
   } catch (error) {
-    console.error('Failed to translate text with Google Translate API', error);
-    return text;
+    try {
+      return await runTranslateRequest();
+    } catch (retryError) {
+      console.error('Failed to translate text with Google Translate API', {
+        error,
+        retryError,
+      });
+      return text;
+    }
   }
 }
