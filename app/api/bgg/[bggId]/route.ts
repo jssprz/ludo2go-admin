@@ -1,6 +1,40 @@
 import { NextResponse } from 'next/server';
 import { bgg } from '@/lib/bgg/client';
 import { prisma } from '@jssprz/ludo2go-database';
+import { translateText } from '@/lib/google-translation';
+
+type MechanicSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  bggId: number | null;
+};
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function buildUniqueMechanicSlug(baseName: string): Promise<string> {
+  const baseSlug = slugify(baseName) || `mechanic-${Date.now()}`;
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (true) {
+    const exists = await prisma.gameMechanic.findFirst({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+
+    if (!exists) return candidate;
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+}
 
 export async function GET(
   _req: Request,
@@ -31,12 +65,76 @@ export async function GET(
     const mechanicBggIds = mechanicLinks.map(l => l.id);
 
     // Look up which of those BGG mechanic IDs exist in our GameMechanic table
-    let matchedMechanics: Array<{ id: string; name: string; slug: string; bggId: number | null }> = [];
+    let matchedMechanics: MechanicSummary[] = [];
     if (mechanicBggIds.length > 0) {
       matchedMechanics = await prisma.gameMechanic.findMany({
         where: { bggId: { in: mechanicBggIds } },
         select: { id: true, name: true, slug: true, bggId: true },
       });
+
+      const existingBggIdSet = new Set(
+        matchedMechanics
+          .map((mechanic) => mechanic.bggId)
+          .filter((id): id is number => typeof id === 'number')
+      );
+      const missingMechanicBggIds = Array.from(
+        new Set(mechanicBggIds.filter((id) => !existingBggIdSet.has(id)))
+      );
+
+      if (missingMechanicBggIds.length > 0) {
+        const missingMechanicDetails = await bgg.thing(missingMechanicBggIds, { stats: false });
+        const missingById = new Map(
+          missingMechanicDetails.map((mechanic) => [Number(mechanic.id), mechanic])
+        );
+
+        const maxOrder = await prisma.gameMechanic.aggregate({
+          _max: { order: true },
+        });
+        let nextOrder = (maxOrder._max.order ?? 0) + 1;
+
+        for (const mechanicBggId of missingMechanicBggIds) {
+          const alreadyCreated = await prisma.gameMechanic.findFirst({
+            where: { bggId: mechanicBggId },
+            select: { id: true, name: true, slug: true, bggId: true },
+          });
+
+          if (alreadyCreated) {
+            matchedMechanics.push(alreadyCreated);
+            continue;
+          }
+
+          const rawLinkName = mechanicLinks.find((link) => link.id === mechanicBggId)?.value;
+          const bggMechanic = missingById.get(mechanicBggId);
+
+          const sourceName = (bggMechanic?.name || rawLinkName || '').trim();
+          if (!sourceName) {
+            continue;
+          }
+
+          const translatedName = await translateText(sourceName, 'es', 'en');
+          const sourceDescription = (bggMechanic?.description || '').trim();
+          const translatedDescription = sourceDescription
+            ? await translateText(sourceDescription, 'es', 'en')
+            : '';
+          const slug = await buildUniqueMechanicSlug(translatedName || sourceName);
+
+          const created = await prisma.gameMechanic.create({
+            data: {
+              name: translatedName || sourceName,
+              slug,
+              description: translatedDescription || sourceDescription || null,
+              bggId: mechanicBggId,
+              bggName: sourceName,
+              order: nextOrder,
+              isActive: true,
+            },
+            select: { id: true, name: true, slug: true, bggId: true },
+          });
+
+          nextOrder += 1;
+          matchedMechanics.push(created);
+        }
+      }
     }
 
     const response = {
