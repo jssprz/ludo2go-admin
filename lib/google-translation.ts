@@ -7,7 +7,14 @@ type GoogleTranslateResponse = {
     }>;
   };
   error?: {
+    code?: number;
     message?: string;
+    status?: string;
+    errors?: Array<{
+      message?: string;
+      domain?: string;
+      reason?: string;
+    }>;
   };
 };
 
@@ -58,9 +65,15 @@ export async function translateText(
 
     if (!response.ok) {
       const errorPayload = (await response.json().catch(() => null)) as GoogleTranslateResponse | null;
+      const firstError = errorPayload?.error?.errors?.[0];
       console.error('Google Translate API error', {
         status: response.status,
+        statusText: response.statusText,
+        code: errorPayload?.error?.code,
+        apiStatus: errorPayload?.error?.status,
         message: errorPayload?.error?.message,
+        reason: firstError?.reason,
+        domain: firstError?.domain,
       });
       throw new Error(errorPayload?.error?.message || `HTTP ${response.status}`);
     }
