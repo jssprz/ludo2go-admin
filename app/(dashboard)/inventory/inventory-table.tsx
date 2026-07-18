@@ -100,7 +100,7 @@ export function InventoryTable({ variants, locations }: Props) {
     switch (sortCol) {
       case 'product': return dir * a.product.name.localeCompare(b.product.name);
       case 'sku':     return dir * a.sku.localeCompare(b.sku);
-      case 'edition': return dir * (a.edition ?? '').localeCompare(b.edition ?? '');
+      case 'status':  return dir * (a.status ?? '').localeCompare(b.status ?? '');
       case 'onHand':  return dir * (getVals(a).onHand - getVals(b).onHand);
       case 'reserved':return dir * (getVals(a).reserved - getVals(b).reserved);
       case 'available':return dir * (getVals(a).available - getVals(b).available);
@@ -303,7 +303,7 @@ export function InventoryTable({ variants, locations }: Props) {
                 SKU <SortIcon col="sku" />
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort('edition')}>
-                Edition <SortIcon col="edition" />
+                Status <SortIcon col="status" />
               </TableHead>
               {selectedLocation === 'all' ? (
                 <>
@@ -366,7 +366,7 @@ export function InventoryTable({ variants, locations }: Props) {
                       {variant.sku}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {variant.edition || '-'}
+                      {variant.status}
                     </TableCell>
                     <TableCell className="text-right">{total.onHand}</TableCell>
                     <TableCell className="text-right">
@@ -418,7 +418,7 @@ export function InventoryTable({ variants, locations }: Props) {
                       {variant.sku}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {variant.edition || '-'}
+                      {variant.status}
                     </TableCell>
                     <TableCell className="text-right">
                       {editing && editingCell ? (
