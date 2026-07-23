@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { PriceRulesManager } from './price-rules-manager';
 
 type VariantPriceRow = {
   id: string;
@@ -41,6 +42,7 @@ type VariantPriceRow = {
 
 type Props = {
   variants: VariantPriceRow[];
+  initialRules: any[];
 };
 
 type SortKey = 'product' | 'sku' | 'retail' | 'sale' | 'discountPct';
@@ -73,7 +75,7 @@ function getDiscount(retailAmount: number | null, saleAmount: number | null) {
 
 const OUTLIER_DEVIATION_RATIO = 0.35;
 
-export function VariantPricesTable({ variants }: Props) {
+export function VariantPricesTable({ variants, initialRules }: Props) {
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -276,6 +278,8 @@ export function VariantPricesTable({ variants }: Props) {
 
   return (
     <div className="space-y-4">
+      <PriceRulesManager initialRules={initialRules} />
+
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-lg border p-3">
           <p className="text-xs text-muted-foreground">Total Retail</p>

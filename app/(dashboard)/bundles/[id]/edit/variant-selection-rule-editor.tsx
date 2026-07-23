@@ -20,7 +20,7 @@ const PRODUCT_KINDS = ['game', 'expansion', 'accessory', 'bundle', 'merch'];
 const PRODUCT_STATUSES = ['draft', 'active', 'archived'];
 const VARIANT_STATUSES = ['active', 'inactive', 'discontinued'];
 
-type CatalogOption = {
+export type CatalogOption = {
   id: string;
   name: string;
   slug?: string;
@@ -64,11 +64,11 @@ const DEFAULT_RULE: VariantSelectionRule = {
   metadata: null,
 };
 
-function tagsToString(arr: string[]) {
+export function tagsToString(arr: string[]) {
   return arr.join(', ');
 }
 
-function stringToTags(str: string) {
+export function stringToTags(str: string) {
   return str
     .split(',')
     .map((s) => s.trim())
@@ -83,7 +83,7 @@ type CatalogPickerProps = {
   searchPlaceholder?: string;
 };
 
-function CatalogMultiSelectPicker({
+export function CatalogMultiSelectPicker({
   label,
   options,
   selectedIds,
@@ -174,7 +174,7 @@ type VariantPickerProps = {
   onChange: (next: string[]) => void;
 };
 
-function VariantMultiSelectPicker({
+export function VariantMultiSelectPicker({
   label,
   mode,
   selectedValues,

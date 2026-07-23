@@ -87,6 +87,24 @@ export default async function VariantPricesPage() {
     };
   });
 
+  const rulesRaw = await prisma.variantPriceRule.findMany({
+    orderBy: [{ createdAt: 'desc' }],
+    include: {
+      _count: {
+        select: {
+          prices: true,
+        },
+      },
+    },
+  });
+
+  const rules = rulesRaw.map((rule) => ({
+    ...rule,
+    startsAt: rule.startsAt ? rule.startsAt.toISOString() : null,
+    endsAt: rule.endsAt ? rule.endsAt.toISOString() : null,
+    percentageDiscount: rule.percentageDiscount?.toString() ?? null,
+  }));
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -98,7 +116,7 @@ export default async function VariantPricesPage() {
         </div>
       </div>
 
-      <VariantPricesTable variants={rows} />
+      <VariantPricesTable variants={rows} initialRules={rules as any} />
     </div>
   );
 }
