@@ -381,7 +381,8 @@ export async function applyVariantPriceRule(ruleId: string, adminUserId: string 
           ? Math.max(rule.minResultAmount, computedAmount)
           : computedAmount;
 
-      const finalAmount = Math.max(0, Math.round(boundedAmount));
+      const roundedToClosestEndingZero = Math.round(boundedAmount / 10) * 10;
+      const finalAmount = Math.max(0, roundedToClosestEndingZero);
 
       return {
         variantId,
