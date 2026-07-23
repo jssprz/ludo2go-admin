@@ -343,6 +343,8 @@
       "packagingType": "Tipo de empaque",
       "currentPrice": "Actual",
       "priceTypeValue": "Precio {type}",
+      "discountVsHighest": "{percent}% bajo el precio más alto",
+      "ruleBasedLocked": "Basado en regla (bloqueado)",
       "amount": "Monto",
       "currency": "Moneda",
       "priceType": "Tipo de precio",

@@ -19,7 +19,7 @@ export default async function EditVariantPage({ params }: PageProps) {
       include: {
         product: true,
         prices: {
-          orderBy: [{ amount: 'asc' }]
+          orderBy: [{ amount: 'desc' }]
         },
         externalPrices: {
           orderBy: [{ observedAt: 'desc' }]

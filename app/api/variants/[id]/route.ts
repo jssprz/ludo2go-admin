@@ -160,12 +160,17 @@ export async function PUT(
 
     // Handle prices updates
     if (prices && Array.isArray(prices)) {
-      // Get existing price IDs for this variant
+      // Get existing prices for this variant
       const existingPrices = await prisma.price.findMany({
         where: { variantId: id },
-        select: { id: true },
+        select: { id: true, type: true },
       });
       const existingPriceIds = new Set(existingPrices.map((p) => p.id));
+      const lockedRuleBasedPriceIds = new Set(
+        existingPrices
+          .filter((p) => p.type === 'rule_based')
+          .map((p) => p.id)
+      );
 
       // Collect the IDs from the incoming payload (excluding temp IDs)
       const incomingPriceIds = new Set(
@@ -176,7 +181,9 @@ export async function PUT(
 
       // Delete prices that were removed by the user
       const idsToDelete = Array.from(existingPriceIds).filter(
-        (existingId) => !incomingPriceIds.has(existingId)
+        (existingId) =>
+          !incomingPriceIds.has(existingId) &&
+          !lockedRuleBasedPriceIds.has(existingId)
       );
       if (idsToDelete.length > 0) {
         await prisma.price.deleteMany({
@@ -187,6 +194,16 @@ export async function PUT(
       // Upsert each price from the payload
       for (const price of prices) {
         const isNew = String(price.id).startsWith('temp-');
+
+        // rule_based prices are generated from rules and must not be edited from variant form
+        if (!isNew && lockedRuleBasedPriceIds.has(price.id)) {
+          continue;
+        }
+
+        if (isNew && price.type === 'rule_based') {
+          continue;
+        }
+
         const priceData = {
           variantId: id,
           amount: typeof price.amount === 'string' ? parseInt(price.amount, 10) : price.amount,

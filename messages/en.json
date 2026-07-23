@@ -344,6 +344,8 @@
       "packagingType": "Packaging Type",
       "currentPrice": "Current",
       "priceTypeValue": "{type} Price",
+      "discountVsHighest": "{percent}% off top price",
+      "ruleBasedLocked": "Rule-based (locked)",
       "amount": "Amount",
       "currency": "Currency",
       "priceType": "Price Type",

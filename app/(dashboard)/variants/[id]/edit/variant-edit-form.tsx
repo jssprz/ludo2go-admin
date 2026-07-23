@@ -85,6 +85,17 @@ function toDatetimeLocalValue(value: Date | string | null | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function isRuleBasedPrice(price: Price): boolean {
+  return price.type === PriceType.rule_based;
+}
+
+function formatPriceTypeLabel(type: PriceType): string {
+  return type
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const router = useRouter();
   const t = useTranslations('variantEditForm');
@@ -133,6 +144,9 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const [isGeneratingSku, setIsGeneratingSku] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const sortedPrices = [...prices].sort((a, b) => b.amount - a.amount);
+  const highestPrice = sortedPrices[0] ?? null;
 
   function toNullableNumber(value: string): number | null {
     if (value.trim() === '') return null;
@@ -217,13 +231,13 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   }
 
   function handleRemovePrice(id: string) {
-    setPrices((prev) => prev.filter((price) => price.id !== id));
+    setPrices((prev) => prev.filter((price) => price.id !== id || isRuleBasedPrice(price)));
   }
 
   function handleToggleActivePrice(id: string) {
     setPrices((prev) =>
       prev.map((price) =>
-        price.id === id ? { ...price, active: !price.active } : price
+        price.id === id && !isRuleBasedPrice(price) ? { ...price, active: !price.active } : price
       )
     );
   }
@@ -741,139 +755,168 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
               </p>
             ) : (
               <div className="space-y-3">
-                {prices.map((price) => (
-                  <div
-                    key={price.id}
-                    className={`border rounded-md p-3 space-y-3 ${price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
-                      }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                {sortedPrices.map((price) => {
+                  const lockedByRule = isRuleBasedPrice(price);
+                  const showDiscount =
+                    highestPrice != null &&
+                    highestPrice.amount > 0 &&
+                    highestPrice.currency === price.currency &&
+                    price.amount < highestPrice.amount;
+                  const discountPct = showDiscount
+                    ? Math.round(((highestPrice.amount - price.amount) / highestPrice.amount) * 100)
+                    : null;
+
+                  return (
+                    <div
+                      key={price.id}
+                      className={`border rounded-md p-3 space-y-3 ${price.active ? 'bg-green-50 border-green-200' : 'bg-gray-50'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={price.active ? 'default' : 'outline'}
+                            onClick={() => handleToggleActivePrice(price.id)}
+                            disabled={lockedByRule}
+                            className="h-8"
+                          >
+                            {price.active && <Check className="h-3 w-3 mr-1" />}
+                            {price.active ? t('status.active') : t('status.inactive')}
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            {t('labels.priceTypeValue', { type: formatPriceTypeLabel(price.type) })}
+                          </span>
+                          {showDiscount && discountPct != null && (
+                            <span className="text-xs font-medium text-emerald-700">
+                              {t('labels.discountVsHighest', { percent: discountPct })}
+                            </span>
+                          )}
+                          {lockedByRule && (
+                            <span className="text-xs font-medium text-amber-700">
+                              {t('labels.ruleBasedLocked')}
+                            </span>
+                          )}
+                        </div>
                         <Button
                           type="button"
                           size="sm"
-                          variant={price.active ? 'default' : 'outline'}
-                          onClick={() => handleToggleActivePrice(price.id)}
-                          className="h-8"
+                          variant="ghost"
+                          onClick={() => handleRemovePrice(price.id)}
+                          disabled={lockedByRule}
+                          className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
-                          {price.active && <Check className="h-3 w-3 mr-1" />}
-                          {price.active ? t('status.active') : t('status.inactive')}
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        <span className="text-xs text-muted-foreground">
-                          {t('labels.priceTypeValue', { type: price.type.charAt(0).toUpperCase() + price.type.slice(1) })}
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemovePrice(price.id)}
-                        className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="space-y-1">
-                        <Label htmlFor={`price-amount-${price.id}`}>{t('labels.amount')}</Label>
-                        <Input
-                          id={`price-amount-${price.id}`}
-                          type="number"
-                          step="10"
-                          min="0"
-                          value={price.amount}
-                          onChange={(e) =>
-                            handlePriceChange(
-                              price.id,
-                              'amount',
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          required
-                        />
                       </div>
 
-                      <div className="space-y-1">
-                        <Label htmlFor={`price-currency-${price.id}`}>{t('labels.currency')}</Label>
-                        <Select
-                          value={price.currency}
-                          onValueChange={(val) =>
-                            handlePriceChange(price.id, 'currency', val)
-                          }
-                        >
-                          <SelectTrigger id={`price-currency-${price.id}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CLP">CLP</SelectItem>
-                            <SelectItem value="USD">USD</SelectItem>
-                            <SelectItem value="EUR">EUR</SelectItem>
-                            <SelectItem value="ARS">ARS</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label htmlFor={`price-amount-${price.id}`}>{t('labels.amount')}</Label>
+                          <Input
+                            id={`price-amount-${price.id}`}
+                            type="number"
+                            step="10"
+                            min="0"
+                            value={price.amount}
+                            onChange={(e) =>
+                              handlePriceChange(
+                                price.id,
+                                'amount',
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            disabled={lockedByRule}
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor={`price-currency-${price.id}`}>{t('labels.currency')}</Label>
+                          <Select
+                            value={price.currency}
+                            onValueChange={(val) =>
+                              handlePriceChange(price.id, 'currency', val)
+                            }
+                            disabled={lockedByRule}
+                          >
+                            <SelectTrigger id={`price-currency-${price.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CLP">CLP</SelectItem>
+                              <SelectItem value="USD">USD</SelectItem>
+                              <SelectItem value="EUR">EUR</SelectItem>
+                              <SelectItem value="ARS">ARS</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label htmlFor={`price-type-${price.id}`}>{t('labels.priceType')}</Label>
+                          <Select
+                            value={price.type}
+                            onValueChange={(val) =>
+                              handlePriceChange(price.id, 'type', val)
+                            }
+                            disabled={lockedByRule}
+                          >
+                            <SelectTrigger id={`price-type-${price.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="msrp">{t('priceTypeOptions.msrp')}</SelectItem>
+                              <SelectItem value="retail">{t('priceTypeOptions.retail')}</SelectItem>
+                              <SelectItem value="sale">{t('priceTypeOptions.sale')}</SelectItem>
+                              <SelectItem value="member">{t('priceTypeOptions.member')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label htmlFor={`price-type-${price.id}`}>{t('labels.priceType')}</Label>
-                        <Select
-                          value={price.type}
-                          onValueChange={(val) =>
-                            handlePriceChange(price.id, 'type', val)
-                          }
-                        >
-                          <SelectTrigger id={`price-type-${price.id}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="msrp">{t('priceTypeOptions.msrp')}</SelectItem>
-                            <SelectItem value="retail">{t('priceTypeOptions.retail')}</SelectItem>
-                            <SelectItem value="sale">{t('priceTypeOptions.sale')}</SelectItem>
-                            <SelectItem value="member">{t('priceTypeOptions.member')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor={`price-start-${price.id}`}>
+                            {t('labels.startDateOptional')}
+                          </Label>
+                          <Input
+                            id={`price-start-${price.id}`}
+                            type="date"
+                            value={toDateInputValue(price.startsAt)}
+                            onChange={(e) =>
+                              handlePriceChange(
+                                price.id,
+                                'startsAt',
+                                e.target.value || null
+                              )
+                            }
+                            disabled={lockedByRule}
+                          />
+                        </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label htmlFor={`price-start-${price.id}`}>
-                          {t('labels.startDateOptional')}
-                        </Label>
-                        <Input
-                          id={`price-start-${price.id}`}
-                          type="date"
-                          value={toDateInputValue(price.startsAt)}
-                          onChange={(e) =>
-                            handlePriceChange(
-                              price.id,
-                              'startsAt',
-                              e.target.value || null
-                            )
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`price-end-${price.id}`}>
-                          {t('labels.endDateOptional')}
-                        </Label>
-                        <Input
-                          id={`price-end-${price.id}`}
-                          type="date"
-                          value={toDateInputValue(price.endsAt)}
-                          onChange={(e) =>
-                            handlePriceChange(
-                              price.id,
-                              'endsAt',
-                              e.target.value || null
-                            )
-                          }
-                        />
+                        <div className="space-y-1">
+                          <Label htmlFor={`price-end-${price.id}`}>
+                            {t('labels.endDateOptional')}
+                          </Label>
+                          <Input
+                            id={`price-end-${price.id}`}
+                            type="date"
+                            value={toDateInputValue(price.endsAt)}
+                            onChange={(e) =>
+                              handlePriceChange(
+                                price.id,
+                                'endsAt',
+                                e.target.value || null
+                              )
+                            }
+                            disabled={lockedByRule}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
