@@ -14,7 +14,7 @@ export default async function VariantPricesPage() {
       prices: {
         where: {
           active: true,
-          type: { in: ['retail', 'sale'] },
+          type: { in: ['retail', 'sale', 'rule_based'] },
         },
         orderBy: [{ startsAt: 'desc' }, { createdAt: 'desc' }],
       },
@@ -72,7 +72,19 @@ export default async function VariantPricesPage() {
 
   const rows = variants.map((variant) => {
     const retailPrice = variant.prices.find((price) => price.type === 'retail');
-    const salePrice = variant.prices.find((price) => price.type === 'sale');
+
+    const saleCandidates = variant.prices.filter(
+      (price) => price.type === 'sale' || price.type === 'rule_based'
+    );
+
+    const salePrice = saleCandidates
+      .filter((price) => (retailPrice ? price.amount < retailPrice.amount : true))
+      .sort((a, b) => {
+        if (a.amount !== b.amount) return a.amount - b.amount;
+        const aTime = a.startsAt?.getTime() ?? a.createdAt.getTime();
+        const bTime = b.startsAt?.getTime() ?? b.createdAt.getTime();
+        return bTime - aTime;
+      })[0];
 
     return {
       id: variant.id,
