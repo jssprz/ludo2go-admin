@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    --mobile-fixed-bottom-offset: 0px;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
@@ -72,6 +73,12 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(var(--mobile-fixed-bottom-offset) + env(safe-area-inset-bottom));
   }
 }
 
