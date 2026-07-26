@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Play, Plus, Trash2, XCircle } from 'lucide-react';
+import { Loader2, Play, Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -324,7 +324,15 @@ export function PriceRulesManager({ initialRules }: Props) {
       setRules((prev) =>
         prev.map((rule) =>
           rule.id === ruleId
-            ? { ...rule, applied: true, _count: { prices: data.createdPrices ?? rule._count.prices } }
+            ? {
+                ...rule,
+                applied: true,
+                _count: {
+                  prices:
+                    data.totalGeneratedPrices ??
+                    rule._count.prices + Number(data.createdPrices ?? 0),
+                },
+              }
             : rule
         )
       );
@@ -390,7 +398,7 @@ export function PriceRulesManager({ initialRules }: Props) {
         <CardHeader>
           <CardTitle>Price Rules</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Create rule-based prices and apply/unapply them across impacted variants.
+            Create rule-based prices and apply/re-apply/unapply them across impacted variants.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -807,6 +815,25 @@ export function PriceRulesManager({ initialRules }: Props) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant={rule.applied ? 'secondary' : 'default'}
+                            onClick={() => applyRule(rule.id)}
+                            disabled={busyRuleId === rule.id}
+                            title={
+                              rule.applied
+                                ? 'Re-apply and generate prices only for newly matching variants'
+                                : 'Apply rule'
+                            }
+                          >
+                            {busyRuleId === rule.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : rule.applied ? (
+                              <RefreshCw className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </Button>
                           {rule.applied ? (
                             <Button
                               size="sm"
@@ -816,15 +843,7 @@ export function PriceRulesManager({ initialRules }: Props) {
                             >
                               {busyRuleId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
                             </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => applyRule(rule.id)}
-                              disabled={busyRuleId === rule.id}
-                            >
-                              {busyRuleId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                            </Button>
-                          )}
+                          ) : null}
                           <Button
                             size="sm"
                             variant="destructive"

@@ -23,6 +23,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       ok: true,
       impactedVariants: result.impactedVariants,
       createdPrices: result.createdPrices,
+      totalGeneratedPrices: result.totalGeneratedPrices,
     });
   } catch (error: any) {
     console.error('Error applying price rule:', error);

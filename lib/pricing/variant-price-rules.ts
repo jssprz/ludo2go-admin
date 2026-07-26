@@ -370,8 +370,24 @@ export async function applyVariantPriceRule(ruleId: string, adminUserId: string 
     }
   });
 
+  const existingRuleBasedPrices = await prisma.price.findMany({
+    where: {
+      sourceRuleId: rule.id,
+      variantId: { in: impactedVariantIds },
+    },
+    select: {
+      variantId: true,
+    },
+  });
+
+  const existingVariantIds = new Set(existingRuleBasedPrices.map((price) => price.variantId));
+
   const createRows = impactedVariantIds
     .map((variantId) => {
+      if (existingVariantIds.has(variantId)) {
+        return null;
+      }
+
       const sourceAmount = sourceByVariant.get(variantId) ?? null;
       const computedAmount = computeRuleAmount(rule, sourceAmount);
       if (computedAmount == null) return null;
@@ -402,9 +418,7 @@ export async function applyVariantPriceRule(ruleId: string, adminUserId: string 
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.price.deleteMany({ where: { sourceRuleId: rule.id } });
-
+  const totalGeneratedPrices = await prisma.$transaction(async (tx) => {
     if (createRows.length > 0) {
       await tx.price.createMany({ data: createRows });
     }
@@ -416,11 +430,14 @@ export async function applyVariantPriceRule(ruleId: string, adminUserId: string 
         ...buildUpdateAuditFields(adminUserId),
       },
     });
+
+    return tx.price.count({ where: { sourceRuleId: rule.id } });
   });
 
   return {
     impactedVariants: impactedVariantIds.length,
     createdPrices: createRows.length,
+    totalGeneratedPrices,
   };
 }
 
