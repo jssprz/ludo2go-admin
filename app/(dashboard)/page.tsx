@@ -38,22 +38,39 @@ export default async function AdminHomePage() {
   const tp = await getTranslations('products');
   const td = await getTranslations('dashboardPage');
   const locale = await getLocale();
-  
+
   // get totals
-  let totalProducts = await prisma.product.count();
-  let totalVairants = await prisma.productVariant.count();
-  let totalGames = await prisma.gameDetails.count();
-  let totalExpansions = await prisma.gameExpansionDetails.count();
-  let totalAccessories = await prisma.accessoryDetails.count();
-  let totalBundles = await prisma.bundleDetails.count();
-  let totalCustomers = await prisma.customer.count();
-  let totalAddresses = await prisma.address.count();
-  let totalOrders = await prisma.order.count();
-  let totalPendingOrders = (await prisma.order.findMany({ where: { status: OrderStatus.pending } })).length
-  let totalProcessingOrders = (await prisma.order.findMany({ where: { status: OrderStatus.processing } })).length
-  let totalShippedOrders = (await prisma.order.findMany({ where: { status: OrderStatus.shipped } })).length
-  let totalDeliveredOrders = (await prisma.order.findMany({ where: { status: OrderStatus.delivered } })).length
-  let totalCancelledOrders = (await prisma.order.findMany({ where: { status: OrderStatus.cancelled } })).length
+  const [
+    totalProducts,
+    totalVariants,
+    totalGames,
+    totalExpansions,
+    totalAccessories,
+    totalBundles,
+    totalCustomers,
+    totalAddresses,
+    totalOrders,
+    totalPendingOrders,
+    totalProcessingOrders,
+    totalShippedOrders,
+    totalDeliveredOrders,
+    totalCancelledOrders,
+  ] = await Promise.all([
+    prisma.product.count(),
+    prisma.productVariant.count(),
+    prisma.gameDetails.count(),
+    prisma.gameExpansionDetails.count(),
+    prisma.accessoryDetails.count(),
+    prisma.bundleDetails.count(),
+    prisma.customer.count(),
+    prisma.address.count(),
+    prisma.order.count(),
+    prisma.order.count({ where: { status: OrderStatus.pending } }),
+    prisma.order.count({ where: { status: OrderStatus.processing } }),
+    prisma.order.count({ where: { status: OrderStatus.shipped } }),
+    prisma.order.count({ where: { status: OrderStatus.delivered } }),
+    prisma.order.count({ where: { status: OrderStatus.cancelled } }),
+  ]);
 
   // get averages
   let variants = (await prisma.productVariant.findMany({ include: { prices: true }, where: { prices: { some: {} } } }))
@@ -83,8 +100,8 @@ export default async function AdminHomePage() {
   let mobileConversion = totalMobileVisits ? mobilePurchases / totalMobileVisits : 0
   let desktopAtoCsRate = totalDesktopVisits ? desktopAtoC / totalDesktopVisits : 0
   let mobileAtoCsRate = totalMobileVisits ? mobileAtoC / totalMobileVisits : 0
-  let avgDesktopProductImprs = totalVairants ? desktopProductImprs / totalVairants : 0
-  let avgMobileProductImprs = totalVairants ? mobileProductImprs / totalVairants : 0
+  let avgDesktopProductImprs = totalVariants ? desktopProductImprs / totalVariants : 0
+  let avgMobileProductImprs = totalVariants ? mobileProductImprs / totalVariants : 0
 
   // UTM / Channel traffic (session-based, last-touch source across all events)
   const channelEvents = await prisma.event.findMany({
@@ -151,7 +168,7 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{totalVairants}</div>
+                <div className="text-xl font-bold">{totalVariants}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('catalog.variants')}
                 </p>
@@ -311,7 +328,7 @@ export default async function AdminHomePage() {
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-7'>
               <div>
                 <div className="text-xl font-bold">{totalMobileVisits}</div>
                 <p className="text-xs text-muted-foreground">
@@ -325,9 +342,15 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{Math.round(mobileAtoCsRate * 10) / 10}</div>
+                <div className="text-xl font-bold">{mobileAtoC}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('traffic.atoc')}
+                </p>
+              </div>
+              <div>
+                <div className="text-xl font-bold">{Math.round(mobileAtoCsRate * 100) / 100}</div>
+                <p className="text-xs text-muted-foreground">
+                  {td('traffic.atocRate')}
                 </p>
               </div>
               <div>
@@ -359,7 +382,7 @@ export default async function AdminHomePage() {
             <LineChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className='grid gap-4 grid-cols-2 md:grid-cols-6'>
+            <div className='grid gap-4 grid-cols-2 md:grid-cols-7'>
               <div>
                 <div className="text-xl font-bold">{totalDesktopVisits}</div>
                 <p className="text-xs text-muted-foreground">
@@ -373,9 +396,15 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{Math.round(desktopAtoCsRate * 10) / 10}</div>
+                <div className="text-xl font-bold">{desktopAtoC}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('traffic.atoc')}
+                </p>
+              </div>
+              <div>
+                <div className="text-xl font-bold">{Math.round(desktopAtoCsRate * 100) / 100}</div>
+                <p className="text-xs text-muted-foreground">
+                  {td('traffic.atocRate')}
                 </p>
               </div>
               <div>
