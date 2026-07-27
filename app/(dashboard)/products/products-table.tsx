@@ -79,7 +79,7 @@ export function ProductsTable({
   currentBrandId: string;
 }) {
   let router = useRouter();
-  let productsPerPage = 10;
+  let productsPerPage = 20;
   const t = useTranslations('productsTable');
   const tc = useTranslations('common');
 
