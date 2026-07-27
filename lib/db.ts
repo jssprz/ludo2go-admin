@@ -72,6 +72,7 @@ export async function getProducts(
     brand: true,
     bgg: { select: { id: true } },
     mediaLinks: {
+      orderBy: { sort: 'asc' },
       include: {
         media: true
       }

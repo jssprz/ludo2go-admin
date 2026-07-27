@@ -36,7 +36,7 @@ export interface SelectProduct {
   tags: string[];
   brand: { name: string; slug: string } | null;
   createdAt: Date;
-  mediaLinks: { media: { url: string } }[];
+  mediaLinks: { role: string | null; media: { url: string } }[];
   variants: any[];
   productViews: number;
   productViewsLast7d: number;
@@ -46,6 +46,9 @@ export interface SelectProduct {
 
 export function ProductRow({ product }: { product: SelectProduct }) {
   const router = useRouter();
+  const primaryMediaLink =
+    product.mediaLinks.find((mediaLink) => mediaLink.role === 'primary') ??
+    product.mediaLinks[0];
   
   // Total stock across all locations
   const totalStock = product.variants.reduce(
@@ -62,12 +65,12 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       onClick={() => router.push(`/products/${product.id}/edit`)}
     >
       <TableCell className="hidden sm:table-cell">
-        {product.mediaLinks.length > 0 ? (
+        {primaryMediaLink ? (
           <Image
             alt="Product image"
             className="aspect-square rounded-md object-cover"
             height="64"
-            src={product.mediaLinks[0].media.url}
+            src={primaryMediaLink.media.url}
             width="64"
           />
         ) : (
@@ -76,7 +79,12 @@ export function ProductRow({ product }: { product: SelectProduct }) {
           </div>
         )}
       </TableCell>
-      <TableCell className="font-medium">{product.name}</TableCell>
+      <TableCell>
+        <div className="font-medium">{product.name}</div>
+        {product.shortDescription && (
+          <div className="text-xs text-muted-foreground line-clamp-2">{product.shortDescription}</div>
+        )}
+      </TableCell>
       <TableCell className="hidden md:table-cell text-muted-foreground tabular-nums">
         {product.bgg?.id ?? product.bggId ?? '—'}
       </TableCell>
