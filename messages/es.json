@@ -111,6 +111,7 @@
       "visits": "Visitas",
       "conversion": "Conversión",
       "atoc": "AtoC",
+      "atocRate": "AtoC rate",
       "searches": "Búsquedas",
       "itemImpressions": "Impresiones de ítems",
       "avgItemImpressions": "Impresiones Promedio"
