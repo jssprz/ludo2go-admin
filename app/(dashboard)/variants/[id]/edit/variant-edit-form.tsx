@@ -524,7 +524,6 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
               setStatus(val as VariantStatus);
               if (val !== 'scheduled') setActiveAtScheduled('');
             }}
-            defaultValue="active"
           >
             <SelectTrigger>
               <SelectValue placeholder={t('placeholders.selectStatus')} />
@@ -641,7 +640,6 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
             <Select
               value={packageType ? packageType : ''}
               onValueChange={(val) => setPackageType(val as typeof packageType)}
-              defaultValue="box"
             >
               <SelectTrigger>
                 <SelectValue placeholder={t('placeholders.selectPackagingType')} />
