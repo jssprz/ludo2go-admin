@@ -100,12 +100,12 @@ export function InventoryTable({ variants, locations }: Props) {
 
     switch (sortCol) {
       case 'product': return dir * a.product.name.localeCompare(b.product.name);
-      case 'sku':     return dir * a.sku.localeCompare(b.sku);
-      case 'status':  return dir * (a.status ?? '').localeCompare(b.status ?? '');
-      case 'onHand':  return dir * (getVals(a).onHand - getVals(b).onHand);
-      case 'reserved':return dir * (getVals(a).reserved - getVals(b).reserved);
-      case 'available':return dir * (getVals(a).available - getVals(b).available);
-      default:        return 0;
+      case 'sku': return dir * a.sku.localeCompare(b.sku);
+      case 'status': return dir * (a.status ?? '').localeCompare(b.status ?? '');
+      case 'onHand': return dir * (getVals(a).onHand - getVals(b).onHand);
+      case 'reserved': return dir * (getVals(a).reserved - getVals(b).reserved);
+      case 'available': return dir * (getVals(a).available - getVals(b).available);
+      default: return 0;
     }
   });
 
@@ -290,45 +290,6 @@ export function InventoryTable({ variants, locations }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2 items-center">
-          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select location" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('allLocations')}</SelectItem>
-              {locations.map((loc) => (
-                <SelectItem key={loc.id} value={loc.id}>
-                  {loc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Input
-          placeholder="Search by product or SKU..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-xs"
-        />
-      </div>
-
-      {/* Stock Status Legend */}
-      <div className="flex gap-4 text-xs items-center flex-wrap">
-        <span className="text-muted-foreground">Stock Status:</span>
-        <Badge className={getStockBadgeClass('ok')}>In Stock</Badge>
-        <Badge className={getStockBadgeClass('low')}>
-          Low (&le;{LOW_STOCK_THRESHOLD})
-        </Badge>
-        <Badge className={getStockBadgeClass('critical')}>
-          Critical (&le;{CRITICAL_STOCK_THRESHOLD})
-        </Badge>
-        <Badge className={getStockBadgeClass('out')}>Out of Stock</Badge>
-      </div>
-
       {/* Per-Location Summary Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {calculateLocationSummaries().map((summary) => (
@@ -376,6 +337,45 @@ export function InventoryTable({ variants, locations }: Props) {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2 items-center">
+          <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select location" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('allLocations')}</SelectItem>
+              {locations.map((loc) => (
+                <SelectItem key={loc.id} value={loc.id}>
+                  {loc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Input
+          placeholder="Search by product or SKU..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-xs"
+        />
+      </div>
+
+      {/* Stock Status Legend */}
+      <div className="flex gap-4 text-xs items-center flex-wrap">
+        <span className="text-muted-foreground">Stock Status:</span>
+        <Badge className={getStockBadgeClass('ok')}>In Stock</Badge>
+        <Badge className={getStockBadgeClass('low')}>
+          Low (&le;{LOW_STOCK_THRESHOLD})
+        </Badge>
+        <Badge className={getStockBadgeClass('critical')}>
+          Critical (&le;{CRITICAL_STOCK_THRESHOLD})
+        </Badge>
+        <Badge className={getStockBadgeClass('out')}>Out of Stock</Badge>
       </div>
 
       {/* Inventory Table */}
@@ -437,8 +437,8 @@ export function InventoryTable({ variants, locations }: Props) {
                       status === 'critical' || status === 'out'
                         ? 'bg-red-50 dark:bg-red-950/10'
                         : status === 'low'
-                        ? 'bg-yellow-50 dark:bg-yellow-950/10'
-                        : ''
+                          ? 'bg-yellow-50 dark:bg-yellow-950/10'
+                          : ''
                     }
                   >
                     <TableCell>
@@ -489,8 +489,8 @@ export function InventoryTable({ variants, locations }: Props) {
                       status === 'critical' || status === 'out'
                         ? 'bg-red-50 dark:bg-red-950/10'
                         : status === 'low'
-                        ? 'bg-yellow-50 dark:bg-yellow-950/10'
-                        : ''
+                          ? 'bg-yellow-50 dark:bg-yellow-950/10'
+                          : ''
                     }
                   >
                     <TableCell>
