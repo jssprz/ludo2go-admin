@@ -7,6 +7,7 @@ import type { ProductVariant, Product, Inventory, Location } from '@prisma/clien
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -180,6 +181,43 @@ export function InventoryTable({ variants, locations }: Props) {
     }
   }
 
+  function calculateLocationSummaries() {
+    return locations.map((location) => {
+      const summary = filteredVariants.reduce(
+        (acc, variant) => {
+          const inventory = getInventoryForLocation(variant, location.id);
+          const onHand = inventory?.onHand || 0;
+          const reserved = inventory?.reserved || 0;
+          const available = calculateAvailable(onHand, reserved);
+          const status = getStockStatus(available);
+
+          acc.onHand += onHand;
+          acc.reserved += reserved;
+          acc.available += available;
+
+          if (status === 'out') acc.out += 1;
+          if (status === 'critical') acc.critical += 1;
+          if (status === 'low') acc.low += 1;
+
+          return acc;
+        },
+        {
+          onHand: 0,
+          reserved: 0,
+          available: 0,
+          low: 0,
+          critical: 0,
+          out: 0,
+        }
+      );
+
+      return {
+        location,
+        ...summary,
+      };
+    });
+  }
+
   async function handleSave(variantId: string) {
     if (!editingCell) return;
 
@@ -289,6 +327,55 @@ export function InventoryTable({ variants, locations }: Props) {
           Critical (&le;{CRITICAL_STOCK_THRESHOLD})
         </Badge>
         <Badge className={getStockBadgeClass('out')}>Out of Stock</Badge>
+      </div>
+
+      {/* Per-Location Summary Cards */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {calculateLocationSummaries().map((summary) => (
+          <Card
+            key={summary.location.id}
+            className={selectedLocation === summary.location.id ? 'ring-1 ring-primary' : ''}
+          >
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                {summary.location.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">On Hand</div>
+                  <div className="text-base font-semibold">{summary.onHand}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Reserved</div>
+                  <div className="text-base font-semibold">{summary.reserved}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Available</div>
+                  <div className="text-base font-semibold">{summary.available}</div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {summary.out > 0 && (
+                  <Badge className={getStockBadgeClass('out')}>Out: {summary.out}</Badge>
+                )}
+                {summary.critical > 0 && (
+                  <Badge className={getStockBadgeClass('critical')}>
+                    Critical: {summary.critical}
+                  </Badge>
+                )}
+                {summary.low > 0 && (
+                  <Badge className={getStockBadgeClass('low')}>Low: {summary.low}</Badge>
+                )}
+                {summary.out === 0 && summary.critical === 0 && summary.low === 0 && (
+                  <Badge className={getStockBadgeClass('ok')}>Healthy</Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Inventory Table */}
