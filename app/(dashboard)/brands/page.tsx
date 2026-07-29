@@ -10,11 +10,20 @@ export const metadata = {
 export default async function BrandsPage() {
   const t = await getTranslations('brands');
   
-  const [brands, mediaAssets] = await Promise.all([
+  const [rawBrands, mediaAssets] = await Promise.all([
     prisma.brand.findMany({
       orderBy: { name: 'asc' },
       include: {
         logoMedia: true,
+        products: {
+          select: {
+            bgg: {
+              select: {
+                boardgameRank: true,
+              },
+            },
+          },
+        },
         _count: {
           select: { products: true },
         },
@@ -26,6 +35,22 @@ export default async function BrandsPage() {
       take: 100,
     }),
   ]);
+
+  const brands = rawBrands.map((brand) => {
+    const rankedItems = brand.products
+      .map((product) => product.bgg?.boardgameRank)
+      .filter((rank): rank is number => typeof rank === 'number');
+
+    const avgBggRank = rankedItems.length
+      ? rankedItems.reduce((sum, rank) => sum + rank, 0) / rankedItems.length
+      : null;
+
+    return {
+      ...brand,
+      avgBggRank,
+      bggRankedProductsCount: rankedItems.length,
+    };
+  });
 
   return (
     <div className="space-y-6">

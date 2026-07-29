@@ -45,6 +45,9 @@ import {
   Search,
   Loader2,
   X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -71,7 +74,20 @@ type Brand = {
   _count: {
     products: number;
   };
+  avgBggRank: number | null;
+  bggRankedProductsCount: number;
 };
+
+type SortColumn =
+  | 'logo'
+  | 'name'
+  | 'slug'
+  | 'products'
+  | 'avgBggRank'
+  | 'isFeatured'
+  | 'website';
+
+type SortDirection = 'asc' | 'desc';
 
 type Props = {
   initialBrands: Brand[];
@@ -84,6 +100,8 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
   const tc = useTranslations('common');
   const [brands, setBrands] = useState<Brand[]>(initialBrands);
   const [search, setSearch] = useState('');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [isLoading, setIsLoading] = useState(false);
 
   // Dialog states
@@ -111,6 +129,53 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
       brand.slug.toLowerCase().includes(search.toLowerCase())
   );
 
+  const sortedBrands = [...filteredBrands].sort((a, b) => {
+    let comparison = 0;
+
+    switch (sortColumn) {
+      case 'logo':
+        comparison = Number(Boolean(a.logoMedia)) - Number(Boolean(b.logoMedia));
+        break;
+      case 'name':
+        comparison = a.name.localeCompare(b.name);
+        break;
+      case 'slug':
+        comparison = a.slug.localeCompare(b.slug);
+        break;
+      case 'products':
+        comparison = a._count.products - b._count.products;
+        break;
+      case 'avgBggRank': {
+        const aRank = a.avgBggRank;
+        const bRank = b.avgBggRank;
+
+        if (aRank === null && bRank === null) {
+          comparison = 0;
+        } else if (aRank === null) {
+          comparison = 1;
+        } else if (bRank === null) {
+          comparison = -1;
+        } else {
+          comparison = aRank - bRank;
+        }
+        break;
+      }
+      case 'isFeatured':
+        comparison = Number(a.isFeatured) - Number(b.isFeatured);
+        break;
+      case 'website': {
+        const aWebsite = a.websiteUrl?.toLowerCase() ?? '';
+        const bWebsite = b.websiteUrl?.toLowerCase() ?? '';
+        comparison = aWebsite.localeCompare(bWebsite);
+        break;
+      }
+      default:
+        comparison = 0;
+    }
+
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
   const filteredMediaAssets = mediaAssets.filter(
     (asset) =>
       !mediaSearch ||
@@ -123,6 +188,28 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
+  }
+
+  function handleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortColumn(column);
+    setSortDirection('asc');
+  }
+
+  function renderSortIcon(column: SortColumn) {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4" />;
+    }
+
+    return sortDirection === 'asc' ? (
+      <ArrowUp className="h-4 w-4" />
+    ) : (
+      <ArrowDown className="h-4 w-4" />
+    );
   }
 
   function handleNameChange(name: string) {
@@ -213,7 +300,16 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
         : null;
 
       setBrands((prev) =>
-        [...prev, { ...data, logoMedia, _count: { products: 0 } }].sort((a, b) =>
+        [
+          ...prev,
+          {
+            ...data,
+            logoMedia,
+            _count: { products: 0 },
+            avgBggRank: null,
+            bggRankedProductsCount: 0,
+          },
+        ].sort((a, b) =>
           a.name.localeCompare(b.name)
         )
       );
@@ -265,7 +361,15 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
       setBrands((prev) =>
         prev
           .map((b) =>
-            b.id === selectedBrand.id ? { ...data, logoMedia, _count: b._count } : b
+            b.id === selectedBrand.id
+              ? {
+                ...data,
+                logoMedia,
+                _count: b._count,
+                avgBggRank: b.avgBggRank,
+                bggRankedProductsCount: b.bggRankedProductsCount,
+              }
+              : b
           )
           .sort((a, b) => a.name.localeCompare(b.name))
       );
@@ -343,24 +447,95 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">Logo</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead className="text-center">Products</TableHead>
-                  <TableHead className="text-center">Featured</TableHead>
-                  <TableHead>Website</TableHead>
+                  <TableHead className="w-12">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('logo')}
+                    >
+                      Logo
+                      {renderSortIcon('logo')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('name')}
+                    >
+                      Name
+                      {renderSortIcon('name')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('slug')}
+                    >
+                      Slug
+                      {renderSortIcon('slug')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('products')}
+                    >
+                      Products
+                      {renderSortIcon('products')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('avgBggRank')}
+                    >
+                      Avg BGG Rank
+                      {renderSortIcon('avgBggRank')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('isFeatured')}
+                    >
+                      Featured
+                      {renderSortIcon('isFeatured')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => handleSort('website')}
+                    >
+                      Website
+                      {renderSortIcon('website')}
+                    </Button>
+                  </TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBrands.length === 0 ? (
+                {sortedBrands.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {search ? 'No brands match your search.' : 'No brands found. Add your first brand!'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredBrands.map((brand) => (
+                  sortedBrands.map((brand) => (
                     <TableRow key={brand.id}>
                       <TableCell>
                         {brand.logoMedia ? (
@@ -395,6 +570,9 @@ export function BrandsTable({ initialBrands, mediaAssets }: Props) {
                         <Badge variant={brand._count.products > 0 ? 'default' : 'secondary'}>
                           {brand._count.products}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">
+                        {brand.avgBggRank !== null ? brand.avgBggRank.toFixed(1) : '—'}
                       </TableCell>
                       <TableCell className="text-center">
                         {brand.isFeatured ? (
