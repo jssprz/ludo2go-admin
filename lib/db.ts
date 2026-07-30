@@ -298,12 +298,12 @@ async function enrichProductsWithVariantRelevance<T extends {
     sku: string;
     firstActivedAt?: Date | null;
     activedAt?: Date | null;
+    reviews?: Array<{ rating: number | null }>;
   }>;
   bgg?: {
     boardgameRank: number | null;
     avgRating?: number | null;
   } | null;
-  reviews?: Array<{ rating: number | null }>;
 }>(products: T[]) {
   if (products.length === 0) return products;
 
@@ -478,12 +478,12 @@ async function enrichProductsWithVariantRelevance<T extends {
   const relevanceInputByVariantId = new Map<string, VariantRelevanceInput>();
 
   for (const product of products) {
-    const reviewRatings = (product.reviews ?? [])
-      .map((review) => review.rating)
-      .filter((rating): rating is number => typeof rating === 'number' && Number.isFinite(rating));
-    const reviewRating = reviewRatings.length > 0 ? getAvgRating(reviewRatings) : 0;
-
     for (const variant of product.variants) {
+      const variantReviewRatings = (variant.reviews ?? [])
+        .map((review) => review.rating)
+        .filter((rating): rating is number => typeof rating === 'number' && Number.isFinite(rating));
+      const reviewRating = variantReviewRatings.length > 0 ? getAvgRating(variantReviewRatings) : 0;
+
       const activationDate = variant.firstActivedAt ?? variant.activedAt;
       const daysSinceActivated = activationDate
         ? Math.max(
@@ -503,7 +503,7 @@ async function enrichProductsWithVariantRelevance<T extends {
         rating: reviewRating,
         bggRating: product.bgg?.avgRating ?? null,
         reviewRating,
-        reviewCount: reviewRatings.length,
+        reviewCount: variantReviewRatings.length,
         product: {
           bgg: {
             boardgameRank: product.bgg?.boardgameRank ?? null,
@@ -614,14 +614,13 @@ export async function getProducts(
   const includeProductRelations = {
     brand: true,
     bgg: { select: { id: true, boardgameRank: true, avgRating: true } },
-    reviews: { select: { rating: true } },
     mediaLinks: {
       orderBy: { sort: 'asc' },
       include: {
         media: true
       }
     },
-    variants: { include: { inventory: true } },
+    variants: { include: { inventory: true, reviews: { select: { rating: true } } } },
     createdByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
     updatedByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
   } as const;
