@@ -37,7 +37,8 @@ export interface ProductFilters {
   tags?: string[];
 }
 
-const RELEVANCE_WINDOW_DAYS = 7;
+const BESTSELLER_DAYS = 15;
+const POPULAR_DAYS = 7;
 const PRODUCTS_PER_PAGE = 20;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
@@ -308,8 +309,11 @@ async function enrichProductsWithVariantRelevance<T extends {
   if (products.length === 0) return products;
 
   const now = new Date();
-  const windowStart = new Date(now);
-  windowStart.setDate(windowStart.getDate() - RELEVANCE_WINDOW_DAYS);
+  const bestsellerWindowStart = new Date(now);
+  bestsellerWindowStart.setDate(bestsellerWindowStart.getDate() - BESTSELLER_DAYS);
+
+  const popularWindowStart = new Date(now);
+  popularWindowStart.setDate(popularWindowStart.getDate() - POPULAR_DAYS);
 
   const variantIds = new Set<string>();
   const variantIdBySku = new Map<string, string>();
@@ -338,7 +342,7 @@ async function enrichProductsWithVariantRelevance<T extends {
   const [recentOrders, activeCarts, relevanceEvents] = await Promise.all([
     prisma.order.findMany({
       where: {
-        createdAt: { gte: windowStart },
+        createdAt: { gte: bestsellerWindowStart },
         status: { not: 'cancelled' as any },
       },
       select: {
@@ -373,7 +377,7 @@ async function enrichProductsWithVariantRelevance<T extends {
             'typeahead_result_click',
           ] as any,
         },
-        occurredAt: { gte: windowStart },
+        occurredAt: { gte: popularWindowStart },
       },
       select: {
         eventType: true,
