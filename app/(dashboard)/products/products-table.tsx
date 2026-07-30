@@ -142,7 +142,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label={t('bggId')}
+                label="BGG"
                 column="bggId"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -231,22 +231,6 @@ export function ProductsTable({
               <SortableHeader
                 label="Rating"
                 column="variantReviewRating"
-                currentSortBy={sortBy}
-                currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="BGG Score"
-                column="variantRating"
-                currentSortBy={sortBy}
-                currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="BGG Rank"
-                column="variantBggRank"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 className="hidden xl:table-cell text-right"

@@ -99,8 +99,14 @@ export function ProductRow({ product }: { product: SelectProduct }) {
           <div className="text-xs text-muted-foreground line-clamp-2">{product.shortDescription}</div>
         )}
       </TableCell>
-      <TableCell className="hidden md:table-cell text-muted-foreground tabular-nums">
-        {product.bgg?.id ?? product.bggId ?? '—'}
+      <TableCell className="hidden md:table-cell text-muted-foreground">
+        <div className="tabular-nums">{product.bgg?.id ?? product.bggId ?? '—'}</div>
+        <div className="text-xs">
+          Score: {product.topVariantRelevance?.bggRating != null ? product.topVariantRelevance.bggRating.toFixed(2) : '—'}
+        </div>
+        <div className="text-xs">
+          Rank: {product.topVariantRelevance?.bggRank ?? '—'}
+        </div>
       </TableCell>
       <TableCell>
         <Badge variant="outline" className="capitalize">
@@ -125,10 +131,6 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden xl:table-cell text-right">
         {(product.topVariantRelevance?.reviewRating ?? 0).toFixed(2)}
       </TableCell>
-      <TableCell className="hidden xl:table-cell text-right">
-        {product.topVariantRelevance?.bggRating != null ? product.topVariantRelevance.bggRating.toFixed(2) : '—'}
-      </TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.bggRank ?? '—'}</TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}
