@@ -40,6 +40,20 @@ export interface SelectProduct {
   variants: any[];
   productViews: number;
   productViewsLast7d: number;
+  topVariantRelevance?: {
+    variantId: string;
+    sku: string;
+    unitsSoldInWindow: number;
+    viewCount: number;
+    clicks: number;
+    impressions: number;
+    inCartsQuantity: number;
+    daysSinceActivated: number | null;
+    rating: number | null;
+    reviewCount: number;
+    bggRank: number | null;
+    relevanceScore: number;
+  } | null;
   createdByAdminUser: AuditUser;
   updatedByAdminUser: AuditUser;
 }
@@ -104,6 +118,23 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
       <TableCell className="hidden sm:table-cell">{product.productViews}</TableCell>
       <TableCell className="hidden sm:table-cell">{product.productViewsLast7d}</TableCell>
+      <TableCell className="hidden xl:table-cell font-mono text-xs text-muted-foreground">
+        {product.topVariantRelevance?.sku ?? '—'}
+      </TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.unitsSoldInWindow ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.viewCount ?? 0)}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.clicks ?? 0)}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.impressions ?? 0)}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.inCartsQuantity ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.daysSinceActivated ?? '—'}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">
+        {product.topVariantRelevance?.rating != null ? product.topVariantRelevance.rating.toFixed(2) : '—'}
+      </TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.reviewCount ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.bggRank ?? '—'}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right font-semibold">
+        {(product.topVariantRelevance?.relevanceScore ?? 0).toFixed(4)}
+      </TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}

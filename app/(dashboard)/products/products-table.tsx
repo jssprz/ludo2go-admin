@@ -196,6 +196,86 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
+                label="Sales"
+                column="variantSales"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Views"
+                column="variantViews"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Clicks"
+                column="variantClicks"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Impressions"
+                column="variantImpressions"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="In Carts"
+                column="variantInCarts"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Days Active"
+                column="variantDaysActive"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Rating"
+                column="variantRating"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Reviews"
+                column="variantReviews"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="BGG Rank"
+                column="variantBggRank"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Variant Relevance"
+                column="variantRelevance"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
                 label={t('stock')}
                 column="stock"
                 currentSortBy={sortBy}

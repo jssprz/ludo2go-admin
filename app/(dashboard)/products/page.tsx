@@ -11,7 +11,27 @@ import { ProductFiltersBar } from './product-filters';
 type StatusTab = 'all' | 'active' | 'draft' | 'archived';
 
 const VALID_SORT_COLUMNS: SortableProductColumn[] = [
-  'name', 'bggId', 'status', 'kind', 'brand', 'createdAt', 'updatedAt', 'variants', 'stock', 'views', 'viewsLast7d'
+  'name',
+  'bggId',
+  'status',
+  'kind',
+  'brand',
+  'createdAt',
+  'updatedAt',
+  'variants',
+  'stock',
+  'views',
+  'viewsLast7d',
+  'variantSales',
+  'variantViews',
+  'variantClicks',
+  'variantImpressions',
+  'variantInCarts',
+  'variantDaysActive',
+  'variantRating',
+  'variantReviews',
+  'variantBggRank',
+  'variantRelevance'
 ];
 
 function mapStatusTabToPrisma(
