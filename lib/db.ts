@@ -22,6 +22,7 @@ export type SortableProductColumn =
   | 'variantInCarts'
   | 'variantDaysActive'
   | 'variantRating'
+  | 'variantReviewRating'
   | 'variantReviews'
   | 'variantBggRank'
   | 'variantRelevance';
@@ -68,6 +69,12 @@ const smoothedRate = (
   );
 };
 
+const getAvgRating = (ratings: number[]) => {
+  if (ratings.length === 0) return 0;
+  const sum = ratings.reduce((acc, value) => acc + value, 0);
+  return sum / ratings.length;
+};
+
 type VariantRelevanceInput = {
   id: string;
   unitsSoldInWindow: number;
@@ -77,6 +84,8 @@ type VariantRelevanceInput = {
   inCartsQuantity: number;
   daysSinceActivated: number | null;
   rating: number | null;
+  bggRating: number | null;
+  reviewRating: number;
   reviewCount: number;
   product?: {
     bgg?: {
@@ -294,6 +303,7 @@ async function enrichProductsWithVariantRelevance<T extends {
     boardgameRank: number | null;
     avgRating?: number | null;
   } | null;
+  reviews?: Array<{ rating: number | null }>;
 }>(products: T[]) {
   if (products.length === 0) return products;
 
@@ -468,6 +478,11 @@ async function enrichProductsWithVariantRelevance<T extends {
   const relevanceInputByVariantId = new Map<string, VariantRelevanceInput>();
 
   for (const product of products) {
+    const reviewRatings = (product.reviews ?? [])
+      .map((review) => review.rating)
+      .filter((rating): rating is number => typeof rating === 'number' && Number.isFinite(rating));
+    const reviewRating = reviewRatings.length > 0 ? getAvgRating(reviewRatings) : 0;
+
     for (const variant of product.variants) {
       const activationDate = variant.firstActivedAt ?? variant.activedAt;
       const daysSinceActivated = activationDate
@@ -485,8 +500,10 @@ async function enrichProductsWithVariantRelevance<T extends {
         impressions: impressions.get(variant.id) ?? 0,
         inCartsQuantity: inCartsQuantity.get(variant.id) ?? 0,
         daysSinceActivated,
-        rating: product.bgg?.avgRating ?? null,
-        reviewCount: 0,
+        rating: reviewRating,
+        bggRating: product.bgg?.avgRating ?? null,
+        reviewRating,
+        reviewCount: reviewRatings.length,
         product: {
           bgg: {
             boardgameRank: product.bgg?.boardgameRank ?? null,
@@ -512,7 +529,9 @@ async function enrichProductsWithVariantRelevance<T extends {
       inCartsQuantity: number;
       daysSinceActivated: number | null;
       rating: number | null;
+      bggRating: number | null;
       reviewCount: number;
+      reviewRating: number;
       bggRank: number | null;
       relevanceScore: number;
     } | null = null;
@@ -531,6 +550,8 @@ async function enrichProductsWithVariantRelevance<T extends {
         inCartsQuantity: metric.inCartsQuantity,
         daysSinceActivated: metric.daysSinceActivated,
         rating: metric.rating,
+        bggRating: metric.bggRating,
+        reviewRating: metric.reviewRating,
         reviewCount: metric.reviewCount,
         bggRank: metric.product?.bgg?.boardgameRank ?? null,
         relevanceScore: relevanceScores.get(variant.id) ?? 0,
@@ -593,6 +614,7 @@ export async function getProducts(
   const includeProductRelations = {
     brand: true,
     bgg: { select: { id: true, boardgameRank: true, avgRating: true } },
+    reviews: { select: { rating: true } },
     mediaLinks: {
       orderBy: { sort: 'asc' },
       include: {
@@ -619,6 +641,7 @@ export async function getProducts(
     sortBy === 'variantInCarts' ||
     sortBy === 'variantDaysActive' ||
     sortBy === 'variantRating' ||
+    sortBy === 'variantReviewRating' ||
     sortBy === 'variantReviews' ||
     sortBy === 'variantBggRank' ||
     sortBy === 'variantRelevance'
@@ -709,8 +732,13 @@ export async function getProducts(
               };
             case 'variantRating':
               return {
-                left: leftRelevance?.rating ?? 0,
-                right: rightRelevance?.rating ?? 0,
+                left: leftRelevance?.bggRating ?? 0,
+                right: rightRelevance?.bggRating ?? 0,
+              };
+            case 'variantReviewRating':
+              return {
+                left: leftRelevance?.reviewRating ?? 0,
+                right: rightRelevance?.reviewRating ?? 0,
               };
             case 'variantReviews':
               return {

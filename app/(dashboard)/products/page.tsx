@@ -29,6 +29,7 @@ const VALID_SORT_COLUMNS: SortableProductColumn[] = [
   'variantInCarts',
   'variantDaysActive',
   'variantRating',
+  'variantReviewRating',
   'variantReviews',
   'variantBggRank',
   'variantRelevance'

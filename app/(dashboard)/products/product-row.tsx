@@ -50,6 +50,8 @@ export interface SelectProduct {
     inCartsQuantity: number;
     daysSinceActivated: number | null;
     rating: number | null;
+    bggRating: number | null;
+    reviewRating: number;
     reviewCount: number;
     bggRank: number | null;
     relevanceScore: number;
@@ -122,10 +124,13 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.impressions ?? 0)}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.inCartsQuantity ?? 0}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.daysSinceActivated ?? '—'}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">
-        {product.topVariantRelevance?.rating != null ? product.topVariantRelevance.rating.toFixed(2) : '—'}
-      </TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.reviewCount ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right">
+        {(product.topVariantRelevance?.reviewRating ?? 0).toFixed(2)}
+      </TableCell>
+      <TableCell className="hidden xl:table-cell text-right">
+        {product.topVariantRelevance?.bggRating != null ? product.topVariantRelevance.bggRating.toFixed(2) : '—'}
+      </TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.bggRank ?? '—'}</TableCell>
       <TableCell className="hidden xl:table-cell text-right font-semibold">
         {(product.topVariantRelevance?.relevanceScore ?? 0).toFixed(4)}

@@ -229,16 +229,24 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Rating"
-                column="variantRating"
+                label="Reviews"
+                column="variantReviews"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 className="hidden xl:table-cell text-right"
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Reviews"
-                column="variantReviews"
+                label="Rating"
+                column="variantReviewRating"
+                currentSortBy={sortBy}
+                currentSortOrder={sortOrder}
+                className="hidden xl:table-cell text-right"
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="BGG Rating"
+                column="variantRating"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 className="hidden xl:table-cell text-right"
