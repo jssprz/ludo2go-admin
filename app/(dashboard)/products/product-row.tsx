@@ -115,8 +115,8 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden md:table-cell text-muted-foreground">
         {product.brand?.name ?? '—'}
       </TableCell>
-      <TableCell className="hidden sm:table-cell">{product.productViews}</TableCell>
-      <TableCell className="hidden sm:table-cell">{product.productViewsLast7d}</TableCell>
+      <TableCell className="hidden sm:table-cell">{Number(product.productViews ?? 0)}</TableCell>
+      <TableCell className="hidden sm:table-cell">{Number(product.productViewsLast7d ?? 0)}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.unitsSoldInWindow ?? 0}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.clicks ?? 0)}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.impressions ?? 0)}</TableCell>
