@@ -264,7 +264,87 @@ async function enrichProductsWithVariantRelevance<T extends {
     return true;
   }
 
+  function extractImpressionVariantSkus(properties: unknown): string[] {
+    if (!properties || typeof properties !== 'object') return [];
+
+    const direct = (properties as { variantSku?: unknown }).variantSku;
+    const values: string[] = [];
+
+    if (typeof direct === 'string' && direct.trim()) {
+      values.push(direct.trim());
+    }
+
+    if (Array.isArray(direct)) {
+      for (const entry of direct) {
+        if (typeof entry === 'string' && entry.trim()) {
+          values.push(entry.trim());
+        }
+      }
+    }
+
+    if (values.length > 0) {
+      return values.map((sku) => sku.toLowerCase());
+    }
+
+    return collectStringValuesByKeys(properties, new Set(['variantsku']))
+      .map((sku) => sku.toLowerCase());
+  }
+
+  function extractClickVariantSkus(properties: unknown): string[] {
+    if (!properties || typeof properties !== 'object') return [];
+
+    const direct = (properties as { variantSku?: unknown }).variantSku;
+    const values: string[] = [];
+
+    if (typeof direct === 'string' && direct.trim()) {
+      values.push(direct.trim());
+    }
+
+    if (Array.isArray(direct)) {
+      for (const entry of direct) {
+        if (typeof entry === 'string' && entry.trim()) {
+          values.push(entry.trim());
+        }
+      }
+    }
+
+    if (values.length > 0) {
+      return values.map((sku) => sku.toLowerCase());
+    }
+
+    return collectStringValuesByKeys(properties, new Set(['variantsku']))
+      .map((sku) => sku.toLowerCase());
+  }
+
   for (const event of relevanceEvents) {
+    if (event.eventType === 'product_impression') {
+      const impressionSkus = extractImpressionVariantSkus(event.properties);
+      const resolvedImpressionVariantIds = impressionSkus
+        .map((sku) => variantIdBySku.get(sku))
+        .filter((id): id is string => !!id);
+
+      if (resolvedImpressionVariantIds.length > 0) {
+        for (const id of resolvedImpressionVariantIds) {
+          incrementMap(impressions, id, 1);
+        }
+        continue;
+      }
+    }
+
+    if (event.eventType === 'search_result_click' || event.eventType === 'typeahead_result_click') {
+      const clickSkus = extractClickVariantSkus(event.properties);
+      const resolvedClickVariantIds = clickSkus
+        .map((sku) => variantIdBySku.get(sku))
+        .filter((id): id is string => !!id);
+
+      if (resolvedClickVariantIds.length > 0) {
+        for (const id of resolvedClickVariantIds) {
+          incrementMap(clicks, id, 1);
+        }
+        continue;
+      }
+    }
+
     const foundVariantIds = collectStringValuesByKeys(event.properties, variantIdKeys)
       .filter((id) => variantIds.has(id));
     const foundSkus = collectStringValuesByKeys(event.properties, skuKeys)
