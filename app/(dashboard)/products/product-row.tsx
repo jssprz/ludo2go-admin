@@ -63,7 +63,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
   const primaryMediaLink =
     product.mediaLinks.find((mediaLink) => mediaLink.role === 'primary') ??
     product.mediaLinks[0];
-  
+
   // Total stock across all locations
   const totalStock = product.variants.reduce(
     (sum: number, v: any) => sum + (v.inventory.reduce(
@@ -78,7 +78,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       className="cursor-pointer"
       onClick={() => router.push(`/products/${product.id}/edit`)}
     >
-      <TableCell className="hidden sm:table-cell">
+      <TableCell className="hidden sm:table-cell px-2">
         {primaryMediaLink ? (
           <Image
             alt="Product image"
@@ -93,13 +93,13 @@ export function ProductRow({ product }: { product: SelectProduct }) {
           </div>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="px-2">
         <div className="font-medium">{product.name}</div>
         {product.shortDescription && (
           <div className="text-xs text-muted-foreground line-clamp-2">{product.shortDescription}</div>
         )}
       </TableCell>
-      <TableCell className="hidden md:table-cell text-muted-foreground">
+      <TableCell className="hidden md:table-cell text-muted-foreground  px-2">
         <div className="tabular-nums">{product.bgg?.id ?? product.bggId ?? '—'}</div>
         <div className="text-xs">
           Score: {product.topVariantRelevance?.bggRating != null ? product.topVariantRelevance.bggRating.toFixed(2) : '—'}
@@ -108,48 +108,48 @@ export function ProductRow({ product }: { product: SelectProduct }) {
           Rank: {product.topVariantRelevance?.bggRank ?? '—'}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="px-2">
         <Badge variant="outline" className="capitalize">
           {product.status}
         </Badge>
       </TableCell>
-      <TableCell className="hidden md:table-cell">
+      <TableCell className="hidden md:table-cell px-2">
         <Badge variant="secondary" className="capitalize">
           {product.kind}
         </Badge>
       </TableCell>
-      <TableCell className="hidden md:table-cell text-muted-foreground">
+      <TableCell className="hidden md:table-cell text-muted-foreground px-2">
         {product.brand?.name ?? '—'}
       </TableCell>
-      <TableCell className="hidden sm:table-cell">{Number(product.productViews ?? 0)}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.unitsSoldInWindow ?? 0}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.clicks ?? 0)}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.impressions ?? 0)}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.inCartsQuantity ?? 0}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.daysSinceActivated ?? '—'}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.reviewCount ?? 0}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right">
+      <TableCell className="hidden sm:table-cell text-right px-2">{Number(product.productViews ?? 0)}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">{product.topVariantRelevance?.unitsSoldInWindow ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">{Math.round(product.topVariantRelevance?.clicks ?? 0)}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">{Math.round(product.topVariantRelevance?.impressions ?? 0)}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">{product.topVariantRelevance?.inCartsQuantity ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">{product.topVariantRelevance?.daysSinceActivated ?? '—'}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">{product.topVariantRelevance?.reviewCount ?? 0}</TableCell>
+      <TableCell className="hidden xl:table-cell text-right px-2">
         {(product.topVariantRelevance?.reviewRating ?? 0).toFixed(2)}
       </TableCell>
-      <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
-      <TableCell className="hidden md:table-cell">
+      <TableCell className="hidden md:table-cell px-2">{totalStock}</TableCell>
+      <TableCell className="hidden md:table-cell px-2">
         {product.createdAt.toLocaleDateString("en-US")}
       </TableCell>
-      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs px-2">
         {product.createdByAdminUser
           ? (product.createdByAdminUser.firstName && product.createdByAdminUser.lastName
             ? `${product.createdByAdminUser.firstName} ${product.createdByAdminUser.lastName}`
             : product.createdByAdminUser.username ?? '—')
           : '—'}
       </TableCell>
-      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">
+      <TableCell className="hidden lg:table-cell text-muted-foreground text-xs px-2">
         {product.updatedByAdminUser
           ? (product.updatedByAdminUser.firstName && product.updatedByAdminUser.lastName
             ? `${product.updatedByAdminUser.firstName} ${product.updatedByAdminUser.lastName}`
             : product.updatedByAdminUser.username ?? '—')
           : '—'}
       </TableCell>
-      <TableCell onClick={(e) => e.stopPropagation()}>
+      <TableCell onClick={(e) => e.stopPropagation()} className="px-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button aria-haspopup="true" size="icon" variant="ghost">

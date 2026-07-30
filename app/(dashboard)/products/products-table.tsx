@@ -127,11 +127,11 @@ export function ProductsTable({
           {t('description')}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className='p-0'>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="hidden w-[100px] sm:table-cell">
+              <TableHead className="hidden w-[100px] sm:table-cell px-2">
                 <span className="sr-only">{t('image')}</span>
               </TableHead>
               <SortableHeader
@@ -139,6 +139,7 @@ export function ProductsTable({
                 column="name"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
+                className="px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -146,7 +147,7 @@ export function ProductsTable({
                 column="bggId"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
+                className="hidden md:table-cell px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -154,6 +155,7 @@ export function ProductsTable({
                 column="status"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
+                className="px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -161,7 +163,7 @@ export function ProductsTable({
                 column="kind"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
+                className="hidden md:table-cell px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -169,7 +171,7 @@ export function ProductsTable({
                 column="brand"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
+                className="hidden md:table-cell px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -177,7 +179,7 @@ export function ProductsTable({
                 column="views"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden sm:table-cell"
+                className="hidden sm:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -185,7 +187,7 @@ export function ProductsTable({
                 column="variantSales"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -193,7 +195,7 @@ export function ProductsTable({
                 column="variantClicks"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -201,7 +203,7 @@ export function ProductsTable({
                 column="variantImpressions"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -209,7 +211,7 @@ export function ProductsTable({
                 column="variantInCarts"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -217,7 +219,7 @@ export function ProductsTable({
                 column="variantDaysActive"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -225,7 +227,7 @@ export function ProductsTable({
                 column="variantReviews"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -233,7 +235,7 @@ export function ProductsTable({
                 column="variantReviewRating"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
+                className="hidden xl:table-cell text-right px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -241,7 +243,7 @@ export function ProductsTable({
                 column="stock"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
+                className="hidden md:table-cell px-2"
                 onSort={handleSort}
               />
               <SortableHeader
@@ -249,12 +251,12 @@ export function ProductsTable({
                 column="createdAt"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
+                className="hidden md:table-cell px-2"
                 onSort={handleSort}
               />
-              <TableHead className="hidden lg:table-cell">{t('createdBy')}</TableHead>
-              <TableHead className="hidden lg:table-cell">{t('updatedBy')}</TableHead>
-              <TableHead>
+              <TableHead className="hidden lg:table-cell px-2">{t('createdBy')}</TableHead>
+              <TableHead className="hidden lg:table-cell px-2">{t('updatedBy')}</TableHead>
+              <TableHead className="px-2">
                 <span className="sr-only">{tc('actions')}</span>
               </TableHead>
             </TableRow>
