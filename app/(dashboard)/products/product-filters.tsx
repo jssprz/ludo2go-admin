@@ -176,27 +176,37 @@ export function ProductFiltersBar({
         </Button>
       )}
 
-      <form onSubmit={handleWindowDaysSubmit} className="flex items-center gap-2">
-        <Input
-          type="number"
-          min={1}
-          max={365}
-          value={bestsellerDaysValue}
-          onChange={(e) => setBestsellerDaysValue(e.target.value)}
-          className="h-8 w-[92px]"
-          aria-label="Bestseller days"
-          placeholder="Best days"
-        />
-        <Input
-          type="number"
-          min={1}
-          max={365}
-          value={popularDaysValue}
-          onChange={(e) => setPopularDaysValue(e.target.value)}
-          className="h-8 w-[92px]"
-          aria-label="Popular days"
-          placeholder="Pop days"
-        />
+      <form onSubmit={handleWindowDaysSubmit} className="flex items-end gap-2">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="bestseller-days" className="text-xs text-muted-foreground">
+            Bestseller days
+          </label>
+          <Input
+            id="bestseller-days"
+            type="number"
+            min={1}
+            max={365}
+            value={bestsellerDaysValue}
+            onChange={(e) => setBestsellerDaysValue(e.target.value)}
+            className="h-8 w-[112px]"
+            aria-label="Bestseller days"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="popular-days" className="text-xs text-muted-foreground">
+            Popular days
+          </label>
+          <Input
+            id="popular-days"
+            type="number"
+            min={1}
+            max={365}
+            value={popularDaysValue}
+            onChange={(e) => setPopularDaysValue(e.target.value)}
+            className="h-8 w-[112px]"
+            aria-label="Popular days"
+          />
+        </div>
         <Button type="submit" size="sm" className="h-8" disabled={isPending}>
           Apply days
         </Button>
