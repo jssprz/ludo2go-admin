@@ -37,6 +37,7 @@ export interface ProductFilters {
 }
 
 const RELEVANCE_WINDOW_DAYS = 90;
+const PRODUCTS_PER_PAGE = 20;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -664,8 +665,8 @@ export async function getProducts(
     const productsWithViews = allProducts
       .map((product) => ({
         ...product,
-        productViews: viewsBySlug.get(product.slug) ?? 0,
-        productViewsLast7d: viewsLast7dBySlug.get(product.slug) ?? 0,
+        productViews: Number(viewsBySlug.get(product.slug) ?? 0),
+        productViewsLast7d: Number(viewsLast7dBySlug.get(product.slug) ?? 0),
       }));
 
     const enrichedProducts = await enrichProductsWithVariantRelevance(productsWithViews);
@@ -747,8 +748,8 @@ export async function getProducts(
           return sortOrder === 'asc' ? left - right : right - left;
         }
 
-        const left = sortBy === 'viewsLast7d' ? a.productViewsLast7d : a.productViews;
-        const right = sortBy === 'viewsLast7d' ? b.productViewsLast7d : b.productViews;
+        const left = Number(sortBy === 'viewsLast7d' ? a.productViewsLast7d : a.productViews);
+        const right = Number(sortBy === 'viewsLast7d' ? b.productViewsLast7d : b.productViews);
 
         if (left === right) {
           return b.createdAt.getTime() - a.createdAt.getTime();
@@ -758,7 +759,7 @@ export async function getProducts(
           : right - left;
       });
 
-    const pagedProducts = sortedProducts.slice(offset, offset + 10);
+    const pagedProducts = sortedProducts.slice(offset, offset + PRODUCTS_PER_PAGE);
     const newOffset = offset + pagedProducts.length;
 
     return {
@@ -787,7 +788,7 @@ export async function getProducts(
   const moreProducts = await prisma.product.findMany({
     include: includeProductRelations,
     where,
-    take: 10,
+    take: PRODUCTS_PER_PAGE,
     skip: offset,
     orderBy
   });
@@ -828,8 +829,8 @@ export async function getProducts(
 
   const productsWithViews = moreProducts.map((product) => ({
     ...product,
-    productViews: viewsBySlug.get(product.slug) ?? 0,
-    productViewsLast7d: viewsLast7dBySlug.get(product.slug) ?? 0,
+    productViews: Number(viewsBySlug.get(product.slug) ?? 0),
+    productViewsLast7d: Number(viewsLast7dBySlug.get(product.slug) ?? 0),
   }));
 
   const enrichedProducts = await enrichProductsWithVariantRelevance(productsWithViews);

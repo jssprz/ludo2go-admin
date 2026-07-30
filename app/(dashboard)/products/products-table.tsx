@@ -23,6 +23,8 @@ import { SelectProduct } from './product-row';
 import { SortableProductColumn, SortOrder } from '@/lib/db';
 import { useTranslations } from 'next-intl';
 
+const PRODUCTS_PER_PAGE = 20;
+
 interface SortableHeaderProps {
   label: string;
   column: SortableProductColumn;
@@ -79,7 +81,6 @@ export function ProductsTable({
   currentBrandId: string;
 }) {
   let router = useRouter();
-  let productsPerPage = 20;
   const t = useTranslations('productsTable');
   const tc = useTranslations('common');
 
@@ -304,7 +305,7 @@ export function ProductsTable({
               variant="ghost"
               size="sm"
               type="submit"
-              disabled={offset === productsPerPage}
+              disabled={offset === PRODUCTS_PER_PAGE}
             >
               <ChevronLeft className="mr-2 h-4 w-4" />
               {tc('previous')}
