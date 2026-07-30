@@ -3,12 +3,12 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProductKind } from '@prisma/client';
-import { SortableProductColumn, SortOrder } from '@/lib/db';
+import type { SortableProductColumn, SortOrder } from '@/lib/db';
 import { Filter, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/icons';
-import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/db';
+import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/products-relevance-config';
 
 const PRODUCT_KINDS: { value: string; label: string }[] = [
   { value: '', label: 'All Types' },

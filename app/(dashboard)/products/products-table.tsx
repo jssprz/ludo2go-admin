@@ -20,7 +20,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SelectProduct } from './product-row';
-import { SortableProductColumn, SortOrder } from '@/lib/db';
+import type { SortableProductColumn, SortOrder } from '@/lib/db';
 import { useTranslations } from 'next-intl';
 
 const PRODUCTS_PER_PAGE = 20;

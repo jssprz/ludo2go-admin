@@ -3,6 +3,7 @@ import 'server-only';
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductStatus, ProductKind, EventType } from '@prisma/client';
 import { scoreByRelevance } from '@/lib/repositories/variant.repository';
+import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/products-relevance-config';
 
 export type SortableProductColumn =
   | 'name'
@@ -40,8 +41,6 @@ export interface ProductFilters {
   popularDays?: number;
 }
 
-export const DEFAULT_BESTSELLER_DAYS = 15;
-export const DEFAULT_POPULAR_DAYS = 7;
 const BESTSELLER_DAYS = DEFAULT_BESTSELLER_DAYS;
 const POPULAR_DAYS = DEFAULT_POPULAR_DAYS;
 const PRODUCTS_PER_PAGE = 20;

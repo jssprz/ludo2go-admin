@@ -8,9 +8,8 @@ import {
   getAllBrands,
   SortableProductColumn,
   SortOrder,
-  DEFAULT_BESTSELLER_DAYS,
-  DEFAULT_POPULAR_DAYS,
 } from '@/lib/db';
+import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/products-relevance-config';
 import { ProductStatus, ProductKind } from '@prisma/client';
 import { GoogleMerchantSyncButton } from './google-merchant-sync-button';
 import { ProductFiltersBar } from './product-filters';
