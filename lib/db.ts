@@ -2,8 +2,6 @@ import 'server-only';
 
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductStatus, ProductKind, EventType } from '@prisma/client';
-import { scoreByRelevance } from '@/lib/repositories/variant.repository';
-import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/products-relevance-config';
 
 export type SortableProductColumn =
   | 'name'
@@ -16,7 +14,6 @@ export type SortableProductColumn =
   | 'variants'
   | 'stock'
   | 'views'
-  | 'viewsLast7d'
   | 'variantSales'
   | 'variantViews'
   | 'variantClicks'
@@ -26,8 +23,7 @@ export type SortableProductColumn =
   | 'variantRating'
   | 'variantReviewRating'
   | 'variantReviews'
-  | 'variantBggRank'
-  | 'variantRelevance';
+  | 'variantBggRank';
 
 export type SortOrder = 'asc' | 'desc';
 
@@ -37,18 +33,11 @@ export interface ProductFilters {
   kind?: ProductKind;
   brandId?: string;
   tags?: string[];
-  bestsellerDays?: number;
-  popularDays?: number;
 }
 
-const BESTSELLER_DAYS = DEFAULT_BESTSELLER_DAYS;
-const POPULAR_DAYS = DEFAULT_POPULAR_DAYS;
+const BESTSELLER_DAYS = 15;
+const POPULAR_DAYS = 7;
 const PRODUCTS_PER_PAGE = 20;
-
-const resolveWindowDays = (value: number | undefined, fallback: number) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.min(365, Math.max(1, Math.floor(value)));
-};
 
 const getAvgRating = (ratings: number[]) => {
   if (ratings.length === 0) return 0;
@@ -56,7 +45,7 @@ const getAvgRating = (ratings: number[]) => {
   return sum / ratings.length;
 };
 
-type VariantRelevanceInput = {
+type VariantMetrics = {
   id: string;
   unitsSoldInWindow: number;
   viewCount: number;
@@ -68,11 +57,7 @@ type VariantRelevanceInput = {
   bggRating: number | null;
   reviewRating: number;
   reviewCount: number;
-  product?: {
-    bgg?: {
-      boardgameRank: number | null;
-    } | null;
-  } | null;
+  bggRank: number | null;
 };
 
 function collectStringValuesByKeys(
@@ -140,18 +125,15 @@ async function enrichProductsWithVariantRelevance<T extends {
     boardgameRank: number | null;
     avgRating?: number | null;
   } | null;
-}>(products: T[], options?: { bestsellerDays?: number; popularDays?: number }) {
+}>(products: T[]) {
   if (products.length === 0) return products;
-
-  const bestsellerDays = resolveWindowDays(options?.bestsellerDays, BESTSELLER_DAYS);
-  const popularDays = resolveWindowDays(options?.popularDays, POPULAR_DAYS);
 
   const now = new Date();
   const bestsellerWindowStart = new Date(now);
-  bestsellerWindowStart.setDate(bestsellerWindowStart.getDate() - bestsellerDays);
+  bestsellerWindowStart.setDate(bestsellerWindowStart.getDate() - BESTSELLER_DAYS);
 
   const popularWindowStart = new Date(now);
-  popularWindowStart.setDate(popularWindowStart.getDate() - popularDays);
+  popularWindowStart.setDate(popularWindowStart.getDate() - POPULAR_DAYS);
 
   const variantIds = new Set<string>();
   const variantIdBySku = new Map<string, string>();
@@ -316,8 +298,7 @@ async function enrichProductsWithVariantRelevance<T extends {
     }
   }
 
-  const relevanceInput: VariantRelevanceInput[] = [];
-  const relevanceInputByVariantId = new Map<string, VariantRelevanceInput>();
+  const variantMetricsById = new Map<string, VariantMetrics>();
 
   for (const product of products) {
     for (const variant of product.variants) {
@@ -334,7 +315,7 @@ async function enrichProductsWithVariantRelevance<T extends {
           )
         : null;
 
-      const entry: VariantRelevanceInput = {
+      const entry: VariantMetrics = {
         id: variant.id,
         unitsSoldInWindow: unitsSoldInWindow.get(variant.id) ?? 0,
         viewCount: viewCount.get(variant.id) ?? 0,
@@ -346,56 +327,12 @@ async function enrichProductsWithVariantRelevance<T extends {
         bggRating: product.bgg?.avgRating ?? null,
         reviewRating,
         reviewCount: variantReviewRatings.length,
-        product: {
-          bgg: {
-            boardgameRank: product.bgg?.boardgameRank ?? null,
-          },
-        },
+        bggRank: product.bgg?.boardgameRank ?? null,
       };
 
-      relevanceInput.push(entry);
-      relevanceInputByVariantId.set(variant.id, entry);
+      variantMetricsById.set(variant.id, entry);
     }
   }
-
-  const relevanceScores = scoreByRelevance(relevanceInput);
-
-  const productRelevanceInput: VariantRelevanceInput[] = products.map((product) => {
-    const metrics = product.variants
-      .map((variant) => relevanceInputByVariantId.get(variant.id))
-      .filter((metric): metric is VariantRelevanceInput => !!metric);
-
-    const totalReviewCount = metrics.reduce((sum, metric) => sum + metric.reviewCount, 0);
-    const reviewWeightedRating =
-      totalReviewCount > 0
-        ? metrics.reduce((sum, metric) => sum + (metric.reviewRating * metric.reviewCount), 0) / totalReviewCount
-        : 0;
-
-    const freshnessCandidates = metrics
-      .map((metric) => metric.daysSinceActivated)
-      .filter((days): days is number => days != null);
-
-    return {
-      id: product.id,
-      unitsSoldInWindow: metrics.reduce((sum, metric) => sum + metric.unitsSoldInWindow, 0),
-      viewCount: metrics.reduce((sum, metric) => sum + metric.viewCount, 0),
-      clicks: metrics.reduce((sum, metric) => sum + metric.clicks, 0),
-      impressions: metrics.reduce((sum, metric) => sum + metric.impressions, 0),
-      inCartsQuantity: metrics.reduce((sum, metric) => sum + metric.inCartsQuantity, 0),
-      daysSinceActivated: freshnessCandidates.length > 0 ? Math.min(...freshnessCandidates) : null,
-      rating: reviewWeightedRating,
-      bggRating: product.bgg?.avgRating ?? null,
-      reviewRating: reviewWeightedRating,
-      reviewCount: totalReviewCount,
-      product: {
-        bgg: {
-          boardgameRank: product.bgg?.boardgameRank ?? null,
-        },
-      },
-    };
-  });
-
-  const productRelevanceScores = scoreByRelevance(productRelevanceInput);
 
   return products.map((product) => {
     let topVariantRelevance: {
@@ -412,11 +349,10 @@ async function enrichProductsWithVariantRelevance<T extends {
       reviewCount: number;
       reviewRating: number;
       bggRank: number | null;
-      relevanceScore: number;
     } | null = null;
 
     for (const variant of product.variants) {
-      const metric = relevanceInputByVariantId.get(variant.id);
+      const metric = variantMetricsById.get(variant.id);
       if (!metric) continue;
 
       const candidate = {
@@ -432,18 +368,24 @@ async function enrichProductsWithVariantRelevance<T extends {
         bggRating: metric.bggRating,
         reviewRating: metric.reviewRating,
         reviewCount: metric.reviewCount,
-        bggRank: metric.product?.bgg?.boardgameRank ?? null,
-        relevanceScore: relevanceScores.get(variant.id) ?? 0,
+        bggRank: metric.bggRank,
       };
 
-      if (!topVariantRelevance || candidate.relevanceScore > topVariantRelevance.relevanceScore) {
+      if (
+        !topVariantRelevance ||
+        candidate.unitsSoldInWindow > topVariantRelevance.unitsSoldInWindow ||
+        (candidate.unitsSoldInWindow === topVariantRelevance.unitsSoldInWindow &&
+          candidate.viewCount > topVariantRelevance.viewCount) ||
+        (candidate.unitsSoldInWindow === topVariantRelevance.unitsSoldInWindow &&
+          candidate.viewCount === topVariantRelevance.viewCount &&
+          candidate.clicks > topVariantRelevance.clicks)
+      ) {
         topVariantRelevance = candidate;
       }
     }
 
     return {
       ...product,
-      productRelevanceScore: productRelevanceScores.get(product.id) ?? 0,
       topVariantRelevance,
     };
   });
@@ -455,7 +397,7 @@ export async function getProducts(
   status: ProductStatus | undefined,
   sortBy: SortableProductColumn = 'createdAt',
   sortOrder: SortOrder = 'desc',
-  filters?: { kind?: ProductKind; brandId?: string; tags?: string[]; bestsellerDays?: number; popularDays?: number }
+  filters?: { kind?: ProductKind; brandId?: string; tags?: string[] }
 ) {
   const where: any = {};
 
@@ -506,13 +448,9 @@ export async function getProducts(
   } as const;
 
   let totalProducts = await prisma.product.count({ where });
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
   // Event/relevance-based sorting requires enriching products before pagination.
   if (
     sortBy === 'views' ||
-    sortBy === 'viewsLast7d' ||
     sortBy === 'variantSales' ||
     sortBy === 'variantViews' ||
     sortBy === 'variantClicks' ||
@@ -522,8 +460,7 @@ export async function getProducts(
     sortBy === 'variantRating' ||
     sortBy === 'variantReviewRating' ||
     sortBy === 'variantReviews' ||
-    sortBy === 'variantBggRank' ||
-    sortBy === 'variantRelevance'
+    sortBy === 'variantBggRank'
   ) {
     const allProducts = await prisma.product.findMany({
       include: includeProductRelations,
@@ -533,21 +470,16 @@ export async function getProducts(
     const productSlugs = allProducts.map((product) => product.slug);
     const slugSet = new Set(productSlugs);
 
-    const [productViewEvents, productViewEventsLast7d] = productSlugs.length
+    const productViewEvents = productSlugs.length
       ? await Promise.all([
           prisma.event.findMany({
             where: { eventType: EventType.product_view },
             select: { properties: true },
           }),
-          prisma.event.findMany({
-            where: { eventType: EventType.product_view, occurredAt: { gte: sevenDaysAgo } },
-            select: { properties: true },
-          }),
-        ])
-      : [[], []];
+        ]).then(([events]) => events)
+      : [];
 
     const viewsBySlug = new Map<string, number>();
-    const viewsLast7dBySlug = new Map<string, number>();
     for (const event of productViewEvents) {
       if (!event.properties || typeof event.properties !== 'object') continue;
       const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
@@ -556,25 +488,13 @@ export async function getProducts(
       viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
     }
 
-    for (const event of productViewEventsLast7d) {
-      if (!event.properties || typeof event.properties !== 'object') continue;
-      const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
-      if (typeof productSlug !== 'string') continue;
-      if (!slugSet.has(productSlug)) continue;
-      viewsLast7dBySlug.set(productSlug, (viewsLast7dBySlug.get(productSlug) ?? 0) + 1);
-    }
-
     const productsWithViews = allProducts
       .map((product) => ({
         ...product,
         productViews: Number(viewsBySlug.get(product.slug) ?? 0),
-        productViewsLast7d: Number(viewsLast7dBySlug.get(product.slug) ?? 0),
       }));
 
-    const enrichedProducts = await enrichProductsWithVariantRelevance(productsWithViews, {
-      bestsellerDays: filters?.bestsellerDays,
-      popularDays: filters?.popularDays,
-    });
+    const enrichedProducts = await enrichProductsWithVariantRelevance(productsWithViews);
 
     const sortedProducts = enrichedProducts.sort((a: any, b: any) => {
         const leftRelevance = a.topVariantRelevance;
@@ -648,18 +568,8 @@ export async function getProducts(
           return sortOrder === 'asc' ? left - right : right - left;
         }
 
-        if (sortBy === 'variantRelevance') {
-          const left = a.productRelevanceScore ?? 0;
-          const right = b.productRelevanceScore ?? 0;
-
-          if (left === right) {
-            return b.createdAt.getTime() - a.createdAt.getTime();
-          }
-          return sortOrder === 'asc' ? left - right : right - left;
-        }
-
-        const left = Number(sortBy === 'viewsLast7d' ? a.productViewsLast7d : a.productViews);
-        const right = Number(sortBy === 'viewsLast7d' ? b.productViewsLast7d : b.productViews);
+        const left = Number(a.productViews);
+        const right = Number(b.productViews);
 
         if (left === right) {
           return b.createdAt.getTime() - a.createdAt.getTime();
@@ -706,21 +616,16 @@ export async function getProducts(
   const productSlugs = moreProducts.map((product) => product.slug);
   const slugSet = new Set(productSlugs);
 
-  const [productViewEvents, productViewEventsLast7d] = productSlugs.length
+  const productViewEvents = productSlugs.length
     ? await Promise.all([
         prisma.event.findMany({
           where: { eventType: EventType.product_view },
           select: { properties: true },
         }),
-        prisma.event.findMany({
-          where: { eventType: EventType.product_view, occurredAt: { gte: sevenDaysAgo } },
-          select: { properties: true },
-        }),
-      ])
-    : [[], []];
+      ]).then(([events]) => events)
+    : [];
 
   const viewsBySlug = new Map<string, number>();
-  const viewsLast7dBySlug = new Map<string, number>();
   for (const event of productViewEvents) {
     if (!event.properties || typeof event.properties !== 'object') continue;
     const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
@@ -729,24 +634,12 @@ export async function getProducts(
     viewsBySlug.set(productSlug, (viewsBySlug.get(productSlug) ?? 0) + 1);
   }
 
-  for (const event of productViewEventsLast7d) {
-    if (!event.properties || typeof event.properties !== 'object') continue;
-    const productSlug = (event.properties as { productSlug?: unknown }).productSlug;
-    if (typeof productSlug !== 'string') continue;
-    if (!slugSet.has(productSlug)) continue;
-    viewsLast7dBySlug.set(productSlug, (viewsLast7dBySlug.get(productSlug) ?? 0) + 1);
-  }
-
   const productsWithViews = moreProducts.map((product) => ({
     ...product,
     productViews: Number(viewsBySlug.get(product.slug) ?? 0),
-    productViewsLast7d: Number(viewsLast7dBySlug.get(product.slug) ?? 0),
   }));
 
-  const enrichedProducts = await enrichProductsWithVariantRelevance(productsWithViews, {
-    bestsellerDays: filters?.bestsellerDays,
-    popularDays: filters?.popularDays,
-  });
+  const enrichedProducts = await enrichProductsWithVariantRelevance(productsWithViews);
 
   const newOffset = moreProducts.length + offset;
 

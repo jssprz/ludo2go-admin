@@ -9,7 +9,6 @@ import {
   SortableProductColumn,
   SortOrder,
 } from '@/lib/db';
-import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/products-relevance-config';
 import { ProductStatus, ProductKind } from '@prisma/client';
 import { GoogleMerchantSyncButton } from './google-merchant-sync-button';
 import { ProductFiltersBar } from './product-filters';
@@ -27,7 +26,6 @@ const VALID_SORT_COLUMNS: SortableProductColumn[] = [
   'variants',
   'stock',
   'views',
-  'viewsLast7d',
   'variantSales',
   'variantViews',
   'variantClicks',
@@ -37,8 +35,7 @@ const VALID_SORT_COLUMNS: SortableProductColumn[] = [
   'variantRating',
   'variantReviewRating',
   'variantReviews',
-  'variantBggRank',
-  'variantRelevance'
+  'variantBggRank'
 ];
 
 function mapStatusTabToPrisma(
@@ -62,13 +59,6 @@ function isValidKind(value?: string): ProductKind | undefined {
   return kinds.includes(value as ProductKind) ? (value as ProductKind) : undefined;
 }
 
-function parseDaysParam(value: string | undefined, fallback: number): number {
-  if (!value) return fallback;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(365, Math.max(1, Math.floor(parsed)));
-}
-
 export default async function ProductsPage(
   props: {
     searchParams: Promise<{
@@ -79,8 +69,6 @@ export default async function ProductsPage(
       sortOrder?: string;
       kind?: string;
       brandId?: string;
-      bestsellerDays?: string;
-      popularDays?: string;
     }>;
   }
 ) {
@@ -101,16 +89,9 @@ export default async function ProductsPage(
   // Filtering
   const kind = isValidKind(searchParams.kind);
   const brandId = searchParams.brandId || undefined;
-  const bestsellerDays = parseDaysParam(searchParams.bestsellerDays, DEFAULT_BESTSELLER_DAYS);
-  const popularDays = parseDaysParam(searchParams.popularDays, DEFAULT_POPULAR_DAYS);
 
   const [{ products, newOffset, totalProducts }, brands] = await Promise.all([
-    getProducts(search, Number(offset), prismaStatus, sortBy, sortOrder, {
-      kind,
-      brandId,
-      bestsellerDays,
-      popularDays,
-    }),
+    getProducts(search, Number(offset), prismaStatus, sortBy, sortOrder, { kind, brandId }),
     getAllBrands(),
   ]);
 
@@ -129,8 +110,6 @@ export default async function ProductsPage(
                   sortOrder,
                   kind: searchParams.kind ?? '',
                   brandId: searchParams.brandId ?? '',
-                  bestsellerDays,
-                  popularDays,
                 },
               }}
             >
@@ -148,8 +127,6 @@ export default async function ProductsPage(
                   sortOrder,
                   kind: searchParams.kind ?? '',
                   brandId: searchParams.brandId ?? '',
-                  bestsellerDays,
-                  popularDays,
                 },
               }}
             >
@@ -167,8 +144,6 @@ export default async function ProductsPage(
                   sortOrder,
                   kind: searchParams.kind ?? '',
                   brandId: searchParams.brandId ?? '',
-                  bestsellerDays,
-                  popularDays,
                 },
               }}
             >
@@ -186,8 +161,6 @@ export default async function ProductsPage(
                   sortOrder,
                   kind: searchParams.kind ?? '',
                   brandId: searchParams.brandId ?? '',
-                  bestsellerDays,
-                  popularDays,
                 },
               }}
             >
@@ -219,8 +192,6 @@ export default async function ProductsPage(
         currentStatus={tabStatus}
         currentSortBy={sortBy}
         currentSortOrder={sortOrder}
-        currentBestsellerDays={String(bestsellerDays)}
-        currentPopularDays={String(popularDays)}
       />
       <TabsContent value={tabStatus}>
         <ProductsTable
@@ -233,8 +204,6 @@ export default async function ProductsPage(
           sortOrder={sortOrder}
           currentKind={searchParams.kind ?? ''}
           currentBrandId={searchParams.brandId ?? ''}
-          currentBestsellerDays={String(bestsellerDays)}
-          currentPopularDays={String(popularDays)}
         />
       </TabsContent>
     </Tabs>

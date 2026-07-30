@@ -69,8 +69,6 @@ export function ProductsTable({
   sortOrder,
   currentKind,
   currentBrandId,
-  currentBestsellerDays,
-  currentPopularDays,
 }: {
   products: SelectProduct[];
   offset: number;
@@ -81,8 +79,6 @@ export function ProductsTable({
   sortOrder: SortOrder;
   currentKind: string;
   currentBrandId: string;
-  currentBestsellerDays: string;
-  currentPopularDays: string;
 }) {
   let router = useRouter();
   const t = useTranslations('productsTable');
@@ -96,8 +92,6 @@ export function ProductsTable({
       sortOrder,
       kind: currentKind,
       brandId: currentBrandId,
-      bestsellerDays: currentBestsellerDays,
-      popularDays: currentPopularDays,
     });
     for (const [key, value] of Object.entries(overrides)) {
       if (value !== undefined && value !== '') {
@@ -187,14 +181,6 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label={t('productViewsLast7d')}
-                column="viewsLast7d"
-                currentSortBy={sortBy}
-                currentSortOrder={sortOrder}
-                className="hidden sm:table-cell"
-                onSort={handleSort}
-              />
-              <SortableHeader
                 label="Sales"
                 column="variantSales"
                 currentSortBy={sortBy}
@@ -227,7 +213,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Days"
+                label="Age(d)"
                 column="variantDaysActive"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -235,7 +221,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Reviews"
+                label="Revs"
                 column="variantReviews"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -251,7 +237,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="BGG Rating"
+                label="BGG Score"
                 column="variantRating"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -261,14 +247,6 @@ export function ProductsTable({
               <SortableHeader
                 label="BGG Rank"
                 column="variantBggRank"
-                currentSortBy={sortBy}
-                currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Relevance"
-                column="variantRelevance"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
                 className="hidden xl:table-cell text-right"

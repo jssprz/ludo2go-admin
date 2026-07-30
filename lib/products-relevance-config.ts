@@ -1,2 +1,0 @@
-export const DEFAULT_BESTSELLER_DAYS = 15;
-export const DEFAULT_POPULAR_DAYS = 7;

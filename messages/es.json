@@ -278,8 +278,8 @@
     "productViewsLast7d": "Vistas 7d",
     "stock": "Stock",
     "createdAt": "Creado el",
-    "createdBy": "Creado por",
-    "updatedBy": "Actualizado por",
+    "createdBy": "Autor",
+    "updatedBy": "Editor",
     "showing": "Mostrando {start} - {end} de {total} productos"
   },
   "brands": {

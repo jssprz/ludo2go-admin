@@ -39,8 +39,6 @@ export interface SelectProduct {
   mediaLinks: { role: string | null; media: { url: string } }[];
   variants: any[];
   productViews: number;
-  productViewsLast7d: number;
-  productRelevanceScore?: number;
   topVariantRelevance?: {
     variantId: string;
     sku: string;
@@ -55,7 +53,6 @@ export interface SelectProduct {
     reviewRating: number;
     reviewCount: number;
     bggRank: number | null;
-    relevanceScore: number;
   } | null;
   createdByAdminUser: AuditUser;
   updatedByAdminUser: AuditUser;
@@ -119,7 +116,6 @@ export function ProductRow({ product }: { product: SelectProduct }) {
         {product.brand?.name ?? '—'}
       </TableCell>
       <TableCell className="hidden sm:table-cell">{Number(product.productViews ?? 0)}</TableCell>
-      <TableCell className="hidden sm:table-cell">{Number(product.productViewsLast7d ?? 0)}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.unitsSoldInWindow ?? 0}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.clicks ?? 0)}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{Math.round(product.topVariantRelevance?.impressions ?? 0)}</TableCell>
@@ -133,9 +129,6 @@ export function ProductRow({ product }: { product: SelectProduct }) {
         {product.topVariantRelevance?.bggRating != null ? product.topVariantRelevance.bggRating.toFixed(2) : '—'}
       </TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.bggRank ?? '—'}</TableCell>
-      <TableCell className="hidden xl:table-cell text-right font-semibold">
-        {(product.productRelevanceScore ?? product.topVariantRelevance?.relevanceScore ?? 0).toFixed(4)}
-      </TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">
         {product.createdAt.toLocaleDateString("en-US")}
