@@ -115,7 +115,6 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       <TableCell className="hidden md:table-cell text-muted-foreground">
         {product.brand?.name ?? '—'}
       </TableCell>
-      <TableCell className="hidden md:table-cell">{product.variants.length}</TableCell>
       <TableCell className="hidden sm:table-cell">{product.productViews}</TableCell>
       <TableCell className="hidden sm:table-cell">{product.productViewsLast7d}</TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.unitsSoldInWindow ?? 0}</TableCell>

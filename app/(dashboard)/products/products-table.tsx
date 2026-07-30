@@ -172,14 +172,6 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label={t('variants')}
-                column="variants"
-                currentSortBy={sortBy}
-                currentSortOrder={sortOrder}
-                className="hidden md:table-cell"
-                onSort={handleSort}
-              />
-              <SortableHeader
                 label={t('productViews')}
                 column="views"
                 currentSortBy={sortBy}
@@ -220,7 +212,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="In Carts"
+                label="Carts"
                 column="variantInCarts"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -228,7 +220,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Days Active"
+                label="Days"
                 column="variantDaysActive"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
