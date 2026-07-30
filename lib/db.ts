@@ -37,7 +37,7 @@ export interface ProductFilters {
   tags?: string[];
 }
 
-const RELEVANCE_WINDOW_DAYS = 90;
+const RELEVANCE_WINDOW_DAYS = 15;
 const PRODUCTS_PER_PAGE = 20;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
