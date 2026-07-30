@@ -247,6 +247,7 @@ async function enrichProductsWithVariantRelevance<T extends {
   ]);
   const productSlugKeys = new Set([
     'productslug',
+    'resultslug',
     'slug',
     'productid',
     'selectedproductslug',
@@ -259,8 +260,9 @@ async function enrichProductsWithVariantRelevance<T extends {
   function incrementByProductSlug(map: Map<string, number>, slug: string, amount = 1) {
     const ids = variantIdsByProductSlug.get(slug.toLowerCase());
     if (!ids || ids.length === 0) return false;
-    const apportioned = amount / ids.length;
-    for (const id of ids) incrementMap(map, id, apportioned);
+    const canonicalVariantId = ids[0];
+    if (!canonicalVariantId) return false;
+    incrementMap(map, canonicalVariantId, amount);
     return true;
   }
 
