@@ -69,6 +69,8 @@ export function ProductsTable({
   sortOrder,
   currentKind,
   currentBrandId,
+  currentBestsellerDays,
+  currentPopularDays,
 }: {
   products: SelectProduct[];
   offset: number;
@@ -79,6 +81,8 @@ export function ProductsTable({
   sortOrder: SortOrder;
   currentKind: string;
   currentBrandId: string;
+  currentBestsellerDays: string;
+  currentPopularDays: string;
 }) {
   let router = useRouter();
   const t = useTranslations('productsTable');
@@ -92,6 +96,8 @@ export function ProductsTable({
       sortOrder,
       kind: currentKind,
       brandId: currentBrandId,
+      bestsellerDays: currentBestsellerDays,
+      popularDays: currentPopularDays,
     });
     for (const [key, value] of Object.entries(overrides)) {
       if (value !== undefined && value !== '') {

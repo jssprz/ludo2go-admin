@@ -40,6 +40,7 @@ export interface SelectProduct {
   variants: any[];
   productViews: number;
   productViewsLast7d: number;
+  productRelevanceScore?: number;
   topVariantRelevance?: {
     variantId: string;
     sku: string;
@@ -133,7 +134,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
       </TableCell>
       <TableCell className="hidden xl:table-cell text-right">{product.topVariantRelevance?.bggRank ?? '—'}</TableCell>
       <TableCell className="hidden xl:table-cell text-right font-semibold">
-        {(product.topVariantRelevance?.relevanceScore ?? 0).toFixed(4)}
+        {(product.productRelevanceScore ?? product.topVariantRelevance?.relevanceScore ?? 0).toFixed(4)}
       </TableCell>
       <TableCell className="hidden md:table-cell">{totalStock}</TableCell>
       <TableCell className="hidden md:table-cell">

@@ -8,6 +8,7 @@ import { Filter, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/icons';
+import { DEFAULT_BESTSELLER_DAYS, DEFAULT_POPULAR_DAYS } from '@/lib/db';
 
 const PRODUCT_KINDS: { value: string; label: string }[] = [
   { value: '', label: 'All Types' },
@@ -32,6 +33,8 @@ export function ProductFiltersBar({
   currentStatus,
   currentSortBy,
   currentSortOrder,
+  currentBestsellerDays,
+  currentPopularDays,
 }: {
   brands: Brand[];
   currentKind: string;
@@ -40,9 +43,13 @@ export function ProductFiltersBar({
   currentStatus: string;
   currentSortBy: SortableProductColumn;
   currentSortOrder: SortOrder;
+  currentBestsellerDays: string;
+  currentPopularDays: string;
 }) {
   const router = useRouter();
   const [searchValue, setSearchValue] = useState(currentSearch);
+  const [bestsellerDaysValue, setBestsellerDaysValue] = useState(currentBestsellerDays);
+  const [popularDaysValue, setPopularDaysValue] = useState(currentPopularDays);
   const [isPending, startTransition] = useTransition();
 
   function buildUrl(overrides: Record<string, string>) {
@@ -53,6 +60,8 @@ export function ProductFiltersBar({
       sortOrder: currentSortOrder,
       kind: currentKind,
       brandId: currentBrandId,
+      bestsellerDays: currentBestsellerDays,
+      popularDays: currentPopularDays,
       ...overrides,
     });
     // Remove empty params
@@ -62,12 +71,30 @@ export function ProductFiltersBar({
     return `/products?${params.toString()}`;
   }
 
-  const hasActiveFilters = currentKind || currentBrandId || currentSearch;
+  const hasActiveFilters =
+    currentKind ||
+    currentBrandId ||
+    currentSearch ||
+    currentBestsellerDays !== String(DEFAULT_BESTSELLER_DAYS) ||
+    currentPopularDays !== String(DEFAULT_POPULAR_DAYS);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     startTransition(() => {
       router.push(buildUrl({ q: searchValue, offset: '' }));
+    });
+  }
+
+  function handleWindowDaysSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(() => {
+      router.push(
+        buildUrl({
+          bestsellerDays: bestsellerDaysValue,
+          popularDays: popularDaysValue,
+          offset: '',
+        })
+      );
     });
   }
 
@@ -130,13 +157,50 @@ export function ProductFiltersBar({
           className="h-8 gap-1 text-muted-foreground"
           onClick={() => {
             setSearchValue('');
-            router.push(buildUrl({ kind: '', brandId: '', q: '', offset: '' }));
+            setBestsellerDaysValue(String(DEFAULT_BESTSELLER_DAYS));
+            setPopularDaysValue(String(DEFAULT_POPULAR_DAYS));
+            router.push(
+              buildUrl({
+                kind: '',
+                brandId: '',
+                q: '',
+                bestsellerDays: String(DEFAULT_BESTSELLER_DAYS),
+                popularDays: String(DEFAULT_POPULAR_DAYS),
+                offset: '',
+              })
+            );
           }}
         >
           <X className="h-3.5 w-3.5" />
           Clear filters
         </Button>
       )}
+
+      <form onSubmit={handleWindowDaysSubmit} className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          max={365}
+          value={bestsellerDaysValue}
+          onChange={(e) => setBestsellerDaysValue(e.target.value)}
+          className="h-8 w-[92px]"
+          aria-label="Bestseller days"
+          placeholder="Best days"
+        />
+        <Input
+          type="number"
+          min={1}
+          max={365}
+          value={popularDaysValue}
+          onChange={(e) => setPopularDaysValue(e.target.value)}
+          className="h-8 w-[92px]"
+          aria-label="Popular days"
+          placeholder="Pop days"
+        />
+        <Button type="submit" size="sm" className="h-8" disabled={isPending}>
+          Apply days
+        </Button>
+      </form>
     </div>
   );
 }
