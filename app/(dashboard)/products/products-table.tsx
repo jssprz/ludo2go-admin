@@ -204,14 +204,6 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Views"
-                column="variantViews"
-                currentSortBy={sortBy}
-                currentSortOrder={sortOrder}
-                className="hidden xl:table-cell text-right"
-                onSort={handleSort}
-              />
-              <SortableHeader
                 label="Clicks"
                 column="variantClicks"
                 currentSortBy={sortBy}
@@ -220,7 +212,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Impressions"
+                label="Imps"
                 column="variantImpressions"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
@@ -268,7 +260,7 @@ export function ProductsTable({
                 onSort={handleSort}
               />
               <SortableHeader
-                label="Variant Relevance"
+                label="Relevance"
                 column="variantRelevance"
                 currentSortBy={sortBy}
                 currentSortOrder={sortOrder}
