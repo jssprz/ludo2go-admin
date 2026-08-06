@@ -23,7 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertTriangle, Save, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  AlertTriangle,
+  Save,
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  FileDown,
+} from 'lucide-react';
 import Link from 'next/link';
 
 type VariantWithInventory = ProductVariant & {
@@ -56,7 +64,8 @@ export function InventoryTable({ variants, locations }: Props) {
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortCol, setSortCol] = useState<string>('product');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [exportingScope, setExportingScope] = useState<string | null>(null);
 
   function handleSort(col: string) {
     if (sortCol === col) {
@@ -218,6 +227,136 @@ export function InventoryTable({ variants, locations }: Props) {
     });
   }
 
+  function calculateTotalSummary() {
+    return filteredVariants.reduce(
+      (acc, variant) => {
+        const total = getTotalStock(variant);
+        const available = calculateAvailable(total.onHand, total.reserved);
+        const status = getStockStatus(available);
+
+        acc.onHand += total.onHand;
+        acc.reserved += total.reserved;
+        acc.available += available;
+
+        if (status === 'out') acc.out += 1;
+        if (status === 'critical') acc.critical += 1;
+        if (status === 'low') acc.low += 1;
+
+        return acc;
+      },
+      {
+        onHand: 0,
+        reserved: 0,
+        available: 0,
+        low: 0,
+        critical: 0,
+        out: 0,
+      }
+    );
+  }
+
+  function slugify(value: string) {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60);
+  }
+
+  async function exportInventoryPdf(scope: 'all' | string, scopeLabel: string) {
+    setExportingScope(scope);
+    try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+
+      const rows = sortedVariants.map((variant) => {
+        if (scope === 'all') {
+          const total = getTotalStock(variant);
+          const available = calculateAvailable(total.onHand, total.reserved);
+          return {
+            product: variant.product.name,
+            sku: variant.sku,
+            status: variant.status ?? '—',
+            onHand: total.onHand,
+            reserved: total.reserved,
+            available,
+          };
+        }
+
+        const inventory = getInventoryForLocation(variant, scope);
+        const onHand = inventory?.onHand ?? 0;
+        const reserved = inventory?.reserved ?? 0;
+        const available = calculateAvailable(onHand, reserved);
+        return {
+          product: variant.product.name,
+          sku: variant.sku,
+          status: variant.status ?? '—',
+          onHand,
+          reserved,
+          available,
+        };
+      });
+
+      const totals = rows.reduce(
+        (acc, row) => {
+          acc.onHand += row.onHand;
+          acc.reserved += row.reserved;
+          acc.available += row.available;
+          return acc;
+        },
+        { onHand: 0, reserved: 0, available: 0 }
+      );
+
+      const doc = new jsPDF({ orientation: 'landscape' });
+      const generatedAt = new Date().toLocaleString();
+
+      doc.setFontSize(16);
+      doc.text('Inventory Report', 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Summary Card: ${scopeLabel}`, 14, 23);
+      doc.text(`Generated: ${generatedAt}`, 14, 28);
+      doc.text(`Rows: ${rows.length}`, 14, 33);
+
+      (autoTable as any)(doc, {
+        startY: 38,
+        head: [['Product', 'SKU', 'Status', 'On Hand', 'Reserved', 'Available']],
+        body: rows.map((row) => [
+          row.product,
+          row.sku,
+          row.status,
+          row.onHand,
+          row.reserved,
+          row.available,
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [31, 41, 55] },
+        columnStyles: {
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+        },
+      });
+
+      const finalY = (doc as any).lastAutoTable?.finalY ?? 38;
+      doc.setFontSize(11);
+      doc.text(
+        `Totals - On Hand: ${totals.onHand} | Reserved: ${totals.reserved} | Available: ${totals.available}`,
+        14,
+        finalY + 10
+      );
+
+      const dateTag = new Date().toISOString().slice(0, 10);
+      doc.save(`inventory-${slugify(scopeLabel)}-${dateTag}.pdf`);
+    } catch (err) {
+      console.error('Failed to export PDF', err);
+      alert('Failed to export inventory PDF. Please try again.');
+    } finally {
+      setExportingScope(null);
+    }
+  }
+
   async function handleSave(variantId: string) {
     if (!editingCell) return;
 
@@ -288,19 +427,85 @@ export function InventoryTable({ variants, locations }: Props) {
     );
   }
 
+  const locationSummaries = calculateLocationSummaries();
+  const totalSummary = calculateTotalSummary();
+
   return (
     <div className="space-y-4">
       {/* Per-Location Summary Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {calculateLocationSummaries().map((summary) => (
+        <Card className={selectedLocation === 'all' ? 'ring-1 ring-primary' : ''}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-sm font-medium">Total Summary</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => exportInventoryPdf('all', 'all-locations')}
+                disabled={exportingScope === 'all'}
+              >
+                <FileDown className="mr-1 h-4 w-4" />
+                PDF
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <div className="text-muted-foreground">On Hand</div>
+                <div className="text-base font-semibold">{totalSummary.onHand}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Reserved</div>
+                <div className="text-base font-semibold">{totalSummary.reserved}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground">Available</div>
+                <div className="text-base font-semibold">{totalSummary.available}</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1">
+              {totalSummary.out > 0 && (
+                <Badge className={getStockBadgeClass('out')}>Out: {totalSummary.out}</Badge>
+              )}
+              {totalSummary.critical > 0 && (
+                <Badge className={getStockBadgeClass('critical')}>
+                  Critical: {totalSummary.critical}
+                </Badge>
+              )}
+              {totalSummary.low > 0 && (
+                <Badge className={getStockBadgeClass('low')}>Low: {totalSummary.low}</Badge>
+              )}
+              {totalSummary.out === 0 && totalSummary.critical === 0 && totalSummary.low === 0 && (
+                <Badge className={getStockBadgeClass('ok')}>Healthy</Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {locationSummaries.map((summary) => (
           <Card
             key={summary.location.id}
             className={selectedLocation === summary.location.id ? 'ring-1 ring-primary' : ''}
           >
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
-                {summary.location.name}
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm font-medium">
+                  {summary.location.name}
+                </CardTitle>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => exportInventoryPdf(summary.location.id, summary.location.name)}
+                  disabled={exportingScope === summary.location.id}
+                >
+                  <FileDown className="mr-1 h-4 w-4" />
+                  PDF
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="grid grid-cols-3 gap-2 text-xs">
@@ -389,7 +594,7 @@ export function InventoryTable({ variants, locations }: Props) {
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort('sku')}>
                 SKU <SortIcon col="sku" />
               </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('edition')}>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>
                 Status <SortIcon col="status" />
               </TableHead>
               {selectedLocation === 'all' ? (
