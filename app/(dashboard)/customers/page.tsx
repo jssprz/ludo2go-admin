@@ -1,5 +1,5 @@
 import { prisma } from '@jssprz/ludo2go-database';
-import { EventType } from '@prisma/client';
+import { EventType, Prisma } from '@prisma/client';
 import { CustomersTable } from './customers-table';
 import { CreateCustomerDialog } from './create-customer-dialog';
 
@@ -453,8 +453,6 @@ export default async function CustomersPage(
     pageViewCounts: Map<string, number>;
     itemVisitedCounts: Map<string, number>;
   }>();
-  const anonymousAddressCandidates = new Map<string, Map<string, AddressRow>>();
-
   for (const event of anonymousEvents) {
     const visitorId = getVisitorIdFromProperties(event.properties);
     if (!visitorId) continue;
@@ -465,46 +463,6 @@ export default async function CustomersPage(
     const productLabel = event.eventType === EventType.product_view
       ? getStringProperty(event.properties, ['productSlug', 'productId'])
       : null;
-    const addressesInEvent = extractAddressesFromProperties(event.properties);
-
-    if (addressesInEvent.length > 0) {
-      const current = anonymousAddressCandidates.get(visitorId) ?? new Map<string, AddressRow>();
-      for (const address of addressesInEvent) {
-        const key = [
-          address.line1,
-          address.line2 ?? '',
-          address.city,
-          address.region ?? '',
-          address.postalCode ?? '',
-          address.country,
-        ].join('|').toLowerCase();
-
-        const existing = current.get(key);
-        if (!existing) {
-          current.set(key, {
-            id: key,
-            label: address.label,
-            line1: address.line1,
-            line2: address.line2,
-            city: address.city,
-            region: address.region,
-            postalCode: address.postalCode,
-            country: address.country,
-            isPreferred: address.isPreferred,
-          });
-          continue;
-        }
-
-        current.set(key, {
-          ...existing,
-          label: existing.label ?? address.label,
-          isPreferred: existing.isPreferred || address.isPreferred,
-        });
-      }
-
-      anonymousAddressCandidates.set(visitorId, current);
-    }
-
     const existing = anonymousVisitorsMap.get(visitorId);
     const occurredAtIso = event.occurredAt.toISOString();
 
@@ -543,6 +501,17 @@ export default async function CustomersPage(
   }
 
   const anonymousVisitorIds = Array.from(anonymousVisitorsMap.keys());
+  const anonymousAddressCountRows = anonymousVisitorIds.length
+    ? await prisma.$queryRaw<Array<{ visitorId: string; count: number | bigint }>>(
+        Prisma.sql`
+          SELECT "visitorId", COUNT(*) AS count
+          FROM "Address"
+          WHERE "visitorId" IN (${Prisma.join(anonymousVisitorIds)})
+          GROUP BY "visitorId"
+        `
+      )
+    : [];
+
   const anonymousVisitorCarts = anonymousVisitorIds.length
     ? await prisma.cart.findMany({
         where: {
@@ -613,10 +582,9 @@ export default async function CustomersPage(
     });
   }
 
-  const anonymousAddressMap = new Map<string, AddressRow[]>();
-  for (const [visitorId, addressesMap] of Array.from(anonymousAddressCandidates.entries())) {
-    anonymousAddressMap.set(visitorId, Array.from(addressesMap.values()));
-  }
+  const anonymousAddressCountMap = new Map<string, number>(
+    anonymousAddressCountRows.map((row) => [row.visitorId, Number(row.count)])
+  );
 
   const customerEventTypes = Array.from(customerEventTypeTotals.entries())
     .sort((a, b) => b[1] - a[1])
@@ -630,7 +598,7 @@ export default async function CustomersPage(
     .map(({ sessionIds, pageViewCounts, itemVisitedCounts, ...visitor }) => ({
       ...visitor,
       ...(anonymousCartMap.get(visitor.visitorId) ?? { cartTotal: 0, cartItemCount: 0, cartItemsList: [] }),
-      addresses: anonymousAddressMap.get(visitor.visitorId) ?? [],
+      addressesCount: anonymousAddressCountMap.get(visitor.visitorId) ?? 0,
       pageViewsList: mapToSortedCountedValues(pageViewCounts),
       itemsVisitedList: mapToSortedCountedValues(itemVisitedCounts),
     }))

@@ -103,7 +103,7 @@ export interface AnonymousVisitorRow {
   eventCounts: Partial<Record<EventType, number>>;
   pageViewsList: Array<{ value: string; count: number }>;
   itemsVisitedList: Array<{ value: string; count: number }>;
-  addresses: AddressRow[];
+  addressesCount: number;
 }
 
 type SortColumn = 'email' | 'firstName' | 'lastName' | 'createdAt' | 'orders';
@@ -849,20 +849,7 @@ function AnonymousVisitorRowComponent({
         </div>
       </TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">
-        {visitor.addresses.length > 0 ? (
-          <AddressListDialog
-            trigger={(
-              <button className="underline decoration-dotted underline-offset-2 hover:text-foreground">
-                {visitor.addresses.length}
-              </button>
-            )}
-            title={`Addresses for ${visitorIdPrefix}`}
-            description="Visitor addresses found for this visitor ID."
-            addresses={visitor.addresses}
-          />
-        ) : (
-          <span className="text-muted-foreground">0</span>
-        )}
+        {visitor.addressesCount > 0 ? visitor.addressesCount : <span className="text-muted-foreground">0</span>}
       </TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">{visitor.visitsCount}</TableCell>
       <TableCell className="hidden md:table-cell text-sm tabular-nums">
