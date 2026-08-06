@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { prisma } from '@jssprz/ludo2go-database';
 import { EventType } from '@prisma/client';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { cookies } from 'next/headers';
+import { GroupedQueryTable } from './grouped-query-table';
 import {
   ADMIN_TIME_ZONE_COOKIE,
   formatDateInTimeZone,
@@ -288,11 +288,11 @@ export default async function SearchAnalyticsPage() {
   const searchTermStats = new Map<
     string,
     {
-      rawQuery: string | null;
       normalizedQuery: string | null;
       count: number;
       firstAt: Date;
       lastAt: Date;
+      rawQueryCounts: Map<string, number>;
     }
   >();
   const searchByDay = new Map<string, number>();
@@ -306,23 +306,31 @@ export default async function SearchAnalyticsPage() {
   for (const searchEvent of searchEvents) {
     const { rawQuery, normalizedQuery } = getSearchQueriesFromProperties(searchEvent.properties);
     const resultCount = getResultCountFromProperties(searchEvent.properties);
-    const rowKey = `${normalizedQuery ?? '__unknown_norm__'}::${rawQuery ?? '__unknown_raw__'}`;
+    const rowKey = normalizedQuery ?? '__unknown_norm__';
     const existing = searchTermStats.get(rowKey);
 
     uniqueNormalizedTerms.add(normalizedQuery ?? '__unknown_norm__');
 
     if (!existing) {
+      const rawQueryCounts = new Map<string, number>();
+      if (rawQuery) {
+        rawQueryCounts.set(rawQuery, 1);
+      }
+
       searchTermStats.set(rowKey, {
-        rawQuery,
         normalizedQuery,
         count: 1,
         firstAt: searchEvent.occurredAt,
         lastAt: searchEvent.occurredAt,
+        rawQueryCounts,
       });
     } else {
       existing.count += 1;
       if (searchEvent.occurredAt < existing.firstAt) existing.firstAt = searchEvent.occurredAt;
       if (searchEvent.occurredAt > existing.lastAt) existing.lastAt = searchEvent.occurredAt;
+      if (rawQuery) {
+        existing.rawQueryCounts.set(rawQuery, (existing.rawQueryCounts.get(rawQuery) ?? 0) + 1);
+      }
     }
 
     const dayKey = getDayKey(searchEvent.occurredAt);
@@ -351,10 +359,11 @@ export default async function SearchAnalyticsPage() {
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
       const clicks = clicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
       const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
+      const rawQuery = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
       return {
         key,
-        rawQuery: stats.rawQuery,
+        rawQuery,
         normalizedQuery: stats.normalizedQuery,
         count: stats.count,
         clicks,
@@ -363,6 +372,7 @@ export default async function SearchAnalyticsPage() {
         lastAt: stats.lastAt,
         avgDaily: stats.count / activeDays,
         avgWeekly: stats.count / activeWeeks,
+        distinctRawQueryCount: stats.rawQueryCounts.size,
       };
     })
     .sort((a, b) => {
@@ -396,11 +406,11 @@ export default async function SearchAnalyticsPage() {
   const typeaheadTermStats = new Map<
     string,
     {
-      rawQuery: string | null;
       normalizedQuery: string | null;
       count: number;
       firstAt: Date;
       lastAt: Date;
+      rawQueryCounts: Map<string, number>;
     }
   >();
   const typeaheadByDay = new Map<string, number>();
@@ -414,23 +424,31 @@ export default async function SearchAnalyticsPage() {
   for (const typeaheadEvent of typeaheadEvents) {
     const { rawQuery, normalizedQuery } = getTypeaheadQueriesFromProperties(typeaheadEvent.properties);
     const resultCount = getTypeaheadResultCountFromProperties(typeaheadEvent.properties);
-    const rowKey = `${normalizedQuery ?? '__unknown_norm__'}::${rawQuery ?? '__unknown_raw__'}`;
+    const rowKey = normalizedQuery ?? '__unknown_norm__';
     const existing = typeaheadTermStats.get(rowKey);
 
     uniqueNormalizedTypeaheadTerms.add(normalizedQuery ?? '__unknown_norm__');
 
     if (!existing) {
+      const rawQueryCounts = new Map<string, number>();
+      if (rawQuery) {
+        rawQueryCounts.set(rawQuery, 1);
+      }
+
       typeaheadTermStats.set(rowKey, {
-        rawQuery,
         normalizedQuery,
         count: 1,
         firstAt: typeaheadEvent.occurredAt,
         lastAt: typeaheadEvent.occurredAt,
+        rawQueryCounts,
       });
     } else {
       existing.count += 1;
       if (typeaheadEvent.occurredAt < existing.firstAt) existing.firstAt = typeaheadEvent.occurredAt;
       if (typeaheadEvent.occurredAt > existing.lastAt) existing.lastAt = typeaheadEvent.occurredAt;
+      if (rawQuery) {
+        existing.rawQueryCounts.set(rawQuery, (existing.rawQueryCounts.get(rawQuery) ?? 0) + 1);
+      }
     }
 
     const dayKey = getDayKey(typeaheadEvent.occurredAt);
@@ -459,10 +477,11 @@ export default async function SearchAnalyticsPage() {
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
       const clicks = typeaheadClicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
       const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
+      const rawQuery = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
       return {
         key,
-        rawQuery: stats.rawQuery,
+        rawQuery,
         normalizedQuery: stats.normalizedQuery,
         count: stats.count,
         clicks,
@@ -471,6 +490,7 @@ export default async function SearchAnalyticsPage() {
         lastAt: stats.lastAt,
         avgDaily: stats.count / activeDays,
         avgWeekly: stats.count / activeWeeks,
+        distinctRawQueryCount: stats.rawQueryCounts.size,
       };
     })
     .sort((a, b) => {
@@ -577,44 +597,27 @@ export default async function SearchAnalyticsPage() {
             </div>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{td('searches.table.rawQuery')}</TableHead>
-                <TableHead>{td('searches.table.normalizedQuery')}</TableHead>
-                <TableHead className="text-right">{td('searches.table.count')}</TableHead>
-                <TableHead className="text-right">{td('searches.table.clicks')}</TableHead>
-                <TableHead className="text-right">{td('searches.table.ctr')}</TableHead>
-                <TableHead>{td('searches.table.firstDatetime')}</TableHead>
-                <TableHead>{td('searches.table.lastDatetime')}</TableHead>
-                <TableHead className="text-right">{td('searches.table.avgDaily')}</TableHead>
-                <TableHead className="text-right">{td('searches.table.avgWeekly')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {searchRows.length > 0 ? (
-                searchRows.slice(0, 100).map((row) => (
-                  <TableRow key={row.key}>
-                    <TableCell>{row.rawQuery ?? td('searches.unknownTerm')}</TableCell>
-                    <TableCell>{row.normalizedQuery ?? td('searches.unknownTerm')}</TableCell>
-                    <TableCell className="text-right">{row.count}</TableCell>
-                    <TableCell className="text-right">{row.clicks}</TableCell>
-                    <TableCell className="text-right">{row.ctr.toFixed(1)}%</TableCell>
-                    <TableCell>{formatDateTime(row.firstAt, locale, timeZone)}</TableCell>
-                    <TableCell>{formatDateTime(row.lastAt, locale, timeZone)}</TableCell>
-                    <TableCell className="text-right">{row.avgDaily.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.avgWeekly.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
-                    {td('searches.empty')}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <GroupedQueryTable
+            rows={searchRows.map((row) => ({
+              ...row,
+              firstAtLabel: formatDateTime(row.firstAt, locale, timeZone),
+              lastAtLabel: formatDateTime(row.lastAt, locale, timeZone),
+            }))}
+            unknownTermLabel={td('searches.unknownTerm')}
+            emptyLabel={td('searches.empty')}
+            detailsLabel={'Valores diferentes de Consulta original'}
+            headers={{
+              rawQuery: td('searches.table.rawQuery'),
+              normalizedQuery: td('searches.table.normalizedQuery'),
+              count: td('searches.table.count'),
+              clicks: td('searches.table.clicks'),
+              ctr: td('searches.table.ctr'),
+              firstDatetime: td('searches.table.firstDatetime'),
+              lastDatetime: td('searches.table.lastDatetime'),
+              avgDaily: td('searches.table.avgDaily'),
+              avgWeekly: td('searches.table.avgWeekly'),
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -700,44 +703,27 @@ export default async function SearchAnalyticsPage() {
             </div>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{td('typeaheads.table.rawQuery')}</TableHead>
-                <TableHead>{td('typeaheads.table.normalizedQuery')}</TableHead>
-                <TableHead className="text-right">{td('typeaheads.table.count')}</TableHead>
-                <TableHead className="text-right">{td('typeaheads.table.clicks')}</TableHead>
-                <TableHead className="text-right">{td('typeaheads.table.ctr')}</TableHead>
-                <TableHead>{td('typeaheads.table.firstDatetime')}</TableHead>
-                <TableHead>{td('typeaheads.table.lastDatetime')}</TableHead>
-                <TableHead className="text-right">{td('typeaheads.table.avgDaily')}</TableHead>
-                <TableHead className="text-right">{td('typeaheads.table.avgWeekly')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {typeaheadRows.length > 0 ? (
-                typeaheadRows.slice(0, 100).map((row) => (
-                  <TableRow key={row.key}>
-                    <TableCell>{row.rawQuery ?? td('typeaheads.unknownTerm')}</TableCell>
-                    <TableCell>{row.normalizedQuery ?? td('typeaheads.unknownTerm')}</TableCell>
-                    <TableCell className="text-right">{row.count}</TableCell>
-                    <TableCell className="text-right">{row.clicks}</TableCell>
-                    <TableCell className="text-right">{row.ctr.toFixed(1)}%</TableCell>
-                    <TableCell>{formatDateTime(row.firstAt, locale, timeZone)}</TableCell>
-                    <TableCell>{formatDateTime(row.lastAt, locale, timeZone)}</TableCell>
-                    <TableCell className="text-right">{row.avgDaily.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{row.avgWeekly.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
-                    {td('typeaheads.empty')}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <GroupedQueryTable
+            rows={typeaheadRows.map((row) => ({
+              ...row,
+              firstAtLabel: formatDateTime(row.firstAt, locale, timeZone),
+              lastAtLabel: formatDateTime(row.lastAt, locale, timeZone),
+            }))}
+            unknownTermLabel={td('typeaheads.unknownTerm')}
+            emptyLabel={td('typeaheads.empty')}
+            detailsLabel={'Valores diferentes de Consulta original'}
+            headers={{
+              rawQuery: td('typeaheads.table.rawQuery'),
+              normalizedQuery: td('typeaheads.table.normalizedQuery'),
+              count: td('typeaheads.table.count'),
+              clicks: td('typeaheads.table.clicks'),
+              ctr: td('typeaheads.table.ctr'),
+              firstDatetime: td('typeaheads.table.firstDatetime'),
+              lastDatetime: td('typeaheads.table.lastDatetime'),
+              avgDaily: td('typeaheads.table.avgDaily'),
+              avgWeekly: td('typeaheads.table.avgWeekly'),
+            }}
+          />
         </CardContent>
       </Card>
     </div>
