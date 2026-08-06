@@ -359,7 +359,8 @@ export default async function SearchAnalyticsPage() {
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
       const clicks = clicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
       const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
-      const rawQuery = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const rawQueryEntries = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1]);
+      const rawQuery = rawQueryEntries[0]?.[0] ?? null;
 
       return {
         key,
@@ -373,6 +374,7 @@ export default async function SearchAnalyticsPage() {
         avgDaily: stats.count / activeDays,
         avgWeekly: stats.count / activeWeeks,
         distinctRawQueryCount: stats.rawQueryCounts.size,
+        rawQueryVariants: rawQueryEntries.map(([value, count]) => ({ value, count })),
       };
     })
     .sort((a, b) => {
@@ -477,7 +479,8 @@ export default async function SearchAnalyticsPage() {
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
       const clicks = typeaheadClicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
       const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
-      const rawQuery = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const rawQueryEntries = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1]);
+      const rawQuery = rawQueryEntries[0]?.[0] ?? null;
 
       return {
         key,
@@ -491,6 +494,7 @@ export default async function SearchAnalyticsPage() {
         avgDaily: stats.count / activeDays,
         avgWeekly: stats.count / activeWeeks,
         distinctRawQueryCount: stats.rawQueryCounts.size,
+        rawQueryVariants: rawQueryEntries.map(([value, count]) => ({ value, count })),
       };
     })
     .sort((a, b) => {
@@ -606,6 +610,7 @@ export default async function SearchAnalyticsPage() {
             unknownTermLabel={td('searches.unknownTerm')}
             emptyLabel={td('searches.empty')}
             detailsLabel={'Valores diferentes de Consulta original'}
+            detailsListLabel={'Consultas originales'}
             headers={{
               rawQuery: td('searches.table.rawQuery'),
               normalizedQuery: td('searches.table.normalizedQuery'),
@@ -712,6 +717,7 @@ export default async function SearchAnalyticsPage() {
             unknownTermLabel={td('typeaheads.unknownTerm')}
             emptyLabel={td('typeaheads.empty')}
             detailsLabel={'Valores diferentes de Consulta original'}
+            detailsListLabel={'Consultas originales'}
             headers={{
               rawQuery: td('typeaheads.table.rawQuery'),
               normalizedQuery: td('typeaheads.table.normalizedQuery'),

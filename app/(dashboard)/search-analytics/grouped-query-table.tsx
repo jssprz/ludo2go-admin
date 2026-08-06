@@ -22,6 +22,10 @@ type GroupedQueryRow = {
   avgDaily: number;
   avgWeekly: number;
   distinctRawQueryCount: number;
+  rawQueryVariants: Array<{
+    value: string;
+    count: number;
+  }>;
 };
 
 type Props = {
@@ -29,6 +33,7 @@ type Props = {
   unknownTermLabel: string;
   emptyLabel: string;
   detailsLabel: string;
+    detailsListLabel: string;
   headers: {
     rawQuery: string;
     normalizedQuery: string;
@@ -47,6 +52,7 @@ export function GroupedQueryTable({
   unknownTermLabel,
   emptyLabel,
   detailsLabel,
+  detailsListLabel,
   headers,
 }: Props) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -98,7 +104,19 @@ export function GroupedQueryTable({
                 {isExpanded && (
                   <TableRow className="bg-muted/30">
                     <TableCell colSpan={9} className="text-sm">
-                      {detailsLabel}: {row.distinctRawQueryCount}
+                      <p className="font-medium">
+                        {detailsLabel}: {row.distinctRawQueryCount}
+                      </p>
+                      {row.rawQueryVariants.length > 0 && (
+                        <div className="mt-2 text-muted-foreground">
+                          <span>{detailsListLabel}: </span>
+                          <span>
+                            {row.rawQueryVariants
+                              .map((variant) => `${variant.value} (${variant.count})`)
+                              .join(', ')}
+                          </span>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
