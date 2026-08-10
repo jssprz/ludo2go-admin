@@ -232,6 +232,21 @@ function getClickSourceQuery(properties: unknown): string | null {
   return null;
 }
 
+function getAtcQueryFromProperties(properties: unknown): string | null {
+  if (!properties || typeof properties !== 'object') return null;
+  const props = properties as { attributionSourceKey?: unknown };
+  if (typeof props.attributionSourceKey !== 'string') return null;
+  const key = props.attributionSourceKey;
+  try {
+    const params = new URLSearchParams(key);
+    const q = params.get('q');
+    if (q && q.trim().length > 0) return q.trim().toLowerCase();
+  } catch {
+    // ignore malformed keys
+  }
+  return null;
+}
+
 function getDayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -256,7 +271,7 @@ export default async function SearchAnalyticsPage() {
   const cookieStore = await cookies();
   const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
 
-  const [searchEvents, clickEvents, typeaheadEvents, typeaheadClickEvents] = await Promise.all([
+  const [searchEvents, clickEvents, typeaheadEvents, typeaheadClickEvents, atcEvents] = await Promise.all([
     prisma.event.findMany({
       where: { eventType: EventType.search_performed },
       select: { occurredAt: true, properties: true },
@@ -275,7 +290,19 @@ export default async function SearchAnalyticsPage() {
       where: { eventType: 'typeahead_result_click' as EventType },
       select: { properties: true },
     }),
+    prisma.event.findMany({
+      where: { eventType: 'add_to_cart' as EventType },
+      select: { properties: true },
+    }),
   ]);
+
+  // Build ATC counts per normalized query from attributionSourceKey "q=<query>"
+  const atcsByNormalizedQuery = new Map<string, number>();
+  for (const atcEvent of atcEvents) {
+    const key = getAtcQueryFromProperties(atcEvent.properties);
+    if (!key) continue;
+    atcsByNormalizedQuery.set(key, (atcsByNormalizedQuery.get(key) ?? 0) + 1);
+  }
 
   // Build clicks-per-normalizedQuery map from search_result_click events
   const clicksByNormalizedQuery = new Map<string, number>();
@@ -359,6 +386,8 @@ export default async function SearchAnalyticsPage() {
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
       const clicks = clicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
       const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
+      const atcs = atcsByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
+      const atcRate = stats.count > 0 ? (atcs / stats.count) * 100 : 0;
       const rawQueryEntries = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1]);
       const rawQuery = rawQueryEntries[0]?.[0] ?? null;
 
@@ -369,6 +398,8 @@ export default async function SearchAnalyticsPage() {
         count: stats.count,
         clicks,
         ctr,
+        atcs,
+        atcRate,
         firstAt: stats.firstAt,
         lastAt: stats.lastAt,
         avgDaily: stats.count / activeDays,
@@ -396,6 +427,10 @@ export default async function SearchAnalyticsPage() {
   const emptyResultsRate = searchesWithResultCount ? (searchesWithEmptyResults / searchesWithResultCount) * 100 : 0;
   const firstSearchAt = totalSearches ? searchEvents[0].occurredAt : null;
   const lastSearchAt = totalSearches ? searchEvents[searchEvents.length - 1].occurredAt : null;
+  const totalSearchClicks = clickEvents.length;
+  const overallSearchCtr = totalSearches > 0 ? (totalSearchClicks / totalSearches) * 100 : 0;
+  const totalSearchAtcs = searchRows.reduce((sum, r) => sum + r.atcs, 0);
+  const overallSearchAtcRate = totalSearches > 0 ? (totalSearchAtcs / totalSearches) * 100 : 0;
 
   // Build clicks-per-normalizedQuery map from typeahead_result_click events
   const typeaheadClicksByNormalizedQuery = new Map<string, number>();
@@ -479,6 +514,8 @@ export default async function SearchAnalyticsPage() {
       const activeWeeks = Math.max(1, Math.ceil(activeDays / 7));
       const clicks = typeaheadClicksByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
       const ctr = stats.count > 0 ? (clicks / stats.count) * 100 : 0;
+      const atcs = atcsByNormalizedQuery.get(stats.normalizedQuery?.toLowerCase() ?? '') ?? 0;
+      const atcRate = stats.count > 0 ? (atcs / stats.count) * 100 : 0;
       const rawQueryEntries = Array.from(stats.rawQueryCounts.entries()).sort((a, b) => b[1] - a[1]);
       const rawQuery = rawQueryEntries[0]?.[0] ?? null;
 
@@ -489,6 +526,8 @@ export default async function SearchAnalyticsPage() {
         count: stats.count,
         clicks,
         ctr,
+        atcs,
+        atcRate,
         firstAt: stats.firstAt,
         lastAt: stats.lastAt,
         avgDaily: stats.count / activeDays,
@@ -516,6 +555,10 @@ export default async function SearchAnalyticsPage() {
   const typeaheadEmptyResultsRate = typeaheadWithResultCount ? (typeaheadWithEmptyResults / typeaheadWithResultCount) * 100 : 0;
   const firstTypeaheadAt = totalTypeaheads ? typeaheadEvents[0].occurredAt : null;
   const lastTypeaheadAt = totalTypeaheads ? typeaheadEvents[typeaheadEvents.length - 1].occurredAt : null;
+  const totalTypeaheadClicks = typeaheadClickEvents.length;
+  const overallTypeaheadCtr = totalTypeaheads > 0 ? (totalTypeaheadClicks / totalTypeaheads) * 100 : 0;
+  const totalTypeaheadAtcs = typeaheadRows.reduce((sum, r) => sum + r.atcs, 0);
+  const overallTypeaheadAtcRate = totalTypeaheads > 0 ? (totalTypeaheadAtcs / totalTypeaheads) * 100 : 0;
 
   return (
     <div className="space-y-6">
@@ -524,7 +567,7 @@ export default async function SearchAnalyticsPage() {
         <p className="text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">{td('searches.cards.weekdayAverage')}</CardTitle>
@@ -579,6 +622,26 @@ export default async function SearchAnalyticsPage() {
             <div className="text-2xl font-bold">{averageItemsInResults.toFixed(2)}</div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">CTR General</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overallSearchCtr.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">{totalSearchClicks} clicks / {totalSearches} búsquedas</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">ATC Rate General</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overallSearchAtcRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">{totalSearchAtcs} ATCs / {totalSearches} búsquedas</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -617,6 +680,8 @@ export default async function SearchAnalyticsPage() {
               count: td('searches.table.count'),
               clicks: td('searches.table.clicks'),
               ctr: td('searches.table.ctr'),
+              atcs: 'ATCs',
+              atcRate: 'ATC Rate',
               firstDatetime: td('searches.table.firstDatetime'),
               lastDatetime: td('searches.table.lastDatetime'),
               avgDaily: td('searches.table.avgDaily'),
@@ -631,7 +696,7 @@ export default async function SearchAnalyticsPage() {
         <p className="text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">{td('typeaheads.cards.weekdayAverage')}</CardTitle>
@@ -686,6 +751,26 @@ export default async function SearchAnalyticsPage() {
             <div className="text-2xl font-bold">{averageItemsInTypeaheadResults.toFixed(2)}</div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">CTR General</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overallTypeaheadCtr.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">{totalTypeaheadClicks} clicks / {totalTypeaheads} typeaheads</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">ATC Rate General</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{overallTypeaheadAtcRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">{totalTypeaheadAtcs} ATCs / {totalTypeaheads} typeaheads</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -724,6 +809,8 @@ export default async function SearchAnalyticsPage() {
               count: td('typeaheads.table.count'),
               clicks: td('typeaheads.table.clicks'),
               ctr: td('typeaheads.table.ctr'),
+              atcs: 'ATCs',
+              atcRate: 'ATC Rate',
               firstDatetime: td('typeaheads.table.firstDatetime'),
               lastDatetime: td('typeaheads.table.lastDatetime'),
               avgDaily: td('typeaheads.table.avgDaily'),
