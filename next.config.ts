@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Avoid Vercel optimized image billing endpoint (`/_next/image`) for this admin app.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
