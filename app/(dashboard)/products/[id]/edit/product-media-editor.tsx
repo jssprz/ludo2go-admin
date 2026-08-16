@@ -114,7 +114,7 @@ export function ProductMediaEditor({ productId }: Props) {
     try {
       const params = new URLSearchParams({
         limit: '50',
-        kind: 'image', // Only show images for now
+        kind: 'all',
       });
       if (mediaSearch) params.set('search', mediaSearch);
 
