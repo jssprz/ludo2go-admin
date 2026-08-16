@@ -96,11 +96,24 @@ export function MediaGallery() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
+  // Manual video create state
+  const [isCreateVideoOpen, setIsCreateVideoOpen] = useState(false);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoThumbUrl, setVideoThumbUrl] = useState('');
+  const [videoMime, setVideoMime] = useState('text/html');
+  const [videoAlt, setVideoAlt] = useState('');
+  const [videoCopyright, setVideoCopyright] = useState('');
+  const [videoLocale, setVideoLocale] = useState('');
+  const [isCreatingVideo, setIsCreatingVideo] = useState(false);
+
   // Edit dialog state
   const [editingMedia, setEditingMedia] = useState<MediaAsset | null>(null);
   const [editAlt, setEditAlt] = useState('');
   const [editCopyright, setEditCopyright] = useState('');
   const [editLocale, setEditLocale] = useState('');
+  const [editUrl, setEditUrl] = useState('');
+  const [editThumbUrl, setEditThumbUrl] = useState('');
+  const [editMime, setEditMime] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [thumbnailingId, setThumbnailingId] = useState<string | null>(null);
   const [isBulkThumbnailing, setIsBulkThumbnailing] = useState(false);
@@ -208,11 +221,57 @@ export function MediaGallery() {
     }
   }
 
+  async function handleCreateVideoAsset() {
+    if (!videoUrl.trim()) {
+      alert('YouTube URL is required');
+      return;
+    }
+
+    setIsCreatingVideo(true);
+    try {
+      const res = await fetch('/api/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'video',
+          url: videoUrl.trim(),
+          thumbUrl: videoThumbUrl.trim() || null,
+          mime: videoMime.trim() || null,
+          alt: videoAlt.trim() || null,
+          copyright: videoCopyright.trim() || null,
+          locale: videoLocale.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Create video asset failed');
+      }
+
+      setIsCreateVideoOpen(false);
+      setVideoUrl('');
+      setVideoThumbUrl('');
+      setVideoMime('text/html');
+      setVideoAlt('');
+      setVideoCopyright('');
+      setVideoLocale('');
+      fetchMedia();
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || 'Create video asset failed');
+    } finally {
+      setIsCreatingVideo(false);
+    }
+  }
+
   function openEditDialog(media: MediaAsset) {
     setEditingMedia(media);
     setEditAlt(media.alt || '');
     setEditCopyright(media.copyright || '');
     setEditLocale(media.locale || '');
+    setEditUrl(media.url || '');
+    setEditThumbUrl(media.thumbUrl || '');
+    setEditMime(media.mime || '');
   }
 
   async function handleSaveEdit() {
@@ -227,6 +286,13 @@ export function MediaGallery() {
           alt: editAlt || null,
           copyright: editCopyright || null,
           locale: editLocale || null,
+          ...(editingMedia.kind === 'video'
+            ? {
+                url: editUrl || null,
+                thumbUrl: editThumbUrl || null,
+                mime: editMime || null,
+              }
+            : {}),
         }),
       });
 
@@ -346,6 +412,37 @@ export function MediaGallery() {
     }
   }
 
+  function getVideoPreviewUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.toLowerCase();
+
+      if (host === 'youtu.be') {
+        const id = parsed.pathname.replace('/', '').trim();
+        if (id) return `https://www.youtube.com/embed/${id}`;
+      }
+
+      if (
+        host === 'youtube.com' ||
+        host === 'www.youtube.com' ||
+        host === 'm.youtube.com'
+      ) {
+        if (parsed.pathname === '/watch') {
+          const id = parsed.searchParams.get('v');
+          if (id) return `https://www.youtube.com/embed/${id}`;
+        }
+
+        if (parsed.pathname.startsWith('/embed/')) {
+          return url;
+        }
+      }
+
+      return url;
+    } catch {
+      return url;
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -393,6 +490,14 @@ export function MediaGallery() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsCreateVideoOpen(true)}
+            disabled={isUploading || isCreatingVideo}
+          >
+            <Video className="mr-2 h-4 w-4" />
+            Add Video URL
+          </Button>
           <Button
             variant="outline"
             onClick={handleGenerateMissingThumbnails}
@@ -723,6 +828,37 @@ export function MediaGallery() {
                 placeholder="e.g., en, es, fr"
               />
             </div>
+            {editingMedia?.kind === 'video' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-url">Video URL</Label>
+                  <Input
+                    id="edit-url"
+                    value={editUrl}
+                    onChange={(e) => setEditUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-thumb-url">Thumbnail URL</Label>
+                  <Input
+                    id="edit-thumb-url"
+                    value={editThumbUrl}
+                    onChange={(e) => setEditThumbUrl(e.target.value)}
+                    placeholder="https://i.ytimg.com/vi/<id>/hqdefault.jpg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-mime">MIME Type</Label>
+                  <Input
+                    id="edit-mime"
+                    value={editMime}
+                    onChange={(e) => setEditMime(e.target.value)}
+                    placeholder="text/html"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingMedia(null)}>
@@ -736,6 +872,92 @@ export function MediaGallery() {
                 </>
               ) : (
                 'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Video Dialog */}
+      <Dialog open={isCreateVideoOpen} onOpenChange={setIsCreateVideoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Video Media Asset</DialogTitle>
+            <DialogDescription>
+              Create a video media asset from a YouTube watch or embed URL.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="video-url">YouTube URL</Label>
+              <Input
+                id="video-url"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=... or https://www.youtube.com/embed/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="video-thumb">Thumbnail URL (Optional)</Label>
+              <Input
+                id="video-thumb"
+                value={videoThumbUrl}
+                onChange={(e) => setVideoThumbUrl(e.target.value)}
+                placeholder="https://i.ytimg.com/vi/<id>/hqdefault.jpg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="video-mime">MIME (Optional)</Label>
+              <Input
+                id="video-mime"
+                value={videoMime}
+                onChange={(e) => setVideoMime(e.target.value)}
+                placeholder="text/html"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="video-alt">Alt Text (Optional)</Label>
+              <Input
+                id="video-alt"
+                value={videoAlt}
+                onChange={(e) => setVideoAlt(e.target.value)}
+                placeholder="Short description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="video-copyright">Copyright (Optional)</Label>
+              <Input
+                id="video-copyright"
+                value={videoCopyright}
+                onChange={(e) => setVideoCopyright(e.target.value)}
+                placeholder="© 2026 Company Name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="video-locale">Locale (Optional)</Label>
+              <Input
+                id="video-locale"
+                value={videoLocale}
+                onChange={(e) => setVideoLocale(e.target.value)}
+                placeholder="e.g., en, es"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateVideoOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateVideoAsset} disabled={isCreatingVideo}>
+              {isCreatingVideo ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Video Asset'
               )}
             </Button>
           </DialogFooter>
@@ -759,11 +981,16 @@ export function MediaGallery() {
                 />
               </div>
             ) : previewMedia?.kind === 'video' ? (
-              <video
-                src={previewMedia.url}
-                controls
-                className="w-full rounded-lg"
-              />
+              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                <iframe
+                  src={getVideoPreviewUrl(previewMedia.url)}
+                  title={previewMedia.alt || 'Video preview'}
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
             ) : (
               <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
                 {getMediaIcon(previewMedia?.kind || 'image')}

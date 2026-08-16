@@ -4,6 +4,21 @@ import { auth } from '@/lib/auth';
 import { buildUpdateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { del } from '@vercel/blob';
 
+function isYouTubeUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase();
+    return (
+      hostname === 'youtube.com' ||
+      hostname === 'www.youtube.com' ||
+      hostname === 'm.youtube.com' ||
+      hostname === 'youtu.be'
+    );
+  } catch {
+    return false;
+  }
+}
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -80,7 +95,52 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const body = await request.json();
-    const { alt, copyright, locale } = body;
+    const { alt, copyright, locale, url, thumbUrl, mime } = body;
+
+    const existing = await prisma.mediaAsset.findUnique({
+      where: { id },
+      select: { id: true, kind: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { message: 'Media not found' },
+        { status: 404 }
+      );
+    }
+
+    if (url !== undefined) {
+      if (url !== null && typeof url !== 'string') {
+        return NextResponse.json(
+          { message: 'url must be a string or null' },
+          { status: 400 }
+        );
+      }
+
+      if (existing.kind === 'video' && url && !isYouTubeUrl(url)) {
+        return NextResponse.json(
+          {
+            message:
+              'Only YouTube URLs are supported for video assets. Use a watch URL or embed URL.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (thumbUrl !== undefined && thumbUrl !== null && typeof thumbUrl !== 'string') {
+      return NextResponse.json(
+        { message: 'thumbUrl must be a string or null' },
+        { status: 400 }
+      );
+    }
+
+    if (mime !== undefined && mime !== null && typeof mime !== 'string') {
+      return NextResponse.json(
+        { message: 'mime must be a string or null' },
+        { status: 400 }
+      );
+    }
 
     const media = await prisma.mediaAsset.update({
       where: { id },
@@ -88,6 +148,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ...(alt !== undefined && { alt }),
         ...(copyright !== undefined && { copyright }),
         ...(locale !== undefined && { locale }),
+        ...(url !== undefined && { url }),
+        ...(thumbUrl !== undefined && { thumbUrl }),
+        ...(mime !== undefined && { mime }),
         ...buildUpdateAuditFields(adminUserId),
       },
     });

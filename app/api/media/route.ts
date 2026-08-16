@@ -5,6 +5,21 @@ import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-a
 import { put } from '@vercel/blob';
 import { createAndStoreThumbnailFromUrl } from '@/lib/media-thumbnails';
 
+function isYouTubeUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase();
+    return (
+      hostname === 'youtube.com' ||
+      hostname === 'www.youtube.com' ||
+      hostname === 'm.youtube.com' ||
+      hostname === 'youtu.be'
+    );
+  } catch {
+    return false;
+  }
+}
+
 // GET /api/media - List all media assets
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -78,6 +93,78 @@ export async function POST(request: NextRequest) {
   const adminUserId = getAdminUserIdFromSession(session);
 
   try {
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      const {
+        kind,
+        url,
+        thumbUrl,
+        mime,
+        alt,
+        copyright,
+        locale,
+      } = body ?? {};
+
+      if (kind !== 'video') {
+        return NextResponse.json(
+          { message: 'Only video kind is supported for JSON create requests' },
+          { status: 400 }
+        );
+      }
+
+      if (!url || typeof url !== 'string') {
+        return NextResponse.json(
+          { message: 'Video URL is required' },
+          { status: 400 }
+        );
+      }
+
+      if (!isYouTubeUrl(url)) {
+        return NextResponse.json(
+          {
+            message:
+              'Only YouTube URLs are supported. Use a watch URL or embed URL.',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (thumbUrl !== undefined && thumbUrl !== null && typeof thumbUrl !== 'string') {
+        return NextResponse.json(
+          { message: 'thumbUrl must be a string when provided' },
+          { status: 400 }
+        );
+      }
+
+      if (mime !== undefined && mime !== null && typeof mime !== 'string') {
+        return NextResponse.json(
+          { message: 'mime must be a string when provided' },
+          { status: 400 }
+        );
+      }
+
+      const mediaAsset = await prisma.mediaAsset.create({
+        data: {
+          kind: 'video',
+          url,
+          thumbUrl: thumbUrl || null,
+          width: null,
+          height: null,
+          sizeBytes: null,
+          mime: mime || 'text/html',
+          locale: typeof locale === 'string' && locale ? locale : null,
+          alt: typeof alt === 'string' && alt ? alt : null,
+          copyright:
+            typeof copyright === 'string' && copyright ? copyright : null,
+          ...buildCreateAuditFields(adminUserId),
+        },
+      });
+
+      return NextResponse.json(mediaAsset, { status: 201 });
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const alt = formData.get('alt') as string | null;
