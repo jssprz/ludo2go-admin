@@ -633,7 +633,12 @@ function CustomerRowComponent({
       {/* Customer name & phone */}
       <TableCell>
         <div className="space-y-0.5">
-          <div className="font-medium text-sm">{fullName}</div>
+          <Link
+            href={`/customers/${c.id}`}
+            className="font-medium text-sm hover:underline"
+          >
+            {fullName}
+          </Link>
           {c.phone && (
             <div className="text-xs text-muted-foreground">{c.phone}</div>
           )}
@@ -801,6 +806,14 @@ function CustomerRowComponent({
       {/* Reviews */}
       <TableCell className="hidden lg:table-cell text-sm tabular-nums">
         {c.reviewsCount}
+      </TableCell>
+      <TableCell>
+        <Link
+          href={`/customers/${c.id}`}
+          className="text-xs font-medium text-indigo-600 hover:underline whitespace-nowrap"
+        >
+          360 →
+        </Link>
       </TableCell>
     </TableRow>
   );
