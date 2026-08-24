@@ -38,7 +38,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
       },
       carts: {
         where: { status: 'active' },
-        include: { items: { select: { quantity: true, unitPrice: true } } },
+        include: { items: { select: { quantity: true, unitPriceAtAdd: true } } },
         take: 1,
       },
       wishlist: { include: { _count: { select: { items: true } } } },
