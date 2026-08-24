@@ -151,7 +151,7 @@ export default async function Customer360Page({
         where: { status: 'active' },
         take: 1,
         include: {
-          items: { select: { quantity: true, unitPrice: true, currency: true } },
+          items: { select: { quantity: true, unitPriceAtAdd: true } },
         },
       },
       wishlist: { include: { _count: { select: { items: true } } } },
@@ -176,7 +176,7 @@ export default async function Customer360Page({
 
   const activeCart = customer.carts[0] ?? null;
   const cartTotal = activeCart
-    ? activeCart.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
+    ? activeCart.items.reduce((s, i) => s + i.quantity * (i.unitPriceAtAdd ?? 0), 0)
     : 0;
   const cartItemCount = activeCart
     ? activeCart.items.reduce((s, i) => s + i.quantity, 0)
@@ -230,7 +230,7 @@ export default async function Customer360Page({
     wishlistCount: customer.wishlist?._count.items ?? 0,
     cartTotal,
     cartItemCount,
-    cartCurrency: activeCart?.items[0]?.currency ?? 'CLP',
+    cartCurrency: 'CLP',
   };
 
   return (
