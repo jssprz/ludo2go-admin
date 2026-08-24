@@ -166,7 +166,7 @@ function useLocalTags(customerId: string) {
     }
   }, [key]);
   function addTag(tag: string) {
-    const next = [...new Set([...tags, tag.trim()])].filter(Boolean);
+    const next = Array.from(new Set([...tags, tag.trim()])).filter(Boolean);
     setTags(next);
     localStorage.setItem(key, JSON.stringify(next));
   }
