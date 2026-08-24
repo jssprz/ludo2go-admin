@@ -168,7 +168,9 @@ function SortableMechanicRow({
         <Badge variant={mechanic._count.games > 0 ? 'default' : 'secondary'}>{mechanic._count.games}</Badge>
       </TableCell>
       <TableCell className="text-center">
-        <Button variant="ghost" size="sm" onClick={() => onToggleActive(mechanic)} disabled={isBusy}>
+        <Button variant="ghost" size="sm" onClick={() => onToggleActive(mechanic)} disabled={isBusy}
+          aria-label={mechanic.isActive ? `Desactivar ${mechanic.name}` : `Activar ${mechanic.name}`}
+        >
           {mechanic.isActive ? (
             <Badge variant="default" className="gap-1">
               <Check className="h-3 w-3" />
@@ -185,7 +187,7 @@ function SortableMechanicRow({
       <TableCell>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" disabled={isBusy}>
+            <Button variant="ghost" size="icon" disabled={isBusy} aria-label={`Acciones para ${mechanic.name}`}>
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

@@ -3,7 +3,7 @@ import { StoresTable } from './stores-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Stores | Admin Dashboard',
+  title: 'Tiendas',
   description: 'Manage external stores for price comparison',
 };
 

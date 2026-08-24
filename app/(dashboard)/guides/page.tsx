@@ -4,7 +4,7 @@ import { GuidesTable } from './guides-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Guides | Admin Dashboard',
+  title: 'Guías',
   description: 'Manage guides',
 };
 

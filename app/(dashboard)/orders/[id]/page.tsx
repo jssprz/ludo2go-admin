@@ -12,6 +12,7 @@ import {
   normalizeTimeZone,
 } from '@/lib/date-time';
 import { FulfillmentMethod } from '@prisma/client';
+import { getLocale } from 'next-intl/server';
 
 type PageProps = {
   params: Promise<{
@@ -32,6 +33,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
   const { id } = await params;
   const cookieStore = await cookies();
   const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
+  const locale = await getLocale();
 
   if (!id) {
     notFound();
@@ -148,7 +150,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     return formatDateInTimeZone(
       value,
       { dateStyle: 'medium', timeStyle: 'short' },
-      'en-US',
+      locale,
       timeZone
     );
   }
@@ -157,7 +159,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     return formatDateInTimeZone(
       value,
       { dateStyle: 'medium' },
-      'en-US',
+      locale,
       timeZone
     );
   }
@@ -270,13 +272,13 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        {/* Fullfilment Info */}
+        {/* Despacho / Fulfillment */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Fullfilment Info</CardTitle>
+              <CardTitle>Despacho</CardTitle>
               <Badge className={order.fulfillmentMethod === FulfillmentMethod.pickup ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}>
-                {order.fulfillmentMethod === FulfillmentMethod.pickup ? 'Pickup' : 'Delivery'}
+                {order.fulfillmentMethod === FulfillmentMethod.pickup ? 'Retiro en tienda' : 'Envío a domicilio'}
               </Badge>
             </div>
           </CardHeader>

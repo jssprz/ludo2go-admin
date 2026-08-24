@@ -3,6 +3,11 @@ import { EventType, Prisma } from '@prisma/client';
 import { CustomersTable } from './customers-table';
 import { CreateCustomerDialog } from './create-customer-dialog';
 
+export const metadata = {
+  title: 'Clientes',
+  description: 'Gestiona los clientes de la tienda',
+};
+
 type EventCounts = Partial<Record<EventType, number>>;
 type CountedValue = { value: string; count: number };
 

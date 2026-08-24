@@ -3,7 +3,7 @@ import { GameThemesTable } from './game-themes-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Game Themes | Admin Dashboard',
+  title: 'Temáticas de Juegos',
   description: 'Manage game themes',
 };
 

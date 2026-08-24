@@ -7,9 +7,11 @@ import { getLocale, getMessages } from 'next-intl/server';
 import { MobileBottomOverlayOffset } from '@/components/mobile-bottom-overlay-offset';
 
 export const metadata: Metadata = {
-  title: 'Next.js App Router + NextAuth + Tailwind CSS',
-  description:
-    'A user admin dashboard configured with Next.js, Postgres, NextAuth, Tailwind CSS, TypeScript, and Prettier.',
+  title: {
+    default: "Panel de Administración | Joby's",
+    template: "%s | Joby's Admin",
+  },
+  description: "Panel de administración para gestionar catálogo, stock, pedidos y clientes.",
   robots: {
     index: false,
     follow: false,

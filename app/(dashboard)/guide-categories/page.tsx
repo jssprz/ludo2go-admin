@@ -3,7 +3,7 @@ import { GuideCategoriesTable } from './guide-categories-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Guide Categories | Admin Dashboard',
+  title: 'Categorías de Guías',
   description: 'Manage guide categories',
 };
 

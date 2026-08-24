@@ -3,7 +3,7 @@ import { GameComplexitiesTable } from './game-complexities-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Game Complexities | Admin Dashboard',
+  title: 'Niveles de Complejidad',
   description: 'Manage game complexities',
 };
 

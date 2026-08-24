@@ -53,7 +53,14 @@
     "locations": "Storage Locations",
     "prices": "Prices",
     "stores": "Stores",
-    "recommendationProfiles": "Recommendation Profiles"
+    "recommendationProfiles": "Recommendation Profiles",
+    "bundles": "Bundles",
+    "promoCodes": "Promo Codes",
+    "presale": "Pre-Sale",
+    "suppliers": "Suppliers",
+    "purchaseOrders": "Purchase Orders",
+    "trending": "Trending",
+    "variants": "Variants"
   },
   "auth": {
     "signIn": "Sign In",

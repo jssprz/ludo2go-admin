@@ -2,7 +2,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { SuppliersTable } from './suppliers-table';
 
 export const metadata = {
-  title: 'Suppliers | Admin Dashboard',
+  title: 'Proveedores',
   description: 'Manage suppliers and cost tracking',
 };
 

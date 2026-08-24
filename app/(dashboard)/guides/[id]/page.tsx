@@ -11,7 +11,7 @@ type PageProps = {
 };
 
 export const metadata = {
-  title: 'Edit Guide | Admin Dashboard',
+  title: 'Editar Guía',
   description: 'Edit guide content and settings',
 };
 

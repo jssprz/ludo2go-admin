@@ -2,7 +2,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { PurchaseOrdersTable } from './purchase-orders-table';
 
 export const metadata = {
-  title: 'Purchase Orders | Admin Dashboard',
+  title: 'Órdenes de Compra',
   description: 'Manage purchase orders',
 };
 

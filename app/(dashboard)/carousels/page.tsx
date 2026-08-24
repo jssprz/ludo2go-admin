@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
+export const metadata = {
+  title: 'Carruseles',
+  description: 'Gestiona los carruseles de la tienda',
+};
+
 export default async function CarouselsPage() {
   const carousels = await prisma.carousel.findMany({
     orderBy: {

@@ -3,7 +3,7 @@ import { BrandsTable } from './brands-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Brands | Admin Dashboard',
+  title: 'Marcas',
   description: 'Manage product brands',
 };
 

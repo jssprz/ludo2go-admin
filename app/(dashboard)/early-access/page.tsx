@@ -2,6 +2,11 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { EarlyAccessTable } from './early-access-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+export const metadata = {
+  title: 'Acceso Anticipado',
+  description: 'Gestiona los registros de acceso anticipado',
+};
+
 export default async function EarlyAccessPage() {
   const emails = await prisma.earlyAccessEmail.findMany({
     orderBy: {

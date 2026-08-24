@@ -4,6 +4,11 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { AdminUsersTable } from './admin-users-table';
 
+export const metadata = {
+  title: 'Usuarios Admin',
+  description: 'Gestiona las cuentas de administrador',
+};
+
 export default function AdminUsersPage() {
   return (
     <div className="space-y-6">

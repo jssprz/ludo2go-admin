@@ -3,7 +3,7 @@ import { LocationsTable } from './locations-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Inventory Locations | Admin Dashboard',
+  title: 'Lugares de Almacenamiento',
   description: 'Manage inventory locations',
 };
 

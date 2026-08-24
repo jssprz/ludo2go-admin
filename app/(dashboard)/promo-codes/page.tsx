@@ -2,7 +2,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { PromoCodesTable } from './promo-codes-table';
 
 export const metadata = {
-  title: 'Promo Codes | Admin Dashboard',
+  title: 'Códigos de Descuento',
   description: 'Manage promo code records',
 };
 

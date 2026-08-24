@@ -3,7 +3,7 @@ import { GameCategoriesTable } from './game-categories-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Game Categories | Admin Dashboard',
+  title: 'Categorías de Juegos',
   description: 'Manage game categories',
 };
 

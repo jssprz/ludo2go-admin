@@ -3,7 +3,7 @@ import { GameMechanicsTable } from './game-mechanics-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Game Mechanics | Admin Dashboard',
+  title: 'Mecánicas de Juegos',
   description: 'Manage game mechanics',
 };
 

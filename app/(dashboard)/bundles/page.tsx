@@ -1,6 +1,11 @@
 import { prisma } from '@jssprz/ludo2go-database';
 import { BundlesTable } from './bundles-table';
 
+export const metadata = {
+  title: 'Paquetes',
+  description: 'Gestiona los paquetes de productos',
+};
+
 export default async function BundlesPage() {
   const bundles = await prisma.product.findMany({
     where: { kind: 'bundle' },

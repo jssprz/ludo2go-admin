@@ -3,7 +3,7 @@ import { AccessoryCategoriesTable } from './accessory-categories-table';
 import { getTranslations } from 'next-intl/server';
 
 export const metadata = {
-  title: 'Accessory Categories | Admin Dashboard',
+  title: 'Categorías de Accesorios',
   description: 'Manage accessory categories',
 };
 
