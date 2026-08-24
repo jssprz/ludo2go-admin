@@ -1,14 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { prisma } from '@jssprz/ludo2go-database';
 import { EventType } from '@prisma/client';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { cookies } from 'next/headers';
 import { GroupedQueryTable } from './grouped-query-table';
+import { PeriodSelector, DeltaBadge } from './period-selector';
+import { ZeroResultsQueue } from './zero-results-queue';
 import {
   ADMIN_TIME_ZONE_COOKIE,
   formatDateInTimeZone,
   normalizeTimeZone,
 } from '@/lib/date-time';
+import { AlertTriangle } from 'lucide-react';
 
 const formatDateTime = (date: Date, locale: string, timeZone: string) => {
   return formatDateInTimeZone(date, {
@@ -264,36 +268,63 @@ function getInclusiveDaySpan(start: Date, end: Date): number {
   return Math.max(1, Math.floor((endUtc - startUtc) / 86_400_000) + 1);
 }
 
-export default async function SearchAnalyticsPage() {
+export default async function SearchAnalyticsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ days?: string }>;
+}) {
   const t = await getTranslations('dashboard');
   const td = await getTranslations('dashboardPage');
   const locale = await getLocale();
   const cookieStore = await cookies();
   const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
 
-  const [searchEvents, clickEvents, typeaheadEvents, typeaheadClickEvents, atcEvents] = await Promise.all([
+  const sp = searchParams ? await searchParams : {};
+  const daysParam = sp?.days ? parseInt(sp.days) : null;
+  const startDate = daysParam ? new Date(Date.now() - daysParam * 86_400_000) : null;
+  const prevStartDate = daysParam ? new Date(Date.now() - 2 * daysParam * 86_400_000) : null;
+  const periodFilter = startDate ? { occurredAt: { gte: startDate } } : {};
+  const prevPeriodFilter = daysParam && prevStartDate && startDate
+    ? { occurredAt: { gte: prevStartDate, lt: startDate } }
+    : null;
+
+  const [searchEvents, clickEvents, typeaheadEvents, typeaheadClickEvents, atcEvents,
+    prevSearchEvents, prevClickEvents] = await Promise.all([
     prisma.event.findMany({
-      where: { eventType: EventType.search_performed },
+      where: { eventType: EventType.search_performed, ...periodFilter },
       select: { occurredAt: true, properties: true },
       orderBy: { occurredAt: 'asc' },
     }),
     prisma.event.findMany({
-      where: { eventType: 'search_result_click' as EventType },
+      where: { eventType: 'search_result_click' as EventType, ...periodFilter },
       select: { properties: true },
     }),
     prisma.event.findMany({
-      where: { eventType: 'typeahead_performed' as EventType },
+      where: { eventType: 'typeahead_performed' as EventType, ...periodFilter },
       select: { occurredAt: true, properties: true },
       orderBy: { occurredAt: 'asc' },
     }),
     prisma.event.findMany({
-      where: { eventType: 'typeahead_result_click' as EventType },
+      where: { eventType: 'typeahead_result_click' as EventType, ...periodFilter },
       select: { properties: true },
     }),
     prisma.event.findMany({
-      where: { eventType: 'add_to_cart' as EventType },
+      where: { eventType: 'add_to_cart' as EventType, ...periodFilter },
       select: { properties: true },
     }),
+    // Previous period for comparison
+    prevPeriodFilter
+      ? prisma.event.findMany({
+          where: { eventType: EventType.search_performed, ...prevPeriodFilter },
+          select: { occurredAt: true, properties: true },
+        })
+      : Promise.resolve(null),
+    prevPeriodFilter
+      ? prisma.event.findMany({
+          where: { eventType: 'search_result_click' as EventType, ...prevPeriodFilter },
+          select: { properties: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   // Build ATC counts per normalized query from attributionSourceKey "q=<query>"
@@ -432,6 +463,35 @@ export default async function SearchAnalyticsPage() {
   const totalSearchAtcs = searchRows.reduce((sum, r) => sum + r.atcs, 0);
   const overallSearchAtcRate = totalSearches > 0 ? (totalSearchAtcs / totalSearches) * 100 : 0;
 
+  // Previous-period totals for trend comparison
+  const prevTotalSearches = prevSearchEvents?.length ?? null;
+  const prevTotalClicks = prevClickEvents?.length ?? null;
+
+  // Zero-result terms: collect top terms with emptyResultCount tracked per normalized query
+  const zeroResultTerms = new Map<string, { count: number; lastAt: Date }>();
+  for (const ev of searchEvents) {
+    const resultCount = getResultCountFromProperties(ev.properties);
+    if (resultCount !== 0 && resultCount !== null) continue;
+    if (resultCount === null) continue;
+    const { normalizedQuery } = getSearchQueriesFromProperties(ev.properties);
+    const key = normalizedQuery ?? '__unknown__';
+    const existing = zeroResultTerms.get(key);
+    if (!existing) {
+      zeroResultTerms.set(key, { count: 1, lastAt: ev.occurredAt });
+    } else {
+      existing.count++;
+      if (ev.occurredAt > existing.lastAt) existing.lastAt = ev.occurredAt;
+    }
+  }
+  const zeroResultTermList = Array.from(zeroResultTerms.entries())
+    .map(([key, { count, lastAt }]) => ({
+      normalizedQuery: key === '__unknown__' ? null : key,
+      count,
+      lastAt: lastAt.toISOString(),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 30);
+
   // Build clicks-per-normalizedQuery map from typeahead_result_click events
   const typeaheadClicksByNormalizedQuery = new Map<string, number>();
   for (const clickEvent of typeaheadClickEvents) {
@@ -562,10 +622,30 @@ export default async function SearchAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{td('searches.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('description')}</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{td('searches.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('description')}</p>
+        </div>
+        <PeriodSelector current={daysParam ? String(daysParam) : null} />
       </div>
+
+      {/* Alert: high empty-results rate */}
+      {emptyResultsRate > 30 && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="flex items-center gap-3 py-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="text-sm">
+              <span className="font-semibold text-amber-800">
+                {emptyResultsRate.toFixed(1)}% de búsquedas sin resultados
+              </span>
+              <span className="text-amber-700 ml-1">
+                ({searchesWithEmptyResults} de {searchesWithResultCount}). Revisa la cola de acciones más abajo.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -573,7 +653,7 @@ export default async function SearchAnalyticsPage() {
             <CardTitle className="text-sm font-medium">{td('searches.cards.weekdayAverage')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{weekdayAverageSearches.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{weekdayAverageSearches.toFixed(1)}</div>
           </CardContent>
         </Card>
 
@@ -582,16 +662,7 @@ export default async function SearchAnalyticsPage() {
             <CardTitle className="text-sm font-medium">{td('searches.cards.dailyAverage')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{avgSearchesDaily.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{td('searches.cards.weeklyAverage')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgSearchesWeekly.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{avgSearchesDaily.toFixed(1)}</div>
           </CardContent>
         </Card>
 
@@ -604,13 +675,18 @@ export default async function SearchAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={emptyResultsRate > 30 ? 'border-amber-300' : ''}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{td('searches.cards.emptyResults')}</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              {emptyResultsRate > 30 && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+              {td('searches.cards.emptyResults')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{searchesWithEmptyResults}</div>
-            <p className="text-xs text-muted-foreground">{emptyResultsRate.toFixed(1)}%</p>
+            <div className={`text-2xl font-bold ${emptyResultsRate > 30 ? 'text-amber-600' : ''}`}>
+              {emptyResultsRate.toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">{searchesWithEmptyResults} búsquedas</p>
           </CardContent>
         </Card>
 
@@ -619,30 +695,54 @@ export default async function SearchAnalyticsPage() {
             <CardTitle className="text-sm font-medium">{td('searches.cards.avgResultItems')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageItemsInResults.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{averageItemsInResults.toFixed(1)}</div>
           </CardContent>
         </Card>
 
+        {/* CTR renamed to Clics/búsqueda — formula: totalClicks / totalSearches can exceed 100% */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">CTR General</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Clics por búsqueda
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Clics totales ÷ búsquedas. Puede ser &gt; 100% si el usuario hace varios clics.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex items-end gap-2">
             <div className="text-2xl font-bold">{overallSearchCtr.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">{totalSearchClicks} clicks / {totalSearches} búsquedas</p>
+            <DeltaBadge current={totalSearchClicks} previous={prevTotalClicks} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">ATC Rate General</CardTitle>
+            <CardTitle className="text-sm font-medium">Total búsquedas</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-end gap-2">
+            <div className="text-2xl font-bold">{totalSearches}</div>
+            <DeltaBadge current={totalSearches} previous={prevTotalSearches} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">ATC Rate</CardTitle>
+            <CardDescription className="text-xs">
+              Agregar-al-carro atribuibles a una búsqueda ÷ búsquedas totales.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overallSearchAtcRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">{totalSearchAtcs} ATCs / {totalSearches} búsquedas</p>
+            <p className="text-xs text-muted-foreground">{totalSearchAtcs} ATCs / {totalSearches}</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Zero-results action queue */}
+      {zeroResultTermList.length > 0 && (
+        <ZeroResultsQueue terms={zeroResultTermList} />
+      )}
 
       <Card>
         <CardHeader>
@@ -679,7 +779,7 @@ export default async function SearchAnalyticsPage() {
               normalizedQuery: td('searches.table.normalizedQuery'),
               count: td('searches.table.count'),
               clicks: td('searches.table.clicks'),
-              ctr: td('searches.table.ctr'),
+              ctr: 'Clics/búsq.',
               atcs: 'ATCs',
               atcRate: 'ATC Rate',
               firstDatetime: td('searches.table.firstDatetime'),
@@ -702,7 +802,7 @@ export default async function SearchAnalyticsPage() {
             <CardTitle className="text-sm font-medium">{td('typeaheads.cards.weekdayAverage')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{weekdayAverageTypeaheads.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{weekdayAverageTypeaheads.toFixed(1)}</div>
           </CardContent>
         </Card>
 
@@ -711,16 +811,7 @@ export default async function SearchAnalyticsPage() {
             <CardTitle className="text-sm font-medium">{td('typeaheads.cards.dailyAverage')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{avgTypeaheadsDaily.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{td('typeaheads.cards.weeklyAverage')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgTypeaheadsWeekly.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{avgTypeaheadsDaily.toFixed(1)}</div>
           </CardContent>
         </Card>
 
@@ -733,13 +824,15 @@ export default async function SearchAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={typeaheadEmptyResultsRate > 30 ? 'border-amber-300' : ''}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">{td('typeaheads.cards.emptyResults')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{typeaheadWithEmptyResults}</div>
-            <p className="text-xs text-muted-foreground">{typeaheadEmptyResultsRate.toFixed(1)}%</p>
+            <div className={`text-2xl font-bold ${typeaheadEmptyResultsRate > 30 ? 'text-amber-600' : ''}`}>
+              {typeaheadEmptyResultsRate.toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">{typeaheadWithEmptyResults} typeaheads</p>
           </CardContent>
         </Card>
 
@@ -748,27 +841,32 @@ export default async function SearchAnalyticsPage() {
             <CardTitle className="text-sm font-medium">{td('typeaheads.cards.avgResultItems')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{averageItemsInTypeaheadResults.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{averageItemsInTypeaheadResults.toFixed(1)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">CTR General</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Clics por typeahead
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Clics totales ÷ typeaheads. Puede ser &gt; 100%.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overallTypeaheadCtr.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">{totalTypeaheadClicks} clicks / {totalTypeaheads} typeaheads</p>
+            <p className="text-xs text-muted-foreground">{totalTypeaheadClicks} clics / {totalTypeaheads}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">ATC Rate General</CardTitle>
+            <CardTitle className="text-sm font-medium">ATC Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{overallTypeaheadAtcRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">{totalTypeaheadAtcs} ATCs / {totalTypeaheads} typeaheads</p>
+            <p className="text-xs text-muted-foreground">{totalTypeaheadAtcs} ATCs / {totalTypeaheads}</p>
           </CardContent>
         </Card>
       </div>
@@ -808,7 +906,7 @@ export default async function SearchAnalyticsPage() {
               normalizedQuery: td('typeaheads.table.normalizedQuery'),
               count: td('typeaheads.table.count'),
               clicks: td('typeaheads.table.clicks'),
-              ctr: td('typeaheads.table.ctr'),
+              ctr: 'Clics/typeahead',
               atcs: 'ATCs',
               atcRate: 'ATC Rate',
               firstDatetime: td('typeaheads.table.firstDatetime'),
