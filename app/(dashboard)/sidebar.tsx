@@ -215,31 +215,21 @@ function SidebarGroup({
 
   if (!isExpanded) {
     return (
-      <div className="flex flex-col items-center gap-0.5 py-1">
+      <div className="flex flex-col items-center py-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <div
               aria-label={group.label}
-              onClick={() => {}}
               className={clsx(
-                'flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground',
-                hasActiveChild && 'text-foreground',
+                'flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-muted-foreground',
+                hasActiveChild && 'bg-accent text-foreground',
               )}
             >
               {group.icon}
-            </button>
+            </div>
           </TooltipTrigger>
           <TooltipContent side="right">{group.label}</TooltipContent>
         </Tooltip>
-        {group.items.map((item) => (
-          <SidebarNavItem
-            key={item.href}
-            href={item.href}
-            label={t(item.labelKey as Parameters<typeof t>[0])}
-            icon={item.icon}
-            isExpanded={false}
-          />
-        ))}
       </div>
     );
   }
@@ -280,15 +270,18 @@ export function Sidebar() {
   const { isPinned, togglePin } = useSidebar();
   const t = useTranslations('nav');
   const groups = useNavGroups(t);
+  const [isHovered, setIsHovered] = useState(false);
 
-  const isExpanded = isPinned;
+  const isExpanded = isPinned || isHovered;
 
   return (
     <aside
       className={clsx(
-        'group/sidebar fixed inset-y-0 left-0 z-10 hidden flex-col border-r bg-background transition-all duration-200 sm:flex',
-        isPinned ? 'w-64' : 'w-14 hover:w-64',
+        'fixed inset-y-0 left-0 z-10 hidden flex-col border-r bg-background transition-all duration-200 sm:flex',
+        isExpanded ? 'w-64' : 'w-14',
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Logo */}
       <div className="flex h-14 items-center justify-between border-b px-2">
@@ -301,7 +294,7 @@ export function Sidebar() {
             alt="Joby's"
             width={130}
             height={59}
-            className="h-5 w-auto transition-all group-hover/sidebar:scale-105"
+            className="h-5 w-auto transition-all"
           />
           <span className="sr-only">Joby&apos;s</span>
         </Link>
@@ -309,8 +302,8 @@ export function Sidebar() {
           onClick={togglePin}
           aria-label={isPinned ? 'Desanclar barra lateral' : 'Anclar barra lateral'}
           className={clsx(
-            'hidden h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground',
-            isPinned ? 'group-hover/sidebar:flex' : 'group-hover/sidebar:flex',
+            'h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground',
+            isExpanded ? 'flex' : 'hidden',
           )}
         >
           {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
