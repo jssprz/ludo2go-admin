@@ -31,7 +31,18 @@ import {
   ArrowUp,
   ArrowDown,
   FileDown,
+  ArrowLeftRight,
+  Loader2,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 
 type VariantWithInventory = ProductVariant & {
@@ -66,6 +77,52 @@ export function InventoryTable({ variants, locations }: Props) {
   const [sortCol, setSortCol] = useState<string>('product');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [exportingScope, setExportingScope] = useState<string | null>(null);
+
+  // Transfer state
+  const [transferVariant, setTransferVariant] = useState<{ id: string; sku: string; name: string; onHand: number; available: number } | null>(null);
+  const [transferToLocationId, setTransferToLocationId] = useState('');
+  const [transferQty, setTransferQty] = useState(1);
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
+  function openTransfer(variant: VariantWithInventory) {
+    const inv = getInventoryForLocation(variant, selectedLocation);
+    const onHand = inv?.onHand ?? 0;
+    const available = calculateAvailable(onHand, inv?.reserved ?? 0);
+    setTransferVariant({ id: variant.id, sku: variant.sku, name: variant.product.name, onHand, available });
+    setTransferToLocationId(locations.find((l) => l.id !== selectedLocation)?.id ?? '');
+    setTransferQty(1);
+    setTransferError(null);
+  }
+
+  async function handleTransfer() {
+    if (!transferVariant || !transferToLocationId) return;
+    setTransferring(true);
+    setTransferError(null);
+    try {
+      const res = await fetch('/api/inventory/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variantId: transferVariant.id,
+          fromLocationId: selectedLocation,
+          toLocationId: transferToLocationId,
+          quantity: transferQty,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setTransferError(data.error ?? 'Error al transferir.');
+        return;
+      }
+      setTransferVariant(null);
+      router.refresh();
+    } catch {
+      setTransferError('Error de red. Intenta nuevamente.');
+    } finally {
+      setTransferring(false);
+    }
+  }
 
   function handleSort(col: string) {
     if (sortCol === col) {
@@ -826,15 +883,27 @@ export function InventoryTable({ variants, locations }: Props) {
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          asChild
-                        >
-                          <Link href={`/variants/${variant.id}/edit`}>
-                            View
-                          </Link>
-                        </Button>
+                        <div className="flex gap-1 justify-end">
+                          {selectedLocation !== 'all' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openTransfer(variant)}
+                              aria-label={`Transferir stock de ${variant.product.name}`}
+                            >
+                              <ArrowLeftRight className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            asChild
+                          >
+                            <Link href={`/variants/${variant.id}/edit`}>
+                              View
+                            </Link>
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -872,6 +941,76 @@ export function InventoryTable({ variants, locations }: Props) {
           No variants found matching "{searchQuery}"
         </p>
       )}
+
+      {/* Transfer dialog */}
+      <Dialog open={!!transferVariant} onOpenChange={(open) => { if (!open) setTransferVariant(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4" /> Transferir stock
+            </DialogTitle>
+            <DialogDescription>
+              {transferVariant?.name} · {transferVariant?.sku}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Desde:</span>
+              <span className="font-medium">
+                {locations.find((l) => l.id === selectedLocation)?.code} —{' '}
+                {locations.find((l) => l.id === selectedLocation)?.name}
+              </span>
+              <span className="ml-auto text-muted-foreground">
+                Disponible: <strong>{transferVariant?.available ?? 0}</strong>
+              </span>
+            </div>
+            <div>
+              <Label htmlFor="transfer-to">Bodega de destino</Label>
+              <Select value={transferToLocationId} onValueChange={setTransferToLocationId}>
+                <SelectTrigger id="transfer-to" className="mt-1">
+                  <SelectValue placeholder="Selecciona bodega…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations
+                    .filter((l) => l.id !== selectedLocation)
+                    .map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.code} — {loc.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="transfer-qty">Cantidad a transferir</Label>
+              <Input
+                id="transfer-qty"
+                type="number"
+                min={1}
+                max={transferVariant?.available ?? 0}
+                value={transferQty}
+                onChange={(e) => setTransferQty(Math.max(1, parseInt(e.target.value) || 1))}
+                className="mt-1 w-32"
+              />
+            </div>
+            {transferError && (
+              <p className="text-sm text-red-600">{transferError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferVariant(null)} disabled={transferring}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleTransfer}
+              disabled={transferring || !transferToLocationId || transferQty < 1}
+            >
+              {transferring ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Confirmar transferencia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

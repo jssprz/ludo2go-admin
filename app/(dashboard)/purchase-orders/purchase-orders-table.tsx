@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
 import {
   Table,
@@ -53,6 +54,7 @@ import {
   Search,
   Loader2,
   Eye,
+  PackagePlus,
   X,
 } from 'lucide-react';
 
@@ -510,14 +512,26 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/purchase-orders/${order.id}`}>
+                            <Eye className="h-4 w-4 mr-2" /> Ver detalle
+                          </Link>
+                        </DropdownMenuItem>
+                        {['submitted', 'confirmed', 'partially_received'].includes(order.status) && (
+                          <DropdownMenuItem asChild>
+                            <Link href={`/purchase-orders/${order.id}/receive`}>
+                              <PackagePlus className="h-4 w-4 mr-2" /> Recibir mercancía
+                            </Link>
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => openDetail(order)}>
-                          <Eye className="h-4 w-4 mr-2" /> View / Edit
+                          <Pencil className="h-4 w-4 mr-2" /> Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(order)}
                           className="text-red-600"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                          <Trash2 className="h-4 w-4 mr-2" /> Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
