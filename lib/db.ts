@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { prisma } from '@jssprz/ludo2go-database';
-import { ProductStatus, ProductKind, EventType } from '@prisma/client';
+import { ProductStatus, ProductKind, VariantStatus, EventType } from '@prisma/client';
 
 export type SortableProductColumn =
   | 'name'
@@ -500,7 +500,14 @@ export async function getProducts(
   }
 
   if (status) {
-    where.status = status;
+    // Include products whose status matches OR have at least one variant with the matching status
+    if (!where.AND) where.AND = [];
+    where.AND.push({
+      OR: [
+        { status },
+        { variants: { some: { status: status as unknown as VariantStatus } } },
+      ],
+    });
   }
 
   if (filters?.kind) {
@@ -524,7 +531,7 @@ export async function getProducts(
         media: true
       }
     },
-    variants: { include: { inventory: true, reviews: { select: { rating: true } } } },
+    variants: { include: { inventory: true, reviews: { select: { rating: true } }, prices: true } },
     createdByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
     updatedByAdminUser: { select: { id: true, username: true, firstName: true, lastName: true } },
   } as const;
