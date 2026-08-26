@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Sigma,
   BarChart3,
+  Trophy,
   DollarSign,
   FolderOpen,
   ChevronDown,
@@ -86,6 +87,7 @@ function useNavGroups(t: ReturnType<typeof useTranslations<'nav'>>): NavGroup[] 
         { href: '/game-themes', labelKey: 'gameThemes', icon: <Palette className="h-4 w-4" /> },
         { href: '/game-mechanics', labelKey: 'gameMechanics', icon: <Wrench className="h-4 w-4" /> },
         { href: '/game-complexities', labelKey: 'gameComplexities', icon: <BarChart3 className="h-4 w-4" /> },
+        { href: '/board-game-awards', labelKey: 'boardGameAwards', icon: <Trophy className="h-4 w-4" /> },
       ],
     },
     {
