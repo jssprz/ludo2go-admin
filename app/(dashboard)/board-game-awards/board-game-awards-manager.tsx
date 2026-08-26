@@ -59,12 +59,31 @@ type Prize = {
     expansions: number;
     events: number;
   };
+  games: Array<{
+    productId: string;
+    product: {
+      name: string;
+    };
+  }>;
+  expansions: Array<{
+    productId: string;
+    product: {
+      name: string;
+    };
+  }>;
+};
+
+type CatalogOption = {
+  id: string;
+  name: string;
 };
 
 type Props = {
   initialOrganizations: Organization[];
   initialDefinitions: Definition[];
   initialPrizes: Prize[];
+  availableGames: CatalogOption[];
+  availableExpansions: CatalogOption[];
 };
 
 type OrganizationFormState = {
@@ -88,6 +107,8 @@ type PrizeFormState = {
   place: string;
   description: string;
   refLink: string;
+  gameIds: string[];
+  expansionIds: string[];
 };
 
 function getErrorMessage(payload: unknown, fallback: string): string {
@@ -113,6 +134,8 @@ export function BoardGameAwardsManager({
   initialOrganizations,
   initialDefinitions,
   initialPrizes,
+  availableGames,
+  availableExpansions,
 }: Props) {
   const router = useRouter();
 
@@ -154,7 +177,17 @@ export function BoardGameAwardsManager({
     place: '',
     description: '',
     refLink: '',
+    gameIds: [],
+    expansionIds: [],
   });
+
+  function toggleSelection(list: string[], id: string): string[] {
+    if (list.includes(id)) {
+      return list.filter((item) => item !== id);
+    }
+
+    return [...list, id];
+  }
 
   const filteredOrganizations = useMemo(() => {
     const search = organizationSearch.trim().toLowerCase();
@@ -388,6 +421,8 @@ export function BoardGameAwardsManager({
       place: '',
       description: '',
       refLink: '',
+      gameIds: [],
+      expansionIds: [],
     });
     setPrizeFormError(null);
     setPrizeDialogOpen(true);
@@ -403,6 +438,8 @@ export function BoardGameAwardsManager({
       place: prize.place ?? '',
       description: prize.description ?? '',
       refLink: prize.refLink ?? '',
+      gameIds: prize.games.map((game) => game.productId),
+      expansionIds: prize.expansions.map((expansion) => expansion.productId),
     });
     setPrizeFormError(null);
     setPrizeDialogOpen(true);
@@ -436,6 +473,8 @@ export function BoardGameAwardsManager({
           place: prizeForm.place.trim() || null,
           description: prizeForm.description.trim() || null,
           refLink: prizeForm.refLink.trim() || null,
+          gameIds: prizeForm.gameIds,
+          expansionIds: prizeForm.expansionIds,
         }),
       });
 
@@ -1011,6 +1050,64 @@ export function BoardGameAwardsManager({
                 onChange={(event) => setPrizeForm((prev) => ({ ...prev, refLink: event.target.value }))}
                 placeholder="https://..."
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Linked Games ({prizeForm.gameIds.length})</Label>
+              <div className="max-h-48 space-y-2 overflow-auto rounded-md border p-3">
+                {availableGames.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No games available.</p>
+                ) : (
+                  availableGames.map((game) => {
+                    const checked = prizeForm.gameIds.includes(game.id);
+
+                    return (
+                      <label key={game.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setPrizeForm((prev) => ({
+                              ...prev,
+                              gameIds: toggleSelection(prev.gameIds, game.id),
+                            }))
+                          }
+                        />
+                        <span>{game.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Linked Expansions ({prizeForm.expansionIds.length})</Label>
+              <div className="max-h-48 space-y-2 overflow-auto rounded-md border p-3">
+                {availableExpansions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No expansions available.</p>
+                ) : (
+                  availableExpansions.map((expansion) => {
+                    const checked = prizeForm.expansionIds.includes(expansion.id);
+
+                    return (
+                      <label key={expansion.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setPrizeForm((prev) => ({
+                              ...prev,
+                              expansionIds: toggleSelection(prev.expansionIds, expansion.id),
+                            }))
+                          }
+                        />
+                        <span>{expansion.name}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 

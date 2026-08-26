@@ -14,6 +14,8 @@ type PrizePayload = {
   place?: unknown;
   description?: unknown;
   refLink?: unknown;
+  gameIds?: unknown;
+  expansionIds?: unknown;
 };
 
 function toOptionalString(value: unknown): string | null {
@@ -42,6 +44,21 @@ function toOptionalInt(value: unknown): number | null {
   }
 
   return null;
+}
+
+function toIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    )
+  );
 }
 
 export async function GET(request: Request, { params }: RouteParams) {
@@ -98,6 +115,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const { id } = await params;
     const body = (await request.json()) as PrizePayload;
     const prizeDefinitionId = toOptionalString(body.prizeDefinitionId);
+    const gameIds = toIdArray(body.gameIds);
+    const expansionIds = toIdArray(body.expansionIds);
 
     if (!prizeDefinitionId) {
       return NextResponse.json({ error: 'prizeDefinitionId is required' }, { status: 400 });
@@ -112,6 +131,34 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Prize definition not found' }, { status: 400 });
     }
 
+    if (gameIds.length > 0) {
+      const gamesCount = await prisma.gameDetails.count({
+        where: {
+          productId: {
+            in: gameIds,
+          },
+        },
+      });
+
+      if (gamesCount !== gameIds.length) {
+        return NextResponse.json({ error: 'Some selected games do not exist' }, { status: 400 });
+      }
+    }
+
+    if (expansionIds.length > 0) {
+      const expansionsCount = await prisma.gameExpansionDetails.count({
+        where: {
+          productId: {
+            in: expansionIds,
+          },
+        },
+      });
+
+      if (expansionsCount !== expansionIds.length) {
+        return NextResponse.json({ error: 'Some selected expansions do not exist' }, { status: 400 });
+      }
+    }
+
     const prize = await prisma.boardGamePrize.update({
       where: { id },
       data: {
@@ -122,6 +169,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
         place: toOptionalString(body.place),
         description: toOptionalString(body.description),
         refLink: toOptionalString(body.refLink),
+        games: {
+          set: gameIds.map((productId) => ({ productId })),
+        },
+        expansions: {
+          set: expansionIds.map((productId) => ({ productId })),
+        },
       },
       include: {
         prizeDefinition: {
@@ -131,6 +184,26 @@ export async function PUT(request: Request, { params }: RouteParams) {
             organization: {
               select: {
                 id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        games: {
+          select: {
+            productId: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        expansions: {
+          select: {
+            productId: true,
+            product: {
+              select: {
                 name: true,
               },
             },

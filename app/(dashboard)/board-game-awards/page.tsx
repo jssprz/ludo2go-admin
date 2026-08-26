@@ -1,5 +1,5 @@
 import { prisma } from '@jssprz/ludo2go-database';
-import { BoardGameAwardsManager } from './board-game-awards-manager';
+import { BoardGameAwardsManager } from './manager';
 
 export const metadata = {
   title: 'Board Game Awards',
@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 export default async function BoardGameAwardsPage() {
-  const [organizations, definitions, prizes] = await Promise.all([
+  const [organizations, definitions, prizes, games, expansions] = await Promise.all([
     prisma.boardGamePrizeOrganization.findMany({
       orderBy: { name: 'asc' },
       include: {
@@ -56,6 +56,56 @@ export default async function BoardGameAwardsPage() {
             events: true,
           },
         },
+        games: {
+          select: {
+            productId: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        expansions: {
+          select: {
+            productId: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.gameDetails.findMany({
+      orderBy: {
+        product: {
+          name: 'asc',
+        },
+      },
+      select: {
+        productId: true,
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.gameExpansionDetails.findMany({
+      orderBy: {
+        product: {
+          name: 'asc',
+        },
+      },
+      select: {
+        productId: true,
+        product: {
+          select: {
+            name: true,
+          },
+        },
       },
     }),
   ]);
@@ -73,6 +123,11 @@ export default async function BoardGameAwardsPage() {
         initialOrganizations={organizations}
         initialDefinitions={definitions}
         initialPrizes={prizes}
+        availableGames={games.map((game) => ({ id: game.productId, name: game.product.name }))}
+        availableExpansions={expansions.map((expansion) => ({
+          id: expansion.productId,
+          name: expansion.product.name,
+        }))}
       />
     </div>
   );

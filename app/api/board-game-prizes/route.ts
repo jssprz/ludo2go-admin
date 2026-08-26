@@ -10,6 +10,8 @@ type PrizePayload = {
   place?: unknown;
   description?: unknown;
   refLink?: unknown;
+  gameIds?: unknown;
+  expansionIds?: unknown;
 };
 
 function toOptionalString(value: unknown): string | null {
@@ -38,6 +40,21 @@ function toOptionalInt(value: unknown): number | null {
   }
 
   return null;
+}
+
+function toIdArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    )
+  );
 }
 
 export async function GET() {
@@ -88,6 +105,8 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PrizePayload;
     const prizeDefinitionId = toOptionalString(body.prizeDefinitionId);
+    const gameIds = toIdArray(body.gameIds);
+    const expansionIds = toIdArray(body.expansionIds);
 
     if (!prizeDefinitionId) {
       return NextResponse.json({ error: 'prizeDefinitionId is required' }, { status: 400 });
@@ -102,6 +121,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Prize definition not found' }, { status: 400 });
     }
 
+    if (gameIds.length > 0) {
+      const gamesCount = await prisma.gameDetails.count({
+        where: {
+          productId: {
+            in: gameIds,
+          },
+        },
+      });
+
+      if (gamesCount !== gameIds.length) {
+        return NextResponse.json({ error: 'Some selected games do not exist' }, { status: 400 });
+      }
+    }
+
+    if (expansionIds.length > 0) {
+      const expansionsCount = await prisma.gameExpansionDetails.count({
+        where: {
+          productId: {
+            in: expansionIds,
+          },
+        },
+      });
+
+      if (expansionsCount !== expansionIds.length) {
+        return NextResponse.json({ error: 'Some selected expansions do not exist' }, { status: 400 });
+      }
+    }
+
     const prize = await prisma.boardGamePrize.create({
       data: {
         prizeDefinitionId,
@@ -111,6 +158,12 @@ export async function POST(request: Request) {
         place: toOptionalString(body.place),
         description: toOptionalString(body.description),
         refLink: toOptionalString(body.refLink),
+        games: {
+          connect: gameIds.map((productId) => ({ productId })),
+        },
+        expansions: {
+          connect: expansionIds.map((productId) => ({ productId })),
+        },
       },
       include: {
         prizeDefinition: {
@@ -120,6 +173,26 @@ export async function POST(request: Request) {
             organization: {
               select: {
                 id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        games: {
+          select: {
+            productId: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        expansions: {
+          select: {
+            productId: true,
+            product: {
+              select: {
                 name: true,
               },
             },
