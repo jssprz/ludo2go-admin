@@ -957,7 +957,7 @@ export function BoardGameAwardsManager({
       </Dialog>
 
       <Dialog open={prizeDialogOpen} onOpenChange={setPrizeDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{editingPrize ? 'Edit Prize Record' : 'Create Prize Record'}</DialogTitle>
             <DialogDescription>
@@ -1052,61 +1052,63 @@ export function BoardGameAwardsManager({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Linked Games ({prizeForm.gameIds.length})</Label>
-              <div className="max-h-48 space-y-2 overflow-auto rounded-md border p-3">
-                {availableGames.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No games available.</p>
-                ) : (
-                  availableGames.map((game) => {
-                    const checked = prizeForm.gameIds.includes(game.id);
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Linked Games ({prizeForm.gameIds.length})</Label>
+                <div className="max-h-60 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableGames.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No games available.</p>
+                  ) : (
+                    availableGames.map((game) => {
+                      const checked = prizeForm.gameIds.includes(game.id);
 
-                    return (
-                      <label key={game.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            setPrizeForm((prev) => ({
-                              ...prev,
-                              gameIds: toggleSelection(prev.gameIds, game.id),
-                            }))
-                          }
-                        />
-                        <span>{game.name}</span>
-                      </label>
-                    );
-                  })
-                )}
+                      return (
+                        <label key={game.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setPrizeForm((prev) => ({
+                                ...prev,
+                                gameIds: toggleSelection(prev.gameIds, game.id),
+                              }))
+                            }
+                          />
+                          <span>{game.name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Linked Expansions ({prizeForm.expansionIds.length})</Label>
-              <div className="max-h-48 space-y-2 overflow-auto rounded-md border p-3">
-                {availableExpansions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No expansions available.</p>
-                ) : (
-                  availableExpansions.map((expansion) => {
-                    const checked = prizeForm.expansionIds.includes(expansion.id);
+              <div className="space-y-2">
+                <Label>Linked Expansions ({prizeForm.expansionIds.length})</Label>
+                <div className="max-h-60 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableExpansions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No expansions available.</p>
+                  ) : (
+                    availableExpansions.map((expansion) => {
+                      const checked = prizeForm.expansionIds.includes(expansion.id);
 
-                    return (
-                      <label key={expansion.id} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            setPrizeForm((prev) => ({
-                              ...prev,
-                              expansionIds: toggleSelection(prev.expansionIds, expansion.id),
-                            }))
-                          }
-                        />
-                        <span>{expansion.name}</span>
-                      </label>
-                    );
-                  })
-                )}
+                      return (
+                        <label key={expansion.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setPrizeForm((prev) => ({
+                                ...prev,
+                                expansionIds: toggleSelection(prev.expansionIds, expansion.id),
+                              }))
+                            }
+                          />
+                          <span>{expansion.name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
           </div>
