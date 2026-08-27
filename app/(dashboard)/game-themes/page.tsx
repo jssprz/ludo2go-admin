@@ -10,14 +10,66 @@ export const metadata = {
 export default async function GameThemesPage() {
   const t = await getTranslations('gameThemes');
 
-  const themes = await prisma.gameTheme.findMany({
-    orderBy: { order: 'asc' },
-    include: {
-      _count: {
-        select: { games: true },
+  const [themes, games, expansions] = await Promise.all([
+    prisma.gameTheme.findMany({
+      orderBy: { order: 'asc' },
+      include: {
+        _count: {
+          select: { games: true, expansions: true },
+        },
+        games: {
+          select: {
+            productId: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        expansions: {
+          select: {
+            productId: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
-    },
-  });
+    }),
+    prisma.gameDetails.findMany({
+      orderBy: {
+        product: {
+          name: 'asc',
+        },
+      },
+      select: {
+        productId: true,
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+    prisma.gameExpansionDetails.findMany({
+      orderBy: {
+        product: {
+          name: 'asc',
+        },
+      },
+      select: {
+        productId: true,
+        product: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -30,7 +82,14 @@ export default async function GameThemesPage() {
         </div>
       </div>
 
-      <GameThemesTable initialThemes={themes as any} />
+      <GameThemesTable
+        initialThemes={themes as any}
+        availableGames={games.map((game) => ({ id: game.productId, name: game.product.name }))}
+        availableExpansions={expansions.map((expansion) => ({
+          id: expansion.productId,
+          name: expansion.product.name,
+        }))}
+      />
     </div>
   );
 }

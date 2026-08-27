@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -53,6 +54,11 @@ type GameTheme = {
   name: string;
   slug: string;
   description: string | null;
+  title: string | null;
+  subtitle: string | null;
+  emotional: string | null;
+  benefits: string[];
+  urgency: string | null;
   icon: string | null;
   order: number;
   isActive: boolean;
@@ -60,14 +66,34 @@ type GameTheme = {
   updatedAt: Date;
   _count: {
     games: number;
+    expansions: number;
   };
+  games?: Array<{
+    productId: string;
+    product: {
+      name: string;
+    };
+  }>;
+  expansions?: Array<{
+    productId: string;
+    product: {
+      name: string;
+    };
+  }>;
+};
+
+type CatalogOption = {
+  id: string;
+  name: string;
 };
 
 type Props = {
   initialThemes: GameTheme[];
+  availableGames: CatalogOption[];
+  availableExpansions: CatalogOption[];
 };
 
-export function GameThemesTable({ initialThemes }: Props) {
+export function GameThemesTable({ initialThemes, availableGames, availableExpansions }: Props) {
   const router = useRouter();
   const t = useTranslations('gameThemes');
   const tc = useTranslations('common');
@@ -85,10 +111,36 @@ export function GameThemesTable({ initialThemes }: Props) {
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formTitle, setFormTitle] = useState('');
+  const [formSubtitle, setFormSubtitle] = useState('');
+  const [formEmotional, setFormEmotional] = useState('');
+  const [formBenefits, setFormBenefits] = useState('');
+  const [formUrgency, setFormUrgency] = useState('');
   const [formIcon, setFormIcon] = useState('');
   const [formOrder, setFormOrder] = useState(0);
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formGameIds, setFormGameIds] = useState<string[]>([]);
+  const [formExpansionIds, setFormExpansionIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+
+  function parseBenefits(value: string): string[] {
+    return Array.from(
+      new Set(
+        value
+          .split(/\r?\n|,/) 
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+
+  function toggleSelection(list: string[], id: string): string[] {
+    if (list.includes(id)) {
+      return list.filter((item) => item !== id);
+    }
+
+    return [...list, id];
+  }
 
   const filteredThemes = themes.filter(
     (theme) =>
@@ -114,9 +166,16 @@ export function GameThemesTable({ initialThemes }: Props) {
     setFormName('');
     setFormSlug('');
     setFormDescription('');
+    setFormTitle('');
+    setFormSubtitle('');
+    setFormEmotional('');
+    setFormBenefits('');
+    setFormUrgency('');
     setFormIcon('');
     setFormOrder(themes.length);
     setFormIsActive(true);
+    setFormGameIds([]);
+    setFormExpansionIds([]);
     setFormError(null);
   }
 
@@ -131,9 +190,16 @@ export function GameThemesTable({ initialThemes }: Props) {
     setFormName(theme.name);
     setFormSlug(theme.slug);
     setFormDescription(theme.description || '');
+    setFormTitle(theme.title || '');
+    setFormSubtitle(theme.subtitle || '');
+    setFormEmotional(theme.emotional || '');
+    setFormBenefits((theme.benefits || []).join('\n'));
+    setFormUrgency(theme.urgency || '');
     setFormIcon(theme.icon || '');
     setFormOrder(theme.order);
     setFormIsActive(theme.isActive);
+    setFormGameIds(theme.games?.map((game) => game.productId) ?? []);
+    setFormExpansionIds(theme.expansions?.map((expansion) => expansion.productId) ?? []);
     setFormError(null);
     setShowEditDialog(true);
   }
@@ -160,9 +226,16 @@ export function GameThemesTable({ initialThemes }: Props) {
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
+          title: formTitle.trim() || null,
+          subtitle: formSubtitle.trim() || null,
+          emotional: formEmotional.trim() || null,
+          benefits: parseBenefits(formBenefits),
+          urgency: formUrgency.trim() || null,
           icon: formIcon.trim() || null,
           order: formOrder,
           isActive: formIsActive,
+          gameIds: formGameIds,
+          expansionIds: formExpansionIds,
         }),
       });
 
@@ -173,7 +246,7 @@ export function GameThemesTable({ initialThemes }: Props) {
       }
 
       setThemes((prev) =>
-        [...prev, { ...data, _count: { games: 0 } }].sort((a, b) => a.order - b.order)
+        [...prev, { ...data, _count: { games: 0, expansions: 0 } }].sort((a, b) => a.order - b.order)
       );
       setShowCreateDialog(false);
       resetForm();
@@ -203,9 +276,16 @@ export function GameThemesTable({ initialThemes }: Props) {
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
+          title: formTitle.trim() || null,
+          subtitle: formSubtitle.trim() || null,
+          emotional: formEmotional.trim() || null,
+          benefits: parseBenefits(formBenefits),
+          urgency: formUrgency.trim() || null,
           icon: formIcon.trim() || null,
           order: formOrder,
           isActive: formIsActive,
+          gameIds: formGameIds,
+          expansionIds: formExpansionIds,
         }),
       });
 
@@ -271,6 +351,11 @@ export function GameThemesTable({ initialThemes }: Props) {
           name: theme.name,
           slug: theme.slug,
           description: theme.description,
+          title: theme.title,
+          subtitle: theme.subtitle,
+          emotional: theme.emotional,
+          benefits: theme.benefits,
+          urgency: theme.urgency,
           icon: theme.icon,
           order: theme.order,
           isActive: !theme.isActive,
@@ -335,6 +420,7 @@ export function GameThemesTable({ initialThemes }: Props) {
                   <TableHead>{t('slug')}</TableHead>
                   <TableHead>{t('icon')}</TableHead>
                   <TableHead className="text-center">{t('games')}</TableHead>
+                  <TableHead className="text-center">Expansions</TableHead>
                   <TableHead className="text-center">{t('status')}</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
@@ -342,7 +428,7 @@ export function GameThemesTable({ initialThemes }: Props) {
               <TableBody>
                 {filteredThemes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {search ? t('noResultsSearch') : t('noThemes')}
                     </TableCell>
                   </TableRow>
@@ -381,6 +467,11 @@ export function GameThemesTable({ initialThemes }: Props) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
+                        <Badge variant={theme._count.expansions > 0 ? 'default' : 'secondary'}>
+                          {theme._count.expansions}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -415,7 +506,7 @@ export function GameThemesTable({ initialThemes }: Props) {
                             <DropdownMenuItem
                               onClick={() => openDeleteDialog(theme)}
                               className="text-red-600"
-                              disabled={theme._count.games > 0}
+                              disabled={theme._count.games > 0 || theme._count.expansions > 0}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               {tc('delete')}
@@ -434,7 +525,7 @@ export function GameThemesTable({ initialThemes }: Props) {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('addTheme')}</DialogTitle>
             <DialogDescription>
@@ -474,6 +565,53 @@ export function GameThemesTable({ initialThemes }: Props) {
                 placeholder={t('descriptionPlaceholder')}
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="create-title">Title</Label>
+                <Input
+                  id="create-title"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Optional title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-subtitle">Subtitle</Label>
+                <Input
+                  id="create-subtitle"
+                  value={formSubtitle}
+                  onChange={(e) => setFormSubtitle(e.target.value)}
+                  placeholder="Optional subtitle"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-emotional">Emotional</Label>
+              <Textarea
+                id="create-emotional"
+                value={formEmotional}
+                onChange={(e) => setFormEmotional(e.target.value)}
+                placeholder="Emotional hook"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-benefits">Benefits (comma or new line separated)</Label>
+              <Textarea
+                id="create-benefits"
+                value={formBenefits}
+                onChange={(e) => setFormBenefits(e.target.value)}
+                placeholder="Story driven, immersive, replayable"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-urgency">Urgency</Label>
+              <Input
+                id="create-urgency"
+                value={formUrgency}
+                onChange={(e) => setFormUrgency(e.target.value)}
+                placeholder="Why play now"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="create-icon">{t('icon')}</Label>
               <Input
@@ -502,6 +640,38 @@ export function GameThemesTable({ initialThemes }: Props) {
               />
               <Label htmlFor="create-active">{t('activeTheme')}</Label>
             </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Assign Games ({formGameIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableGames.map((game) => (
+                    <label key={game.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formGameIds.includes(game.id)}
+                        onChange={() => setFormGameIds((prev) => toggleSelection(prev, game.id))}
+                      />
+                      <span>{game.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign Expansions ({formExpansionIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableExpansions.map((expansion) => (
+                    <label key={expansion.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formExpansionIds.includes(expansion.id)}
+                        onChange={() => setFormExpansionIds((prev) => toggleSelection(prev, expansion.id))}
+                      />
+                      <span>{expansion.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
@@ -517,7 +687,7 @@ export function GameThemesTable({ initialThemes }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('editTheme')}</DialogTitle>
             <DialogDescription>
@@ -554,6 +724,48 @@ export function GameThemesTable({ initialThemes }: Props) {
                 onChange={(e) => setFormDescription(e.target.value)}
               />
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title</Label>
+                <Input
+                  id="edit-title"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-subtitle">Subtitle</Label>
+                <Input
+                  id="edit-subtitle"
+                  value={formSubtitle}
+                  onChange={(e) => setFormSubtitle(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-emotional">Emotional</Label>
+              <Textarea
+                id="edit-emotional"
+                value={formEmotional}
+                onChange={(e) => setFormEmotional(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-benefits">Benefits (comma or new line separated)</Label>
+              <Textarea
+                id="edit-benefits"
+                value={formBenefits}
+                onChange={(e) => setFormBenefits(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-urgency">Urgency</Label>
+              <Input
+                id="edit-urgency"
+                value={formUrgency}
+                onChange={(e) => setFormUrgency(e.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-icon">{t('icon')}</Label>
               <Input
@@ -580,6 +792,38 @@ export function GameThemesTable({ initialThemes }: Props) {
                 className="rounded border-gray-300"
               />
               <Label htmlFor="edit-active">{t('activeTheme')}</Label>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Assign Games ({formGameIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableGames.map((game) => (
+                    <label key={game.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formGameIds.includes(game.id)}
+                        onChange={() => setFormGameIds((prev) => toggleSelection(prev, game.id))}
+                      />
+                      <span>{game.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign Expansions ({formExpansionIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableExpansions.map((expansion) => (
+                    <label key={expansion.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formExpansionIds.includes(expansion.id)}
+                        onChange={() => setFormExpansionIds((prev) => toggleSelection(prev, expansion.id))}
+                      />
+                      <span>{expansion.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -608,9 +852,9 @@ export function GameThemesTable({ initialThemes }: Props) {
               {formError}
             </div>
           )}
-          {selectedTheme && selectedTheme._count.games > 0 && (
+          {selectedTheme && (selectedTheme._count.games > 0 || selectedTheme._count.expansions > 0) && (
             <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
-              {t('cannotDeleteWithGames', { count: selectedTheme._count.games })}
+              {`Cannot delete this theme because it is linked to ${selectedTheme._count.games} games and ${selectedTheme._count.expansions} expansions.`}
             </div>
           )}
           <DialogFooter>
@@ -620,7 +864,11 @@ export function GameThemesTable({ initialThemes }: Props) {
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={isLoading || (selectedTheme?._count.games ?? 0) > 0}
+              disabled={
+                isLoading ||
+                (selectedTheme?._count.games ?? 0) > 0 ||
+                (selectedTheme?._count.expansions ?? 0) > 0
+              }
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tc('delete')}

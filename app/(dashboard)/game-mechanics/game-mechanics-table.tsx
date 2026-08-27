@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -70,6 +71,11 @@ type GameMechanic = {
   name: string;
   slug: string;
   description: string | null;
+  title: string | null;
+  subtitle: string | null;
+  emotional: string | null;
+  benefits: string[];
+  urgency: string | null;
   icon: string | null;
   bggId: number | null;
   bggName: string | null;
@@ -79,11 +85,31 @@ type GameMechanic = {
   updatedAt: Date;
   _count: {
     games: number;
+    expansions: number;
   };
+  games?: Array<{
+    productId: string;
+    product: {
+      name: string;
+    };
+  }>;
+  expansions?: Array<{
+    productId: string;
+    product: {
+      name: string;
+    };
+  }>;
+};
+
+type CatalogOption = {
+  id: string;
+  name: string;
 };
 
 type Props = {
   initialMechanics: GameMechanic[];
+  availableGames: CatalogOption[];
+  availableExpansions: CatalogOption[];
 };
 
 type SortableMechanicRowProps = {
@@ -168,6 +194,9 @@ function SortableMechanicRow({
         <Badge variant={mechanic._count.games > 0 ? 'default' : 'secondary'}>{mechanic._count.games}</Badge>
       </TableCell>
       <TableCell className="text-center">
+        <Badge variant={mechanic._count.expansions > 0 ? 'default' : 'secondary'}>{mechanic._count.expansions}</Badge>
+      </TableCell>
+      <TableCell className="text-center">
         <Button variant="ghost" size="sm" onClick={() => onToggleActive(mechanic)} disabled={isBusy}
           aria-label={mechanic.isActive ? `Desactivar ${mechanic.name}` : `Activar ${mechanic.name}`}
         >
@@ -199,7 +228,7 @@ function SortableMechanicRow({
             <DropdownMenuItem
               onClick={() => onOpenDelete(mechanic)}
               className="text-red-600"
-              disabled={mechanic._count.games > 0}
+              disabled={mechanic._count.games > 0 || mechanic._count.expansions > 0}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               {tc('delete')}
@@ -211,7 +240,7 @@ function SortableMechanicRow({
   );
 }
 
-export function GameMechanicsTable({ initialMechanics }: Props) {
+export function GameMechanicsTable({ initialMechanics, availableGames, availableExpansions }: Props) {
   const router = useRouter();
   const t = useTranslations('gameMechanics');
   const tc = useTranslations('common');
@@ -231,13 +260,39 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formTitle, setFormTitle] = useState('');
+  const [formSubtitle, setFormSubtitle] = useState('');
+  const [formEmotional, setFormEmotional] = useState('');
+  const [formBenefits, setFormBenefits] = useState('');
+  const [formUrgency, setFormUrgency] = useState('');
   const [formIcon, setFormIcon] = useState('');
   const [formBggId, setFormBggId] = useState<number | ''>('');
   const [formBggName, setFormBggName] = useState('');
   const [formOrder, setFormOrder] = useState(0);
   const [formIsActive, setFormIsActive] = useState(true);
+  const [formGameIds, setFormGameIds] = useState<string[]>([]);
+  const [formExpansionIds, setFormExpansionIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [isFetchingBggMechanic, setIsFetchingBggMechanic] = useState(false);
+
+  function parseBenefits(value: string): string[] {
+    return Array.from(
+      new Set(
+        value
+          .split(/\r?\n|,/) 
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+
+  function toggleSelection(list: string[], id: string): string[] {
+    if (list.includes(id)) {
+      return list.filter((item) => item !== id);
+    }
+
+    return [...list, id];
+  }
 
   const filteredMechanics = mechanics.filter(
     (mechanic) =>
@@ -327,11 +382,18 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
     setFormName('');
     setFormSlug('');
     setFormDescription('');
+    setFormTitle('');
+    setFormSubtitle('');
+    setFormEmotional('');
+    setFormBenefits('');
+    setFormUrgency('');
     setFormIcon('');
     setFormBggId('');
     setFormBggName('');
     setFormOrder(mechanics.length);
     setFormIsActive(true);
+    setFormGameIds([]);
+    setFormExpansionIds([]);
     setFormError(null);
   }
 
@@ -346,11 +408,18 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
     setFormName(mechanic.name);
     setFormSlug(mechanic.slug);
     setFormDescription(mechanic.description || '');
+    setFormTitle(mechanic.title || '');
+    setFormSubtitle(mechanic.subtitle || '');
+    setFormEmotional(mechanic.emotional || '');
+    setFormBenefits((mechanic.benefits || []).join('\n'));
+    setFormUrgency(mechanic.urgency || '');
     setFormIcon(mechanic.icon || '');
     setFormBggId(mechanic.bggId ?? '');
     setFormBggName(mechanic.bggName || '');
     setFormOrder(mechanic.order);
     setFormIsActive(mechanic.isActive);
+    setFormGameIds(mechanic.games?.map((game) => game.productId) ?? []);
+    setFormExpansionIds(mechanic.expansions?.map((expansion) => expansion.productId) ?? []);
     setFormError(null);
     setShowEditDialog(true);
   }
@@ -377,11 +446,18 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
+          title: formTitle.trim() || null,
+          subtitle: formSubtitle.trim() || null,
+          emotional: formEmotional.trim() || null,
+          benefits: parseBenefits(formBenefits),
+          urgency: formUrgency.trim() || null,
           icon: formIcon.trim() || null,
           bggId: formBggId !== '' ? Number(formBggId) : null,
           bggName: formBggName.trim() || null,
           order: formOrder,
           isActive: formIsActive,
+          gameIds: formGameIds,
+          expansionIds: formExpansionIds,
         }),
       });
 
@@ -392,7 +468,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
       }
 
       setMechanics((prev) =>
-        [...prev, { ...data, _count: { games: 0 } }].sort((a, b) => a.order - b.order)
+        [...prev, { ...data, _count: { games: 0, expansions: 0 } }].sort((a, b) => a.order - b.order)
       );
       setShowCreateDialog(false);
       resetForm();
@@ -470,11 +546,18 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
+          title: formTitle.trim() || null,
+          subtitle: formSubtitle.trim() || null,
+          emotional: formEmotional.trim() || null,
+          benefits: parseBenefits(formBenefits),
+          urgency: formUrgency.trim() || null,
           icon: formIcon.trim() || null,
           bggId: formBggId !== '' ? Number(formBggId) : null,
           bggName: formBggName.trim() || null,
           order: formOrder,
           isActive: formIsActive,
+          gameIds: formGameIds,
+          expansionIds: formExpansionIds,
         }),
       });
 
@@ -540,6 +623,11 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
           name: mechanic.name,
           slug: mechanic.slug,
           description: mechanic.description,
+          title: mechanic.title,
+          subtitle: mechanic.subtitle,
+          emotional: mechanic.emotional,
+          benefits: mechanic.benefits,
+          urgency: mechanic.urgency,
           icon: mechanic.icon,
           bggId: mechanic.bggId,
           bggName: mechanic.bggName,
@@ -611,6 +699,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                   <TableHead>{t('icon')}</TableHead>
                   <TableHead>BGG</TableHead>
                   <TableHead className="text-center">{t('games')}</TableHead>
+                  <TableHead className="text-center">Expansions</TableHead>
                   <TableHead className="text-center">{t('status')}</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
@@ -627,7 +716,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                   <TableBody>
                 {filteredMechanics.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {search ? t('noResultsSearch') : t('noMechanics')}
                     </TableCell>
                   </TableRow>
@@ -655,7 +744,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('addMechanic')}</DialogTitle>
             <DialogDescription>
@@ -693,6 +782,53 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 placeholder={t('descriptionPlaceholder')}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="create-title">Title</Label>
+                <Input
+                  id="create-title"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Optional title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-subtitle">Subtitle</Label>
+                <Input
+                  id="create-subtitle"
+                  value={formSubtitle}
+                  onChange={(e) => setFormSubtitle(e.target.value)}
+                  placeholder="Optional subtitle"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-emotional">Emotional</Label>
+              <Textarea
+                id="create-emotional"
+                value={formEmotional}
+                onChange={(e) => setFormEmotional(e.target.value)}
+                placeholder="Emotional hook"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-benefits">Benefits (comma or new line separated)</Label>
+              <Textarea
+                id="create-benefits"
+                value={formBenefits}
+                onChange={(e) => setFormBenefits(e.target.value)}
+                placeholder="Strategic depth, quick turns, social interaction"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="create-urgency">Urgency</Label>
+              <Input
+                id="create-urgency"
+                value={formUrgency}
+                onChange={(e) => setFormUrgency(e.target.value)}
+                placeholder="Why play now"
               />
             </div>
             <div className="space-y-2">
@@ -755,6 +891,38 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
               />
               <Label htmlFor="create-active">{t('activeMechanic')}</Label>
             </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Assign Games ({formGameIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableGames.map((game) => (
+                    <label key={game.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formGameIds.includes(game.id)}
+                        onChange={() => setFormGameIds((prev) => toggleSelection(prev, game.id))}
+                      />
+                      <span>{game.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign Expansions ({formExpansionIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableExpansions.map((expansion) => (
+                    <label key={expansion.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formExpansionIds.includes(expansion.id)}
+                        onChange={() => setFormExpansionIds((prev) => toggleSelection(prev, expansion.id))}
+                      />
+                      <span>{expansion.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
@@ -770,7 +938,7 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('editMechanic')}</DialogTitle>
             <DialogDescription>
@@ -805,6 +973,48 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
                 id="edit-description"
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title</Label>
+                <Input
+                  id="edit-title"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-subtitle">Subtitle</Label>
+                <Input
+                  id="edit-subtitle"
+                  value={formSubtitle}
+                  onChange={(e) => setFormSubtitle(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-emotional">Emotional</Label>
+              <Textarea
+                id="edit-emotional"
+                value={formEmotional}
+                onChange={(e) => setFormEmotional(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-benefits">Benefits (comma or new line separated)</Label>
+              <Textarea
+                id="edit-benefits"
+                value={formBenefits}
+                onChange={(e) => setFormBenefits(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-urgency">Urgency</Label>
+              <Input
+                id="edit-urgency"
+                value={formUrgency}
+                onChange={(e) => setFormUrgency(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -855,6 +1065,38 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
               />
               <Label htmlFor="edit-active">{t('activeMechanic')}</Label>
             </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Assign Games ({formGameIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableGames.map((game) => (
+                    <label key={game.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formGameIds.includes(game.id)}
+                        onChange={() => setFormGameIds((prev) => toggleSelection(prev, game.id))}
+                      />
+                      <span>{game.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign Expansions ({formExpansionIds.length})</Label>
+                <div className="max-h-40 space-y-2 overflow-auto rounded-md border p-3">
+                  {availableExpansions.map((expansion) => (
+                    <label key={expansion.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formExpansionIds.includes(expansion.id)}
+                        onChange={() => setFormExpansionIds((prev) => toggleSelection(prev, expansion.id))}
+                      />
+                      <span>{expansion.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
@@ -882,9 +1124,9 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
               {formError}
             </div>
           )}
-          {selectedMechanic && selectedMechanic._count.games > 0 && (
+          {selectedMechanic && (selectedMechanic._count.games > 0 || selectedMechanic._count.expansions > 0) && (
             <div className="rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
-              {t('cannotDeleteWithGames', { count: selectedMechanic._count.games })}
+              {`Cannot delete this mechanic because it is linked to ${selectedMechanic._count.games} games and ${selectedMechanic._count.expansions} expansions.`}
             </div>
           )}
           <DialogFooter>
@@ -894,7 +1136,11 @@ export function GameMechanicsTable({ initialMechanics }: Props) {
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={isLoading || (selectedMechanic?._count.games ?? 0) > 0}
+              disabled={
+                isLoading ||
+                (selectedMechanic?._count.games ?? 0) > 0 ||
+                (selectedMechanic?._count.expansions ?? 0) > 0
+              }
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tc('delete')}
