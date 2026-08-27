@@ -3,10 +3,26 @@ import Link from 'next/link';
 import { AlertTriangle, GitCompareArrows, TrendingUp } from 'lucide-react';
 import { InventoryTable } from './inventory-table';
 import { Button } from '@/components/ui/button';
+import { StockTrendChart } from './stock-trend-chart';
+import { PurchaseOrderStatus } from '@prisma/client';
 
 export const metadata = { title: 'Inventario' };
 
 export default async function InventoryPage() {
+  const weeksToShow = 12;
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const now = new Date();
+  const currentWeekStart = new Date(now);
+  const day = currentWeekStart.getDay();
+  const diffToMonday = (day + 6) % 7;
+  currentWeekStart.setDate(currentWeekStart.getDate() - diffToMonday);
+  currentWeekStart.setHours(0, 0, 0, 0);
+
+  const firstWeekStart = new Date(currentWeekStart.getTime() - msPerWeek * (weeksToShow - 1));
+  const weekStarts = Array.from({ length: weeksToShow }).map((_, index) =>
+    new Date(firstWeekStart.getTime() + index * msPerWeek)
+  );
+
   const [variants, locations] = await Promise.all([
     prisma.productVariant.findMany({
       include: {
@@ -28,6 +44,100 @@ export default async function InventoryPage() {
       status: { notIn: ['cancelled', 'received'] },
       items: { some: {} },
     },
+  });
+
+  const [stockAggregate, soldItems, receivedItems] = await Promise.all([
+    prisma.inventory.aggregate({
+      _sum: {
+        onHand: true,
+      },
+    }),
+    prisma.orderItem.findMany({
+      where: {
+        order: {
+          createdAt: {
+            gte: firstWeekStart,
+          },
+          status: {
+            not: 'cancelled',
+          },
+        },
+      },
+      select: {
+        quantity: true,
+        order: {
+          select: {
+            createdAt: true,
+          },
+        },
+      },
+    }),
+    prisma.purchaseOrderItem.findMany({
+      where: {
+        quantityReceived: {
+          gt: 0,
+        },
+        purchaseOrder: {
+          receivedAt: {
+            gte: firstWeekStart,
+          },
+          status: {
+            in: [PurchaseOrderStatus.partially_received, PurchaseOrderStatus.received],
+          },
+        },
+      },
+      select: {
+        quantityReceived: true,
+        purchaseOrder: {
+          select: {
+            receivedAt: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const soldByWeek = Array.from({ length: weeksToShow }).map(() => 0);
+  const receivedByWeek = Array.from({ length: weeksToShow }).map(() => 0);
+
+  for (const item of soldItems) {
+    const index = Math.floor((item.order.createdAt.getTime() - firstWeekStart.getTime()) / msPerWeek);
+    if (index >= 0 && index < weeksToShow) {
+      soldByWeek[index] += item.quantity;
+    }
+  }
+
+  for (const item of receivedItems) {
+    if (!item.purchaseOrder.receivedAt) {
+      continue;
+    }
+
+    const index = Math.floor((item.purchaseOrder.receivedAt.getTime() - firstWeekStart.getTime()) / msPerWeek);
+    if (index >= 0 && index < weeksToShow) {
+      receivedByWeek[index] += item.quantityReceived;
+    }
+  }
+
+  const currentTotalStock = stockAggregate._sum.onHand ?? 0;
+  const netChanges = soldByWeek.map((sold, index) => receivedByWeek[index] - sold);
+  const periodNetChange = netChanges.reduce((sum, value) => sum + value, 0);
+  let runningTotal = currentTotalStock - periodNetChange;
+
+  const labelFormatter = new Intl.DateTimeFormat('es-CL', {
+    day: '2-digit',
+    month: 'short',
+  });
+
+  const stockTrendPoints = weekStarts.map((weekStart, index) => {
+    runningTotal += netChanges[index];
+
+    return {
+      label: labelFormatter.format(weekStart),
+      totalStock: runningTotal,
+      netMovement: netChanges[index],
+      received: receivedByWeek[index],
+      sold: soldByWeek[index],
+    };
   });
 
   return (
@@ -70,6 +180,8 @@ export default async function InventoryPage() {
           </Button>
         </div>
       </div>
+
+      <StockTrendChart points={stockTrendPoints} />
 
       <InventoryTable variants={variants} locations={locations} />
     </div>
