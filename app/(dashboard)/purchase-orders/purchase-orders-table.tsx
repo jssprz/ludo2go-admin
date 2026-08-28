@@ -176,6 +176,13 @@ function inferIncludeShippingInTax(order: PurchaseOrder) {
   return Math.abs(order.tax - withShipping) <= Math.abs(order.tax - withoutShipping);
 }
 
+function toDateInputValue(value: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
 export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders);
@@ -184,7 +191,6 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
   // Create dialog
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [formCode, setFormCode] = useState('');
   const [formSupplierId, setFormSupplierId] = useState('');
   const [formCurrency, setFormCurrency] = useState('CLP');
   const [formShipping, setFormShipping] = useState(0);
@@ -206,10 +212,11 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [editItems, setEditItems] = useState<Array<{ variantId: string; quantity: number; quantityReceived: number; unitCost: number; discount: number }>>([]);
   const [editShipping, setEditShipping] = useState<number>(0);
   const [editIncludeShippingInTax, setEditIncludeShippingInTax] = useState(false);
+  const [editOrderedAt, setEditOrderedAt] = useState('');
+  const [editExpectedAt, setEditExpectedAt] = useState('');
   const [isUploadingEditPdf, setIsUploadingEditPdf] = useState(false);
 
   function resetCreateForm() {
-    setFormCode('');
     setFormSupplierId('');
     setFormCurrency('CLP');
     setFormShipping(0);
@@ -311,8 +318,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const editTotal = editSubtotal + normalizedEditShipping + editTax;
 
   async function handleCreate() {
-    if (!formCode.trim() || !formSupplierId) {
-      setFormError('Code and supplier are required');
+    if (!formSupplierId) {
+      setFormError('Supplier is required');
       return;
     }
 
@@ -324,7 +331,6 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: formCode.trim(),
           supplierId: formSupplierId,
           currency: formCurrency,
           shipping: normalizedFormShipping,
@@ -361,6 +367,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setEditPdfFileUrl(order.pdfFileUrl ?? '');
     setEditShipping(order.shipping);
     setEditIncludeShippingInTax(inferIncludeShippingInTax(order));
+    setEditOrderedAt(toDateInputValue(order.orderedAt));
+    setEditExpectedAt(toDateInputValue(order.expectedAt));
     setEditItems(
       order.items.map((item) => ({
         variantId: item.variantId,
@@ -387,6 +395,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
           pdfFileUrl: editPdfFileUrl.trim() || null,
           shipping: normalizedEditShipping,
           includeShippingInTax: editIncludeShippingInTax,
+          orderedAt: editOrderedAt || null,
+          expectedAt: editExpectedAt || null,
           items: editItems.filter((i) => i.variantId),
           ...(editStatus === 'received' ? { receivedAt: new Date().toISOString() } : {}),
         }),
@@ -555,7 +565,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label>PO Code *</Label>
-                <Input value={formCode} onChange={(e) => setFormCode(e.target.value)} placeholder="PO-2026-001" />
+                <Input value="Auto-generated (PO-YYYY-####)" disabled />
               </div>
               <div className="space-y-2">
                 <Label>Supplier *</Label>
@@ -791,6 +801,25 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                   <div className="space-y-2">
                     <Label>Tax (19%)</Label>
                     <Input value={formatCurrency(editTax, selectedOrder.currency)} disabled />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Order date</Label>
+                    <Input
+                      type="date"
+                      value={editOrderedAt}
+                      onChange={(e) => setEditOrderedAt(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Expected delivery</Label>
+                    <Input
+                      type="date"
+                      value={editExpectedAt}
+                      onChange={(e) => setEditExpectedAt(e.target.value)}
+                    />
                   </div>
                 </div>
 
