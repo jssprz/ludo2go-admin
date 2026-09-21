@@ -508,10 +508,12 @@ export default async function CustomersPage(
   const anonymousVisitorIds = Array.from(anonymousVisitorsMap.keys());
   const anonymousAddressCountRows = anonymousVisitorIds.length
     ? await prisma.$queryRaw<Array<{ visitorId: string; count: number | bigint }>>(
+        // Use ANY() with an array parameter (single bind var) instead of IN(...) with Prisma.join,
+        // which generates one bind variable per id and can exceed Postgres' 32767 parameter limit.
         Prisma.sql`
           SELECT "visitorId", COUNT(*) AS count
           FROM "Address"
-          WHERE "visitorId" IN (${Prisma.join(anonymousVisitorIds)})
+          WHERE "visitorId" = ANY(${anonymousVisitorIds})
           GROUP BY "visitorId"
         `
       )
