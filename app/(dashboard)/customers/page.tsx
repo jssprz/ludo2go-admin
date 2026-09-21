@@ -49,6 +49,14 @@ function isCartEventType(eventType: EventType): boolean {
   return eventType.includes('cart');
 }
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 function getVisitorIdFromProperties(properties: unknown): string | null {
   if (!properties || typeof properties !== 'object') return null;
 
@@ -519,65 +527,73 @@ export default async function CustomersPage(
       )
     : [];
 
-  const anonymousVisitorCarts = anonymousVisitorIds.length
-    ? await prisma.cart.findMany({
-        where: {
-          visitorId: { in: anonymousVisitorIds },
-          status: 'active',
-        },
-        include: {
-          items: {
-            select: {
-              quantity: true,
-              unitPriceAtAdd: true,
-              variant: {
-                select: {
-                  sku: true,
-                  displayTitleShort: true,
-                  displayTitleLong: true,
-                  mediaLinks: {
-                    where: {
-                      role: 'primary',
-                      media: { kind: 'image' },
-                    },
-                    select: {
-                      media: {
-                        select: { url: true },
-                      },
-                    },
-                    orderBy: { sort: 'asc' },
-                    take: 1,
-                  },
-                  product: {
-                    select: {
-                      name: true,
-                      mediaLinks: {
-                        where: {
-                          role: 'primary',
-                          media: { kind: 'image' },
+  // Split into chunks so the `visitorId IN (...)` filter never exceeds Postgres' 32767 bind-variable limit.
+  const anonymousVisitorIdChunks = chunkArray(anonymousVisitorIds, 25000);
+  const anonymousVisitorCarts = anonymousVisitorIdChunks.length
+    ? (
+        await Promise.all(
+          anonymousVisitorIdChunks.map((visitorIdChunk) =>
+            prisma.cart.findMany({
+              where: {
+                visitorId: { in: visitorIdChunk },
+                status: 'active',
+              },
+              include: {
+                items: {
+                  select: {
+                    quantity: true,
+                    unitPriceAtAdd: true,
+                    variant: {
+                      select: {
+                        sku: true,
+                        displayTitleShort: true,
+                        displayTitleLong: true,
+                        mediaLinks: {
+                          where: {
+                            role: 'primary',
+                            media: { kind: 'image' },
+                          },
+                          select: {
+                            media: {
+                              select: { url: true },
+                            },
+                          },
+                          orderBy: { sort: 'asc' },
+                          take: 1,
                         },
-                        select: {
-                          media: {
-                            select: { url: true },
+                        product: {
+                          select: {
+                            name: true,
+                            mediaLinks: {
+                              where: {
+                                role: 'primary',
+                                media: { kind: 'image' },
+                              },
+                              select: {
+                                media: {
+                                  select: { url: true },
+                                },
+                              },
+                              orderBy: { sort: 'asc' },
+                              take: 1,
+                            },
                           },
                         },
-                        orderBy: { sort: 'asc' },
-                        take: 1,
+                        prices: {
+                          where: { active: true },
+                          select: { amount: true },
+                          take: 1,
+                        },
                       },
                     },
-                  },
-                  prices: {
-                    where: { active: true },
-                    select: { amount: true },
-                    take: 1,
                   },
                 },
               },
-            },
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-      })
+              orderBy: { updatedAt: 'desc' },
+            })
+          )
+        )
+      ).flat()
     : [];
 
   const anonymousCartMap = new Map<string, CartSummary & { cartItemsList: CartDetailItem[] }>();
