@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { OrderStatus } from '@prisma/client';
+import { sendOrderStatusNotification } from '@/lib/order-status-email';
 
 type RouteContext = {
   params: Promise<{
@@ -71,6 +72,14 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
 
     const { id } = await params;
+    const existingOrder = await prisma.order.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!existingOrder) {
+      return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+    }
 
     const order = await prisma.order.update({
       where: { id },
@@ -98,6 +107,23 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         },
       },
     });
+
+    if (existingOrder.status !== order.status && order.customer?.email) {
+      void sendOrderStatusNotification({
+        orderId: order.id,
+        customerEmail: order.customer.email,
+        customerName: [order.customer.firstName, order.customer.lastName]
+          .filter(Boolean)
+          .join(' '),
+        previousStatus: existingOrder.status,
+        status: order.status,
+        total: order.total,
+        currency: order.currency,
+        itemNames: order.items.map(
+          (item) => item.variant?.product?.name ?? item.variant?.sku ?? 'Producto'
+        ),
+      });
+    }
 
     return NextResponse.json(order);
   } catch (error: any) {
