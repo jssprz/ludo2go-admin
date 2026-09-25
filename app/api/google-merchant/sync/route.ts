@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { google } from 'googleapis';
-import type { content_v2_1 } from 'googleapis';
+import type { merchantapi_products_v1 } from 'googleapis';
 
 // ── Helpers ──────────────────────────────────────────────────────────
+
+// Content API for Shopping (content_v2_1) was sunset on 2026-08-18.
+// This route now targets Merchant API v1 — see
+// https://developers.google.com/merchant/api/guides/compatibility
 
 function getAuthClient() {
   const credentials = process.env.GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON;
@@ -19,21 +23,49 @@ function getAuthClient() {
   });
 }
 
-function getMerchantId(): string {
+function getMerchantAccountName(): string {
   const id = process.env.GOOGLE_MERCHANT_ID;
   if (!id) throw new Error('GOOGLE_MERCHANT_ID env var is not set');
-  return id;
+  return `accounts/${id}`;
+}
+
+// A primary API data source must be created once in Merchant Center
+// (Data sources → Add data source → API) before products can be inserted.
+function getDataSourceName(accountName: string): string {
+  const id = process.env.GOOGLE_MERCHANT_DATASOURCE_ID;
+  if (!id) throw new Error('GOOGLE_MERCHANT_DATASOURCE_ID env var is not set');
+  return `${accountName}/dataSources/${id}`;
 }
 
 function getStorefrontBaseUrl(): string {
   return process.env.STOREFRONT_BASE_URL || 'https://www.jobys.cl';
 }
 
-/** Convert minor-unit integer (e.g. 12990) → "129.90" */
-function minorToDecimal(amount: number, currency: string): string {
+/** Run async tasks with a bounded concurrency (no bulk/custombatch endpoint in Merchant API v1). */
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  task: (item: T) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await task(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+}
+
+/** Convert our minor-unit integer amount to Merchant API's amountMicros string (1 unit = 1,000,000 micros). */
+function toAmountMicros(amount: number, currency: string): string {
   // CLP has 0 decimals; USD/EUR have 2
-  if (currency === 'CLP') return String(amount);
-  return (amount / 100).toFixed(2);
+  const decimalAmount = currency === 'CLP' ? amount : amount / 100;
+  return String(Math.round(decimalAmount * 1_000_000));
+}
+
+function toPrice(amount: number, currency: string): merchantapi_products_v1.Schema$Price {
+  return { amountMicros: toAmountMicros(amount, currency), currencyCode: currency };
 }
 
 /** Map our condition enum to Google's accepted values */
@@ -83,12 +115,13 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantId = getMerchantId();
+    const accountName = getMerchantAccountName();
+    const dataSource = getDataSourceName(accountName);
     const authClient = getAuthClient();
     const baseUrl = getStorefrontBaseUrl();
 
-    const content = google.content({
-      version: 'v2.1',
+    const merchantapi = google.merchantapi({
+      version: 'products_v1',
       auth: authClient,
     });
 
@@ -127,9 +160,13 @@ export async function POST() {
       errors: { offerId: string; error: string }[];
     } = { synced: [], errors: [] };
 
-    // Build batch entries for custombatch (much faster than individual calls)
-    const entries: content_v2_1.Schema$ProductsCustomBatchRequestEntry[] = [];
-    let batchId = 0;
+    // Merchant API v1 has no bulk/custombatch endpoint — build one productInput per variant
+    // and insert them individually (see runWithConcurrency below).
+    type PendingInsert = {
+      offerId: string;
+      productInput: merchantapi_products_v1.Schema$ProductInput;
+    };
+    const pendingInserts: PendingInsert[] = [];
 
     for (const product of products) {
       for (const variant of product.variants) {
@@ -168,7 +205,7 @@ export async function POST() {
 
         const offerId = variant.sku;
         const lang = mapLanguage(variant.language);
-        const targetCountry = 'CL'; // Chile
+        const feedLabel = 'CL'; // Chile — also used as the target country grouping
 
         const title = variant.displayTitleShort || variant.displayTitleLong || product.name;
         const description =
@@ -178,49 +215,41 @@ export async function POST() {
 
         const link = `${baseUrl}/products/${product.slug}`;
 
-        const merchantProduct: content_v2_1.Schema$Product = {
-          offerId,
+        const productAttributes: merchantapi_products_v1.Schema$ProductAttributes = {
           title,
           description,
           link,
           imageLink,
           additionalImageLinks:
             additionalImageLinks.length > 0 ? additionalImageLinks : undefined,
-          contentLanguage: lang,
-          targetCountry,
-          channel: 'online',
           availability: mapAvailability(variant.status, totalStock),
           condition: mapCondition(variant.condition),
           brand: product.brand?.name || undefined,
-          price: {
-            value: minorToDecimal(retailPrice.amount, currency),
-            currency,
-          },
+          price: toPrice(retailPrice.amount, currency),
           itemGroupId: product.id, // groups all variants of same product
           productTypes: product.tags.length > 0 ? product.tags : undefined,
         };
 
         // Add availability date for scheduled / preorder variants
         if (variant.status === 'scheduled' && variant.activeAtScheduled) {
-          merchantProduct.availabilityDate = variant.activeAtScheduled.toISOString();
+          productAttributes.availabilityDate = variant.activeAtScheduled.toISOString();
         }
 
         // Add sale price if present and different from retail
         if (salePrice && salePrice.amount < retailPrice.amount) {
-          merchantProduct.salePrice = {
-            value: minorToDecimal(salePrice.amount, currency),
-            currency,
-          };
+          productAttributes.salePrice = toPrice(salePrice.amount, currency);
           // Add sale price effective date if available
           if (salePrice.startsAt && salePrice.endsAt) {
-            merchantProduct.salePriceEffectiveDate =
-              `${salePrice.startsAt.toISOString()}/${salePrice.endsAt.toISOString()}`;
+            productAttributes.salePriceEffectiveDate = {
+              startTime: salePrice.startsAt.toISOString(),
+              endTime: salePrice.endsAt.toISOString(),
+            };
           }
         }
 
         // Add weight if available
         if (variant.weightGrams) {
-          merchantProduct.productWeight = {
+          productAttributes.productWeight = {
             value: variant.weightGrams,
             unit: 'g',
           };
@@ -228,19 +257,19 @@ export async function POST() {
 
         // Add dimensions if available
         if (variant.widthMm) {
-          merchantProduct.productWidth = {
+          productAttributes.productWidth = {
             value: variant.widthMm / 10,
             unit: 'cm',
           };
         }
         if (variant.heightMm) {
-          merchantProduct.productHeight = {
+          productAttributes.productHeight = {
             value: variant.heightMm / 10,
             unit: 'cm',
           };
         }
         if (variant.depthMm) {
-          merchantProduct.productLength = {
+          productAttributes.productLength = {
             value: variant.depthMm / 10,
             unit: 'cm',
           };
@@ -248,11 +277,11 @@ export async function POST() {
 
         // Add GTIN/EAN if available
         if (variant.eanUpc) {
-          merchantProduct.gtin = variant.eanUpc;
+          productAttributes.gtins = [variant.eanUpc];
         }
 
         // Game-specific details as custom attributes
-        const customAttributes: content_v2_1.Schema$CustomAttribute[] = [];
+        const customAttributes: merchantapi_products_v1.Schema$CustomAttribute[] = [];
         const details = product.game || product.expansion
         if (details) {
           if (details.minPlayers != null && details.maxPlayers != null) {
@@ -274,22 +303,23 @@ export async function POST() {
             });
           }
         }
-        if (customAttributes.length > 0) {
-          merchantProduct.customAttributes = customAttributes;
-        }
 
-        entries.push({
-          batchId: batchId++,
-          merchantId: merchantId,
-          method: 'insert', // insert acts as upsert — creates or updates
-          product: merchantProduct,
+        pendingInserts.push({
+          offerId,
+          productInput: {
+            offerId,
+            contentLanguage: lang,
+            feedLabel,
+            productAttributes,
+            customAttributes: customAttributes.length > 0 ? customAttributes : undefined,
+          },
         });
       }
     }
 
     const totalVariantsInDb = products.reduce((s, p) => s + p.variants.length, 0);
 
-    if (entries.length === 0) {
+    if (pendingInserts.length === 0) {
       return NextResponse.json({
         message: 'No eligible products with variants and prices to sync.',
         synced: 0,
@@ -300,38 +330,27 @@ export async function POST() {
       });
     }
 
-    // Send in batches of 1000 (API limit per custombatch call)
-    const BATCH_SIZE = 1000;
-    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-      const batch = entries.slice(i, i + BATCH_SIZE);
-
-      const response = await content.products.custombatch({
-        requestBody: { entries: batch },
-      });
-
-      if (response.data.entries) {
-        for (const entry of response.data.entries) {
-          const offerId =
-            batch.find((b) => b.batchId === entry.batchId)?.product?.offerId ??
-            `batch-${entry.batchId}`;
-
-          if (entry.errors && entry.errors.errors && entry.errors.errors.length > 0) {
-            results.errors.push({
-              offerId,
-              error: entry.errors.errors.map((e) => e.message).join('; '),
-            });
-          } else {
-            results.synced.push(offerId);
-          }
-        }
+    // insert() acts as an upsert — creates or updates the product input.
+    await runWithConcurrency(pendingInserts, 10, async ({ offerId, productInput }) => {
+      try {
+        await merchantapi.accounts.productInputs.insert({
+          parent: accountName,
+          dataSource,
+          requestBody: productInput,
+        });
+        results.synced.push(offerId);
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.error?.message || err?.message || 'Unknown error';
+        results.errors.push({ offerId, error: message });
       }
-    }
+    });
 
     return NextResponse.json({
       message: `Sync complete. ${results.synced.length} product(s) synced, ${results.errors.length} error(s).`,
       synced: results.synced.length,
       errors: results.errors,
-      total: entries.length,
+      total: pendingInserts.length,
       productsFound: products.length,
       variantsFound: totalVariantsInDb,
     });
@@ -343,3 +362,4 @@ export async function POST() {
     );
   }
 }
+
