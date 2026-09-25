@@ -82,15 +82,15 @@ function mapCondition(condition: string): string {
   }
 }
 
-/** Map our product status + inventory to Google availability */
+/** Map our product status + inventory to Google availability (proto enum: IN_STOCK / OUT_OF_STOCK / PREORDER / BACKORDER) */
 function mapAvailability(
   variantStatus: string,
   totalStock: number
 ): string {
-  if (variantStatus === 'archived' || variantStatus === 'draft') return 'out of stock';
-  if (variantStatus === 'scheduled') return 'preorder';
-  if (variantStatus === 'paused') return 'out of stock';
-  return totalStock > 0 ? 'in stock' : 'out of stock';
+  if (variantStatus === 'archived' || variantStatus === 'draft') return 'OUT_OF_STOCK';
+  if (variantStatus === 'scheduled') return 'PREORDER';
+  if (variantStatus === 'paused') return 'OUT_OF_STOCK';
+  return totalStock > 0 ? 'IN_STOCK' : 'OUT_OF_STOCK';
 }
 
 function mapLanguage(lang: string): string {
