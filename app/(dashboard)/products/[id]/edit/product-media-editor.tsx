@@ -41,6 +41,7 @@ import {
   Search,
   Check,
   Upload,
+  Download,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 
@@ -90,6 +91,10 @@ export function ProductMediaEditor({ productId }: Props) {
   // Upload state
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [showSupplierImport, setShowSupplierImport] = useState(false);
+  const [supplierUrl, setSupplierUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
 
   const fetchProductMedia = useCallback(async () => {
     try {
@@ -342,6 +347,36 @@ export function ProductMediaEditor({ productId }: Props) {
     }
   }
 
+  async function handleSupplierImport() {
+    if (!supplierUrl.trim()) return;
+
+    setIsImporting(true);
+    setImportStatus(null);
+    try {
+      const res = await fetch(`/api/products/${productId}/media/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceUrl: supplierUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Import failed');
+
+      setImportStatus(
+        `Imported ${data.imagesAdded} image(s) and ${data.videosAdded} video(s).`
+      );
+      if (data.errors?.length) {
+        setImportStatus((current) => `${current} ${data.errors.length} image(s) skipped.`);
+      }
+      setSupplierUrl('');
+      await fetchProductMedia();
+      router.refresh();
+    } catch (error: any) {
+      setImportStatus(error.message || 'Import failed');
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   function getMediaIcon(kind: string) {
     switch (kind) {
       case 'image':
@@ -388,6 +423,10 @@ export function ProductMediaEditor({ productId }: Props) {
           <Button variant="outline" onClick={() => setShowMediaPicker(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Media
+          </Button>
+          <Button variant="outline" onClick={() => setShowSupplierImport(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Import Supplier Media
           </Button>
         </div>
       </div>
@@ -510,6 +549,49 @@ export function ProductMediaEditor({ productId }: Props) {
           ))}
         </div>
       )}
+
+      <Dialog open={showSupplierImport} onOpenChange={setShowSupplierImport}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Supplier Media</DialogTitle>
+            <DialogDescription>
+              Import images and YouTube videos from a supported supplier page. Images are copied to Jobys storage.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            type="url"
+            placeholder="https://devir.cl/trio"
+            value={supplierUrl}
+            onChange={(event) => setSupplierUrl(event.target.value)}
+            disabled={isImporting}
+          />
+          {importStatus && (
+            <p className="text-sm text-muted-foreground">{importStatus}</p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSupplierImport(false)}
+              disabled={isImporting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSupplierImport}
+              disabled={!supplierUrl.trim() || isImporting}
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                'Import Media'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Media Picker Dialog */}
       <Dialog open={showMediaPicker} onOpenChange={(open) => {
