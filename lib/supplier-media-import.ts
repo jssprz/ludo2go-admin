@@ -13,6 +13,10 @@ const DEvir_HOSTS = new Set([
   'www.devir.cl',
   'devirinvestments.s3.eu-west-1.amazonaws.com',
 ]);
+const FRACTAL_HOSTS = new Set(['fractaljuegos.cl', 'www.fractaljuegos.cl']);
+const SUPPLIER_IMAGE_HOSTS = new Set(
+  Array.from(DEvir_HOSTS).concat(Array.from(FRACTAL_HOSTS))
+);
 const DEVIR_YOUTUBE_CHANNEL_ID = 'UCa6lO83fuuL6Wy0RA7NS_lA';
 const BROWSER_HEADERS = {
   'User-Agent':
@@ -48,6 +52,14 @@ function assertDevirUrl(value: string): URL {
   const parsed = new URL(value);
   if (parsed.protocol !== 'https:' || !DEvir_HOSTS.has(parsed.hostname.toLowerCase())) {
     throw new Error('Only HTTPS Devir Chile URLs are supported');
+  }
+  return parsed;
+}
+
+function assertFractalUrl(value: string): URL {
+  const parsed = new URL(value);
+  if (parsed.protocol !== 'https:' || !FRACTAL_HOSTS.has(parsed.hostname.toLowerCase())) {
+    throw new Error('Only HTTPS Fractal Juegos URLs are supported');
   }
   return parsed;
 }
@@ -180,15 +192,84 @@ function getDevirAdapter(): SupplierAdapter {
   };
 }
 
+function getFractalAdapter(): SupplierAdapter {
+  return {
+    async extractProduct(productUrl) {
+      const parsedUrl = assertFractalUrl(productUrl);
+      const response = await fetchSupplierResource(parsedUrl.toString(), {
+        ...BROWSER_HEADERS,
+        'User-Agent': 'Mozilla/5.0 (compatible; JobysCatalogImporter/1.0; +https://jobys.cl)',
+        Accept: 'text/html,application/xhtml+xml',
+      });
+      if (!response.ok) throw new Error(`Fractal responded with HTTP ${response.status}`);
+
+      const html = await response.text();
+      const $ = cheerio.load(html);
+      const images = new Map<string, string>();
+
+      $('.carrusel-juegodetalle .jet-woo-product-gallery__image-link[itemprop="image"]').each((_, element) => {
+        const link = $(element);
+        const image = link.find('img').first();
+        const source = link.attr('href') || image.attr('data-large_image') || image.attr('data-src');
+        if (!source) return;
+
+        try {
+          const imageUrl = new URL(source, parsedUrl);
+          if (imageUrl.protocol !== 'https:' || !FRACTAL_HOSTS.has(imageUrl.hostname.toLowerCase())) return;
+          const isFeatured = link.closest('.jet-woo-product-gallery__image-item').hasClass('featured');
+          const current = images.get(imageUrl.href);
+          if (current === undefined || isFeatured) images.set(imageUrl.href, isFeatured ? 'featured' : 'gallery');
+        } catch {
+          // Ignore malformed gallery URLs.
+        }
+      });
+
+      const orderedImages = Array.from(images.entries()).sort(([, firstRole], [, secondRole]) =>
+        Number(secondRole === 'featured') - Number(firstRole === 'featured')
+      ).map(([url]) => url);
+
+      const videos: string[] = [];
+      $('.elementor-widget-video[data-settings]').each((_, element) => {
+        try {
+          const settings = JSON.parse($(element).attr('data-settings') || '{}');
+          const videoId = extractYouTubeId(settings.youtube_url);
+          if (videoId && !videos.includes(videoId)) videos.push(videoId);
+        } catch {
+          // Ignore invalid Elementor widget settings.
+        }
+      });
+
+      const title = $('meta[property="og:title"]').attr('content') || $('h1').first().text().trim();
+      if (!title) throw new Error('Supplier page did not contain a product title');
+
+      return {
+        title,
+        images: orderedImages,
+        // The page's second video is the curated tutorial for this product.
+        youtubeVideos: videos.sort((a, b) => Number(b === 'd5WvIZ1-lpM') - Number(a === 'd5WvIZ1-lpM')),
+        description: $('meta[property="og:description"]').attr('content') || undefined,
+      };
+    },
+  };
+}
+
 function getAdapter(url: string): SupplierAdapter {
   const hostname = new URL(url).hostname.toLowerCase();
   if (hostname === 'devir.cl' || hostname === 'www.devir.cl') return getDevirAdapter();
+  if (hostname === 'fractaljuegos.cl' || hostname === 'www.fractaljuegos.cl') return getFractalAdapter();
   throw new Error('No supplier adapter is configured for this host');
+}
+
+function assertSupplierUrl(value: string): URL {
+  const hostname = new URL(value).hostname.toLowerCase();
+  if (DEvir_HOSTS.has(hostname)) return assertDevirUrl(value);
+  if (FRACTAL_HOSTS.has(hostname)) return assertFractalUrl(value);
+  throw new Error('Supplier URL is not allowed');
 }
 
 async function downloadImage(sourceUrl: string): Promise<StoredImage> {
   const parsed = new URL(sourceUrl);
-  if (parsed.protocol !== 'https:' || !DEvir_HOSTS.has(parsed.hostname.toLowerCase())) {
+  if (parsed.protocol !== 'https:' || !SUPPLIER_IMAGE_HOSTS.has(parsed.hostname.toLowerCase())) {
     throw new Error('Image URL is not allowed');
   }
 
@@ -240,7 +321,7 @@ async function downloadImage(sourceUrl: string): Promise<StoredImage> {
 }
 
 export async function importSupplierMedia(sourceUrl: string) {
-  const parsedUrl = assertDevirUrl(sourceUrl);
+  const parsedUrl = assertSupplierUrl(sourceUrl);
   const product = await getAdapter(parsedUrl.toString()).extractProduct(parsedUrl.toString());
   const storedImages: StoredImage[] = [];
   const seenChecksums = new Set<string>();
