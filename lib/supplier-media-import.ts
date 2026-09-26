@@ -14,6 +14,11 @@ const DEvir_HOSTS = new Set([
   'devirinvestments.s3.eu-west-1.amazonaws.com',
 ]);
 const DEVIR_YOUTUBE_CHANNEL_ID = 'UCa6lO83fuuL6Wy0RA7NS_lA';
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+  'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
+};
 
 type SupplierAdapter = {
   extractProduct(url: string): Promise<ExtractedSupplierProduct>;
@@ -90,6 +95,23 @@ function getJsonLdProduct($: cheerio.CheerioAPI) {
   return product;
 }
 
+async function fetchSupplierResource(
+  resourceUrl: string,
+  headers: Record<string, string>
+): Promise<Response> {
+  let response: Response;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    response = await fetch(resourceUrl, {
+      headers,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      cache: 'no-store',
+    });
+    if (![403, 429, 500, 502, 503, 504].includes(response.status)) return response;
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+  }
+  return response!;
+}
+
 function firstString(value: unknown): string | undefined {
   if (typeof value === 'string' && value.trim()) return value.trim();
   if (Array.isArray(value)) return firstString(value[0]);
@@ -103,12 +125,10 @@ function getDevirAdapter(): SupplierAdapter {
   return {
     async extractProduct(productUrl) {
       const parsedUrl = assertDevirUrl(productUrl);
-      const response = await fetch(parsedUrl, {
-        headers: {
-          'User-Agent': 'JobysCatalogImporter/1.0',
-          Accept: 'text/html',
-        },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      const response = await fetchSupplierResource(parsedUrl.toString(), {
+        ...BROWSER_HEADERS,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        Referer: 'https://devir.cl/',
       });
       if (!response.ok) throw new Error(`Devir responded with HTTP ${response.status}`);
 
@@ -172,9 +192,10 @@ async function downloadImage(sourceUrl: string): Promise<StoredImage> {
     throw new Error('Image URL is not allowed');
   }
 
-  const response = await fetch(sourceUrl, {
-    headers: { 'User-Agent': 'JobysCatalogImporter/1.0', Accept: 'image/*' },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  const response = await fetchSupplierResource(sourceUrl, {
+    ...BROWSER_HEADERS,
+    Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    Referer: 'https://devir.cl/',
   });
   if (!response.ok) throw new Error(`Image download failed with HTTP ${response.status}`);
   const contentLength = Number(response.headers.get('content-length') || 0);
