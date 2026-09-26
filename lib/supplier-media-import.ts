@@ -239,7 +239,15 @@ function getFractalAdapter(): SupplierAdapter {
         }
       });
 
-      const title = $('meta[property="og:title"]').attr('content') || $('h1').first().text().trim();
+      const pageTitle = $('title').first().text().trim().split(/\s+[–—|-]\s+/)[0].trim();
+      const title =
+        $('meta[property="og:title"]').attr('content') ||
+        $('.elementor-heading-title').filter((_, element) => {
+          const text = $(element).text().trim();
+          return text.length > 0 && !text.toLowerCase().includes('ganador');
+        }).first().text().trim() ||
+        $('h1, h2').filter((_, element) => $(element).text().trim().length > 0).first().text().trim() ||
+        pageTitle;
       if (!title) throw new Error('Supplier page did not contain a product title');
 
       return {
