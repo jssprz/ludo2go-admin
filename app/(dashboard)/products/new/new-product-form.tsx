@@ -118,6 +118,7 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
   // Core product
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [slugEdited, setSlugEdited] = useState(false);
   const [brandId, setBrandId] = useState('');
   const [kind, setKind] = useState<ProductKind>('game');
   const [status, setStatus] = useState<ProductStatus>('draft');
@@ -228,7 +229,7 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
       // Prefill campos del producto
       if (data.name) {
         setName(data.name);
-        if (!slug) setSlug(slugify(data.name));
+        if (!slugEdited) setSlug(slugify(data.name));
       }
 
       if (data.description) {
@@ -418,7 +419,10 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (!slugEdited) setSlug(slugify(e.target.value));
+                }}
                 required
               />
             </div>
@@ -428,8 +432,10 @@ export function NewProductForm({ brands, timelines, gameCategories, accessoryCat
               <Input
                 id="slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="auto-generated if left empty"
+                onChange={(e) => {
+                  setSlug(slugify(e.target.value));
+                  setSlugEdited(true);
+                }}
               />
             </div>
 

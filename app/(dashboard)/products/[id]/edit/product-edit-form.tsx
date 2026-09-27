@@ -142,11 +142,23 @@ type Props = {
   baseGames: BaseGameOption[];
 };
 
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export function ProductEditForm({ product, timelines, brands, gameCategories, accessoryCategories, gameThemes, gameMechanics, gameComplexities, baseGames }: Props) {
   const router = useRouter();
 
   const [name, setName] = useState(product.name);
   const [slug, setSlug] = useState(product.slug);
+  const [slugEdited, setSlugEdited] = useState(
+    Boolean(product.slug && product.slug !== slugify(product.name))
+  );
   const [brandId, setBrandId] = useState(product.brandId ?? '');
   const [kind, setKind] = useState<ProductKind>(product.kind);
   const [status, setStatus] = useState<ProductStatus>(
@@ -271,7 +283,10 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
       const data: BGGGameData = await res.json();
 
       // Prefill game fields — intentionally NOT touching description/shortDescription
-      if (data.name && !name) setName(data.name);
+      if (data.name && !name) {
+        setName(data.name);
+        if (!slugEdited) setSlug(slugify(data.name));
+      }
       if (data.yearPublished) setYearPublished(data.yearPublished);
       if (data.minPlayers) setMinPlayers(data.minPlayers);
       if (data.maxPlayers) setMaxPlayers(data.maxPlayers);
@@ -425,7 +440,10 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (!slugEdited) setSlug(slugify(e.target.value));
+                }}
                 required
               />
             </div>
@@ -435,7 +453,10 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
               <Input
                 id="slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) => {
+                  setSlug(slugify(e.target.value));
+                  setSlugEdited(true);
+                }}
                 required
               />
             </div>
