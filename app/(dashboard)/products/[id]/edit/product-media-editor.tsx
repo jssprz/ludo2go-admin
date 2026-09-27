@@ -95,7 +95,8 @@ export function ProductMediaEditor({ productId }: Props) {
   const [supplierUrl, setSupplierUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [manifestFiles, setManifestFiles] = useState<File[]>([]);
+  const [manifestFile, setManifestFile] = useState<File | null>(null);
+  const [manifestImageFiles, setManifestImageFiles] = useState<File[]>([]);
 
   const fetchProductMedia = useCallback(async () => {
     try {
@@ -379,12 +380,8 @@ export function ProductMediaEditor({ productId }: Props) {
   }
 
   async function handleManifestImport() {
-    const manifest = manifestFiles.find((file) => file.name.toLowerCase() === 'manifest.json');
-    const images = manifestFiles.filter(
-      (file) => file !== manifest && file.type === 'image/webp'
-    );
-    if (!manifest) {
-      setImportStatus('Select manifest.json and its image files first.');
+    if (!manifestFile) {
+      setImportStatus('Select manifest.json first.');
       return;
     }
 
@@ -392,8 +389,8 @@ export function ProductMediaEditor({ productId }: Props) {
     setImportStatus(null);
     try {
       const formData = new FormData();
-      formData.append('manifest', manifest);
-      images.forEach((file) => formData.append('images', file, file.name));
+      formData.append('manifest', manifestFile);
+      manifestImageFiles.forEach((file) => formData.append('images', file, file.name));
       const res = await fetch(`/api/products/${productId}/media/import`, {
         method: 'POST',
         body: formData,
@@ -403,7 +400,8 @@ export function ProductMediaEditor({ productId }: Props) {
 
       setImportStatus(`Imported ${data.imagesAdded} image(s) and ${data.videosAdded} video(s).`);
       if (data.errors?.length) setImportStatus((current) => `${current} ${data.errors.length} file(s) skipped.`);
-      setManifestFiles([]);
+      setManifestFile(null);
+      setManifestImageFiles([]);
       await fetchProductMedia();
       router.refresh();
     } catch (error: any) {
@@ -605,13 +603,19 @@ export function ProductMediaEditor({ productId }: Props) {
             <p className="text-sm font-medium">Or import a local manifest</p>
             <Input
               type="file"
-              accept="application/json,image/webp"
+              accept="application/json,.json"
+              onChange={(event) => setManifestFile(event.target.files?.[0] || null)}
+              disabled={isImporting}
+            />
+            <Input
+              type="file"
+              accept="image/webp,.webp"
               multiple
-              onChange={(event) => setManifestFiles(Array.from(event.target.files || []))}
+              onChange={(event) => setManifestImageFiles(Array.from(event.target.files || []))}
               disabled={isImporting}
             />
             <p className="text-xs text-muted-foreground">
-              Select manifest.json and only the WebP files from its images folder.
+              Choose manifest.json first, then the WebP files from its images folder.
             </p>
           </div>
           {importStatus && (
@@ -627,7 +631,7 @@ export function ProductMediaEditor({ productId }: Props) {
             </Button>
             <Button
               onClick={handleSupplierImport}
-              disabled={!supplierUrl.trim() || isImporting || manifestFiles.length > 0}
+              disabled={!supplierUrl.trim() || isImporting || Boolean(manifestFile)}
             >
               {isImporting ? (
                 <>
@@ -640,7 +644,7 @@ export function ProductMediaEditor({ productId }: Props) {
             </Button>
             <Button
               onClick={handleManifestImport}
-              disabled={!manifestFiles.some((file) => file.name.toLowerCase() === 'manifest.json') || isImporting}
+              disabled={!manifestFile || isImporting}
             >
               {isImporting ? 'Importing...' : 'Import Manifest'}
             </Button>

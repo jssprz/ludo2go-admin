@@ -31,14 +31,14 @@ Examples:
 }
 
 function parseArgs() {
-  const [, , sourceUrl, outputDirectory = './tmp/supplier-media-import'] = process.argv;
+  const [, , sourceUrl, outputDirectory] = process.argv;
   if (!sourceUrl || sourceUrl === '--help' || sourceUrl === '-h') {
     usage();
     process.exit(sourceUrl ? 0 : 1);
   }
   const url = new URL(sourceUrl);
   if (url.protocol !== 'https:') throw new Error('Only HTTPS supplier URLs are supported');
-  return { url, outputDirectory };
+  return { url, outputDirectory: outputDirectory || `./tmp/${productSlug(url)}` };
 }
 
 function productSlug(url) {
