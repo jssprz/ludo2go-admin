@@ -109,7 +109,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
     toDatetimeLocalValue(variant.activeAtScheduled)
   );
   const [condition, setCondition] = useState<Condition>(variant.condition);
-  const [packageType, setPackageType] = useState<PackagingType>(variant.packageType);
+  const [packageType, setPackageType] = useState<PackagingType>(variant.packageType ?? 'box');
   const [weightGrams, setWeightGrams] = useState<number | null>(variant.weightGrams);
   const [widthMm, setWidthMm] = useState<number | null>(variant.widthMm);
   const [heightMm, setHeightMm] = useState<number | null>(variant.heightMm);

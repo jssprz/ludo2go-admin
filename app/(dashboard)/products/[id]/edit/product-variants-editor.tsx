@@ -79,7 +79,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
     setNewCondition('new');
   }
 
-  async function handleGenerateSku() {
+  async function handleGenerateSku(language = newLanguage, condition = newCondition) {
     setIsGeneratingSku(true);
     setErrorMsg(null);
 
@@ -89,8 +89,8 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId,
-          language: newLanguage,
-          condition: newCondition,
+          language,
+          condition,
         }),
       });
 
@@ -106,6 +106,17 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
     } finally {
       setIsGeneratingSku(false);
     }
+  }
+
+  function handleVariantDialogChange(open: boolean) {
+    setDialogOpen(open);
+    if (!open) {
+      resetNewVariantForm();
+      return;
+    }
+
+    resetNewVariantForm();
+    void handleGenerateSku('es', 'new');
   }
 
   async function handleCreateVariant() {
@@ -182,7 +193,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
           </p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetNewVariantForm(); }}>
+        <Dialog open={dialogOpen} onOpenChange={handleVariantDialogChange}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
@@ -212,7 +223,7 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                     type="button"
                     variant="outline"
                     size="icon"
-                    onClick={handleGenerateSku}
+                    onClick={() => void handleGenerateSku()}
                     disabled={isGeneratingSku}
                     title="Auto-generate SKU"
                   >
@@ -231,7 +242,13 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Language</Label>
-                  <Select value={newLanguage} onValueChange={setNewLanguage}>
+                  <Select
+                    value={newLanguage}
+                    onValueChange={(value) => {
+                      setNewLanguage(value);
+                      void handleGenerateSku(value, newCondition);
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -244,7 +261,13 @@ export function ProductVariantsEditor({ productId, productSlug, variants: initia
                 </div>
                 <div className="space-y-2">
                   <Label>Condition</Label>
-                  <Select value={newCondition} onValueChange={setNewCondition}>
+                  <Select
+                    value={newCondition}
+                    onValueChange={(value) => {
+                      setNewCondition(value);
+                      void handleGenerateSku(newLanguage, value);
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
