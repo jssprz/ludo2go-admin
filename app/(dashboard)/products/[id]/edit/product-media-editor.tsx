@@ -95,6 +95,7 @@ export function ProductMediaEditor({ productId }: Props) {
   const [supplierUrl, setSupplierUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [manifestFiles, setManifestFiles] = useState<File[]>([]);
 
   const fetchProductMedia = useCallback(async () => {
     try {
@@ -377,6 +378,41 @@ export function ProductMediaEditor({ productId }: Props) {
     }
   }
 
+  async function handleManifestImport() {
+    const manifest = manifestFiles.find((file) => file.name.toLowerCase() === 'manifest.json');
+    const images = manifestFiles.filter(
+      (file) => file !== manifest && file.type === 'image/webp'
+    );
+    if (!manifest) {
+      setImportStatus('Select manifest.json and its image files first.');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportStatus(null);
+    try {
+      const formData = new FormData();
+      formData.append('manifest', manifest);
+      images.forEach((file) => formData.append('images', file, file.name));
+      const res = await fetch(`/api/products/${productId}/media/import`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Manifest import failed');
+
+      setImportStatus(`Imported ${data.imagesAdded} image(s) and ${data.videosAdded} video(s).`);
+      if (data.errors?.length) setImportStatus((current) => `${current} ${data.errors.length} file(s) skipped.`);
+      setManifestFiles([]);
+      await fetchProductMedia();
+      router.refresh();
+    } catch (error: any) {
+      setImportStatus(error.message || 'Manifest import failed');
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   function getMediaIcon(kind: string) {
     switch (kind) {
       case 'image':
@@ -565,6 +601,19 @@ export function ProductMediaEditor({ productId }: Props) {
             onChange={(event) => setSupplierUrl(event.target.value)}
             disabled={isImporting}
           />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Or import a local manifest</p>
+            <Input
+              type="file"
+              accept="application/json,image/webp"
+              multiple
+              onChange={(event) => setManifestFiles(Array.from(event.target.files || []))}
+              disabled={isImporting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Select manifest.json and only the WebP files from its images folder.
+            </p>
+          </div>
           {importStatus && (
             <p className="text-sm text-muted-foreground">{importStatus}</p>
           )}
@@ -578,7 +627,7 @@ export function ProductMediaEditor({ productId }: Props) {
             </Button>
             <Button
               onClick={handleSupplierImport}
-              disabled={!supplierUrl.trim() || isImporting}
+              disabled={!supplierUrl.trim() || isImporting || manifestFiles.length > 0}
             >
               {isImporting ? (
                 <>
@@ -588,6 +637,12 @@ export function ProductMediaEditor({ productId }: Props) {
               ) : (
                 'Import Media'
               )}
+            </Button>
+            <Button
+              onClick={handleManifestImport}
+              disabled={!manifestFiles.some((file) => file.name.toLowerCase() === 'manifest.json') || isImporting}
+            >
+              {isImporting ? 'Importing...' : 'Import Manifest'}
             </Button>
           </DialogFooter>
         </DialogContent>
