@@ -120,10 +120,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       for (const video of body.videos || []) {
         const videoId = typeof video?.videoId === 'string' ? video.videoId : '';
         if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) continue;
-        const url = youtubeWatchUrl(videoId);
+        const url = typeof video?.embedUrl === 'string' && video.embedUrl
+          ? video.embedUrl
+          : youtubeWatchUrl(videoId);
         let media = await prisma.mediaAsset.findFirst({ where: { kind: 'video', url } });
         if (!media) {
-          media = await prisma.mediaAsset.create({ data: { kind: 'video', url, thumbUrl: video.thumbnailUrl || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, mime: 'text/html', alt: `${title} video`, copyright: video.providerOwned ? body.supplier : 'curated supplier video', ...buildCreateAuditFields(adminUserId) } });
+          media = await prisma.mediaAsset.create({ data: { kind: 'video', url, thumbUrl: video.thumbnailUrl || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, mime: 'text/html', alt: typeof video?.title === 'string' && video.title ? video.title : `${title} video`, copyright: video.providerOwned ? body.supplier : 'curated supplier video', ...buildCreateAuditFields(adminUserId) } });
         }
         if (!attachedIds.has(media.id)) {
           nextSort += 1;
