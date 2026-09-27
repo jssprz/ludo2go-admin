@@ -44,6 +44,7 @@ import {
   Download,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type MediaAsset = {
   id: string;
@@ -97,6 +98,11 @@ export function ProductMediaEditor({ productId }: Props) {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
   const [manifestImageFiles, setManifestImageFiles] = useState<File[]>([]);
+  const [showVideoCreator, setShowVideoCreator] = useState(false);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [videoTitle, setVideoTitle] = useState('');
+  const [videoThumbUrl, setVideoThumbUrl] = useState('');
+  const [isCreatingVideo, setIsCreatingVideo] = useState(false);
 
   const fetchProductMedia = useCallback(async () => {
     try {
@@ -411,6 +417,65 @@ export function ProductMediaEditor({ productId }: Props) {
     }
   }
 
+  function getYouTubeVideoId(value: string): string | null {
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase().replace(/^www\./, '');
+      if (host === 'youtu.be') return url.pathname.split('/').filter(Boolean)[0] || null;
+      if (host !== 'youtube.com' && host !== 'youtube-nocookie.com') return null;
+      if (url.pathname.startsWith('/embed/')) return url.pathname.split('/embed/')[1]?.split('/')[0] || null;
+      return url.searchParams.get('v');
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleCreateVideo() {
+    const normalizedUrl = videoUrl.trim();
+    const videoId = getYouTubeVideoId(normalizedUrl);
+    if (!videoId) {
+      setImportStatus('Enter a valid YouTube watch or embed URL.');
+      return;
+    }
+
+    setIsCreatingVideo(true);
+    try {
+      const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const res = await fetch('/api/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'video',
+          url: canonicalUrl,
+          thumbUrl: videoThumbUrl.trim() || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+          mime: 'text/html',
+          alt: videoTitle.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Create video asset failed');
+
+      const attachRes = await fetch(`/api/products/${productId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaId: data.id, role: 'gallery' }),
+      });
+      const attached = await attachRes.json();
+      if (!attachRes.ok) throw new Error(attached.message || 'Attach video asset failed');
+
+      setMedia((current) => [...current, attached]);
+      setVideoUrl('');
+      setVideoTitle('');
+      setVideoThumbUrl('');
+      setShowVideoCreator(false);
+      router.refresh();
+    } catch (error: any) {
+      setImportStatus(error.message || 'Create video asset failed');
+    } finally {
+      setIsCreatingVideo(false);
+    }
+  }
+
   function getMediaIcon(kind: string) {
     switch (kind) {
       case 'image':
@@ -457,6 +522,10 @@ export function ProductMediaEditor({ productId }: Props) {
           <Button variant="outline" onClick={() => setShowMediaPicker(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Media
+          </Button>
+          <Button variant="outline" onClick={() => setShowVideoCreator(true)}>
+            <Video className="mr-2 h-4 w-4" />
+            Add YouTube Video
           </Button>
           <Button variant="outline" onClick={() => setShowSupplierImport(true)}>
             <Download className="mr-2 h-4 w-4" />
@@ -510,7 +579,7 @@ export function ProductMediaEditor({ productId }: Props) {
 
               {/* Thumbnail */}
               <div className="relative h-16 w-16 rounded overflow-hidden bg-muted flex-shrink-0">
-                {item.media.kind === 'image' ? (
+                {item.media.thumbUrl ? (
                   <Image
                     src={item.media.thumbUrl || item.media.url}
                     alt={item.media.alt || 'Media'}
@@ -647,6 +716,57 @@ export function ProductMediaEditor({ productId }: Props) {
               disabled={!manifestFile || isImporting}
             >
               {isImporting ? 'Importing...' : 'Import Manifest'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showVideoCreator} onOpenChange={setShowVideoCreator}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add YouTube Video</DialogTitle>
+            <DialogDescription>
+              Create a YouTube video asset and attach it to this product.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="product-video-url">YouTube URL</Label>
+              <Input
+                id="product-video-url"
+                value={videoUrl}
+                onChange={(event) => setVideoUrl(event.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                disabled={isCreatingVideo}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="product-video-title">Title (optional)</Label>
+              <Input
+                id="product-video-title"
+                value={videoTitle}
+                onChange={(event) => setVideoTitle(event.target.value)}
+                placeholder="How to play..."
+                disabled={isCreatingVideo}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="product-video-thumbnail">Thumbnail URL (optional)</Label>
+              <Input
+                id="product-video-thumbnail"
+                value={videoThumbUrl}
+                onChange={(event) => setVideoThumbUrl(event.target.value)}
+                placeholder="https://i.ytimg.com/vi/<id>/hqdefault.jpg"
+                disabled={isCreatingVideo}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowVideoCreator(false)} disabled={isCreatingVideo}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateVideo} disabled={!videoUrl.trim() || isCreatingVideo}>
+              {isCreatingVideo ? 'Creating...' : 'Create and Attach'}
             </Button>
           </DialogFooter>
         </DialogContent>
