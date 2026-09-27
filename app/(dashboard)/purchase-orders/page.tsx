@@ -24,7 +24,7 @@ export default async function PurchaseOrdersPage() {
                     name: true,
                     mediaLinks: {
                       include: { media: true },
-                      take: 1,
+                      orderBy: { sort: 'asc' },
                     },
                   },
                 },
@@ -50,7 +50,7 @@ export default async function PurchaseOrdersPage() {
             name: true,
             mediaLinks: {
               include: { media: true },
-              take: 1,
+              orderBy: { sort: 'asc' },
             },
           },
         },

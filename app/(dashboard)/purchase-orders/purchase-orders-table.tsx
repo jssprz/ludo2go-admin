@@ -77,6 +77,7 @@ type VariantOption = {
         thumbUrl: string | null;
         alt: string | null;
       };
+      role: string | null;
     }>;
   };
 };
@@ -885,7 +886,10 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
                   {editItems.map((item, idx) => {
                     const variantData = variants.find((v) => v.id === item.variantId);
-                    const productImage = variantData?.product.mediaLinks[0]?.media;
+                    const primaryMedia = variantData?.product.mediaLinks.find(
+                      (link) => link.role === 'primary'
+                    ) ?? variantData?.product.mediaLinks[0];
+                    const productImage = primaryMedia?.media;
 
                     return (
                       <div key={idx} className="grid gap-3 border rounded-md p-1">
