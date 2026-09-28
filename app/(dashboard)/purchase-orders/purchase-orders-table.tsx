@@ -13,6 +13,7 @@ import {
   useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { proratePurchaseOrderDiscount } from '@/lib/prorate-purchase-order-discount';
 import {
   Table,
   TableBody,
@@ -249,6 +250,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [editNotes, setEditNotes] = useState('');
   const [editPdfFileUrl, setEditPdfFileUrl] = useState('');
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
+  const [totalDiscountInput, setTotalDiscountInput] = useState('0');
+  const [discountError, setDiscountError] = useState<string | null>(null);
   const [editShipping, setEditShipping] = useState<number>(0);
   const [editIncludeShippingInTax, setEditIncludeShippingInTax] = useState(false);
   const [editOrderedAt, setEditOrderedAt] = useState('');
@@ -333,7 +336,10 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   }
 
   function removeEditItem(index: number) {
-    setEditItems(editItems.filter((_, i) => i !== index));
+    const remaining = editItems.filter((_, i) => i !== index);
+    setEditItems(remaining);
+    setTotalDiscountInput(String(remaining.reduce((sum, item) => sum + item.discount, 0)));
+    setDiscountError(null);
   }
 
   function updateEditItem(index: number, field: string, value: any) {
@@ -344,6 +350,30 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     }
     updated[index] = next;
     setEditItems(updated);
+    if (field === 'discount') {
+      setTotalDiscountInput(String(updated.reduce((sum, item) => sum + item.discount, 0)));
+      setDiscountError(null);
+    }
+  }
+
+  function handleProrateDiscount() {
+    const totalDiscount = Number(totalDiscountInput);
+    const eligibleItems = editItems.filter((item) => item.variantId);
+    if (!eligibleItems.length) {
+      setDiscountError('Add an item with a variant before prorating the discount.');
+      return;
+    }
+    try {
+      const discounts = proratePurchaseOrderDiscount(eligibleItems, totalDiscount);
+      let index = 0;
+      setEditItems((items) => items.map((item) => ({
+        ...item,
+        discount: item.variantId ? discounts[index++] : 0,
+      })));
+      setDiscountError(null);
+    } catch {
+      setDiscountError('Enter a whole discount between zero and the items total before tax.');
+    }
   }
 
   function handleEditItemDragEnd(event: DragEndEvent) {
@@ -362,6 +392,10 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const formTotal = formSubtotal + normalizedFormShipping + formTax;
 
   const editSubtotal = getItemsSubtotal(editItems);
+  const editGrossTotal = editItems.reduce((sum, item) =>
+    sum + (item.variantId ? item.quantity * item.unitCost : 0), 0);
+  const editDiscountTotal = editItems.reduce((sum, item) =>
+    sum + (item.variantId ? item.discount : 0), 0);
   const normalizedEditShipping = Math.max(0, editShipping || 0);
   const editTax = getTax(editSubtotal, normalizedEditShipping, editIncludeShippingInTax);
   const editTotal = editSubtotal + normalizedEditShipping + editTax;
@@ -411,6 +445,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
   function openDetail(order: PurchaseOrder) {
     setSelectedOrder(order);
+    setTotalDiscountInput(String(order.items.reduce((sum, item) => sum + item.discount, 0)));
+    setDiscountError(null);
     setEditStatus(order.status);
     setEditNotes(order.notes ?? '');
     setEditPdfFileUrl(order.pdfFileUrl ?? '');
@@ -1039,6 +1075,32 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                       <Plus className="h-3.5 w-3.5 mr-1" /> Add item
                     </Button>
                   </div>
+
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="po-total-discount">Total discount</Label>
+                      <Input
+                        id="po-total-discount"
+                        type="number"
+                        min={0}
+                        max={editGrossTotal}
+                        step={1}
+                        value={totalDiscountInput}
+                        onChange={(event) => {
+                          setTotalDiscountInput(event.target.value);
+                          setDiscountError(null);
+                        }}
+                        className="w-40"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" onClick={handleProrateDiscount} disabled={!editItems.some((item) => item.variantId)}>
+                      Prorate across items
+                    </Button>
+                    <span className="text-sm text-muted-foreground pb-2">
+                      Applied: {formatCurrency(editDiscountTotal, selectedOrder.currency)}
+                    </span>
+                  </div>
+                  {discountError && <p className="text-sm text-destructive">{discountError}</p>}
 
                   {/* Item Totals */}
                   {editItems.length > 0 && (
