@@ -1025,7 +1025,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                           </div>
                         </div>
                         <div className="text-right text-sm font-medium">
-                          {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}
+                          <span>Total: {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}</span>
+                          <span className="ml-4">Total +IVA: {formatCurrency(Math.round(getItemTotal(item.quantity, item.unitCost, item.discount) * 1.19), selectedOrder.currency)}</span>
                         </div>
                       </SortableOrderItem>
                     );
