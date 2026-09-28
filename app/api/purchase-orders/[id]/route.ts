@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { calculatePurchaseOrderTotals, inferPurchaseOrderTaxOptions } from '@/lib/purchase-order-tax';
 
 function normalizeItem(item: any, purchaseOrderId: string) {
   const quantity = Math.max(0, Number(item?.quantity) || 0);
@@ -18,20 +19,6 @@ function normalizeItem(item: any, purchaseOrderId: string) {
     unitCost,
     discount,
     total,
-  };
-}
-
-function calculateTotals(
-  subtotal: number,
-  shipping: number,
-  includeShippingInTax: boolean
-) {
-  const taxBase = subtotal + (includeShippingInTax ? shipping : 0);
-  const tax = Math.round(taxBase * 0.19);
-  return {
-    subtotal,
-    tax,
-    total: subtotal + shipping + tax,
   };
 }
 
@@ -89,9 +76,17 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const body = await request.json();
     const {
-      status, notes, pdfFileUrl, shipping, includeShippingInTax, orderedAt, expectedAt, receivedAt,
+      status, notes, pdfFileUrl, shipping, includeShippingInTax, discountAfterTax, orderedAt, expectedAt, receivedAt,
       items, // optional: full replacement of items
     } = body;
+
+    const currentOrder = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: { items: { select: { discount: true } } },
+    });
+    if (!currentOrder) {
+      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
+    }
 
     // If items are being replaced, recalculate totals
     let subtotal: number | undefined;
@@ -120,19 +115,22 @@ export async function PUT(request: Request, { params }: RouteContext) {
       subtotal = orderItems.reduce((sum: number, i: any) => sum + i.total, 0);
     }
 
-    const currentOrder = await prisma.purchaseOrder.findUnique({ where: { id } });
-    if (!currentOrder) {
-      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
-    }
-
     const finalSubtotal = subtotal !== undefined ? subtotal : currentOrder.subtotal;
     const finalShipping = Math.max(0, typeof shipping === 'number' ? shipping : currentOrder.shipping);
+    const savedTaxOptions = inferPurchaseOrderTaxOptions(currentOrder);
     const includeShippingForTax =
       typeof includeShippingInTax === 'boolean'
         ? includeShippingInTax
-        : Math.abs(currentOrder.tax - Math.round((currentOrder.subtotal + currentOrder.shipping) * 0.19)) <=
-          Math.abs(currentOrder.tax - Math.round(currentOrder.subtotal * 0.19));
-    const totals = calculateTotals(finalSubtotal, finalShipping, includeShippingForTax);
+        : savedTaxOptions.includeShippingInTax;
+    const afterTax = typeof discountAfterTax === 'boolean'
+      ? discountAfterTax
+      : savedTaxOptions.discountAfterTax;
+    const finalDiscount = subtotal !== undefined
+      ? items.reduce((sum: number, item: any) => sum + (item.variantId ? Math.max(0, Number(item.discount) || 0) : 0), 0)
+      : currentOrder.items.reduce((sum, item) => sum + item.discount, 0);
+    const totals = calculatePurchaseOrderTotals(
+      finalSubtotal + finalDiscount, finalDiscount, finalShipping, includeShippingForTax, afterTax
+    );
 
     const order = await prisma.purchaseOrder.update({
       where: { id },

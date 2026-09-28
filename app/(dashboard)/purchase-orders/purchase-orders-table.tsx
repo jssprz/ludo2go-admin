@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { proratePurchaseOrderDiscount } from '@/lib/prorate-purchase-order-discount';
+import { calculatePurchaseOrderTotals, inferPurchaseOrderTaxOptions } from '@/lib/purchase-order-tax';
 import {
   Table,
   TableBody,
@@ -82,9 +83,9 @@ function SortableOrderItem({ id, children }: { id: string; children: React.React
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`grid gap-3 border rounded-md p-1 ${isDragging ? 'opacity-50' : ''}`}>
-      <div className="flex items-center gap-2">
-        <button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none p-2" aria-label="Reorder item" title="Drag to reorder">
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`grid gap-2 border rounded-md p-1 ${isDragging ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-1">
+        <button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none p-1" aria-label="Reorder item" title="Drag to reorder">
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </button>
         <div className="min-w-0 flex-1">{children}</div>
@@ -206,12 +207,6 @@ function getTax(subtotal: number, shipping: number, includeShippingInTax: boolea
   return Math.round(taxBase * 0.19);
 }
 
-function inferIncludeShippingInTax(order: PurchaseOrder) {
-  const withShipping = Math.round((order.subtotal + order.shipping) * 0.19);
-  const withoutShipping = Math.round(order.subtotal * 0.19);
-  return Math.abs(order.tax - withShipping) <= Math.abs(order.tax - withoutShipping);
-}
-
 function toDateInputValue(value: string | null) {
   if (!value) return '';
   const date = new Date(value);
@@ -254,6 +249,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [editShipping, setEditShipping] = useState<number>(0);
   const [editIncludeShippingInTax, setEditIncludeShippingInTax] = useState(false);
+  const [editDiscountAfterTax, setEditDiscountAfterTax] = useState(false);
   const [editOrderedAt, setEditOrderedAt] = useState('');
   const [editExpectedAt, setEditExpectedAt] = useState('');
   const [isUploadingEditPdf, setIsUploadingEditPdf] = useState(false);
@@ -397,8 +393,10 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const editDiscountTotal = editItems.reduce((sum, item) =>
     sum + (item.variantId ? item.discount : 0), 0);
   const normalizedEditShipping = Math.max(0, editShipping || 0);
-  const editTax = getTax(editSubtotal, normalizedEditShipping, editIncludeShippingInTax);
-  const editTotal = editSubtotal + normalizedEditShipping + editTax;
+  const { tax: editTax, total: editTotal } = calculatePurchaseOrderTotals(
+    editSubtotal + editDiscountTotal, editDiscountTotal, normalizedEditShipping,
+    editIncludeShippingInTax, editDiscountAfterTax
+  );
 
   async function handleCreate() {
     if (!formSupplierId) {
@@ -451,7 +449,9 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setEditNotes(order.notes ?? '');
     setEditPdfFileUrl(order.pdfFileUrl ?? '');
     setEditShipping(order.shipping);
-    setEditIncludeShippingInTax(inferIncludeShippingInTax(order));
+    const taxOptions = inferPurchaseOrderTaxOptions(order);
+    setEditIncludeShippingInTax(taxOptions.includeShippingInTax);
+    setEditDiscountAfterTax(taxOptions.discountAfterTax);
     setEditOrderedAt(toDateInputValue(order.orderedAt));
     setEditExpectedAt(toDateInputValue(order.expectedAt));
     setEditItems(
@@ -481,6 +481,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
           pdfFileUrl: editPdfFileUrl.trim() || null,
           shipping: normalizedEditShipping,
           includeShippingInTax: editIncludeShippingInTax,
+          discountAfterTax: editDiscountAfterTax,
           orderedAt: editOrderedAt || null,
           expectedAt: editExpectedAt || null,
           items: editItems.filter((i) => i.variantId),
@@ -851,7 +852,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
       {/* Detail / Edit Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-3 sm:p-4">
           {selectedOrder && (
             <>
               <DialogHeader>
@@ -980,7 +981,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
 
                     return (
                       <SortableOrderItem key={item.rowId} id={item.rowId}>
-                        <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,100px,100px,100px,25px]">
+                        <div className="grid gap-2 md:grid-cols-[80px,minmax(0,1fr),60px,60px,100px,100px,100px,25px]">
                           {/* Product Image */}
                           {productImage && (
                             <div className="hidden md:flex items-center justify-center border rounded bg-muted overflow-hidden">
@@ -1062,7 +1063,12 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                         </div>
                         <div className="text-right text-sm font-medium">
                           <span>Total: {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}</span>
-                          <span className="ml-4">Total +IVA: {formatCurrency(Math.round(getItemTotal(item.quantity, item.unitCost, item.discount) * 1.19), selectedOrder.currency)}</span>
+                          <span className="ml-4">Total +IVA: {formatCurrency(
+                            editDiscountAfterTax
+                              ? Math.round(item.quantity * item.unitCost * 1.19) - item.discount
+                              : Math.round(getItemTotal(item.quantity, item.unitCost, item.discount) * 1.19),
+                            selectedOrder.currency
+                          )}</span>
                         </div>
                       </SortableOrderItem>
                     );
@@ -1099,6 +1105,14 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     <span className="text-sm text-muted-foreground pb-2">
                       Applied: {formatCurrency(editDiscountTotal, selectedOrder.currency)}
                     </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="po-discount-after-iva"
+                      checked={editDiscountAfterTax}
+                      onCheckedChange={(checked) => setEditDiscountAfterTax(checked === true)}
+                    />
+                    <Label htmlFor="po-discount-after-iva">Apply discount after IVA</Label>
                   </div>
                   {discountError && <p className="text-sm text-destructive">{discountError}</p>}
 
