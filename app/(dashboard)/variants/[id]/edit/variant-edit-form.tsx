@@ -102,6 +102,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   const tc = useTranslations('common');
 
   const [sku, setSku] = useState(variant.sku);
+  const [eanUpc, setEanUpc] = useState(variant.eanUpc ?? '');
   const [edition, setEdition] = useState(variant.edition ?? '');
   const [language, setLanguage] = useState<Language>(variant.language);
   const [status, setStatus] = useState<VariantStatus>(variant.status);
@@ -410,6 +411,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sku,
+          eanUpc: eanUpc.trim() || null,
           edition: edition || null,
           language: language || null,
           status,
@@ -471,6 +473,16 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
               )}
             </Button>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="eanUpc">{t('labels.eanUpc')}</Label>
+          <Input
+            id="eanUpc"
+            value={eanUpc}
+            onChange={(e) => setEanUpc(e.target.value)}
+            inputMode="numeric"
+          />
         </div>
 
         <div className="space-y-2">

@@ -28,6 +28,7 @@ type AuditUser = {
 type SelectVariant = {
   id: string;
   sku: string;
+  eanUpc: string | null;
   edition: string | null;
   language: string | null;
   status: string;
@@ -262,6 +263,7 @@ export function ProductRow({ product }: { product: SelectProduct }) {
                         <span className="text-xs text-muted-foreground ml-1">({v.edition})</span>
                       )}
                     </div>
+                    <div className="text-xs text-muted-foreground">EAN / UPC: {v.eanUpc || '—'}</div>
                     <div className="text-xs text-muted-foreground">
                       {v.language ? `${v.language} · ` : ''}
                       {v.status} · {v.condition}

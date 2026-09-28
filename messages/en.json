@@ -338,6 +338,7 @@
   "variantEditForm": {
     "labels": {
       "sku": "SKU",
+      "eanUpc": "EAN / UPC",
       "autoGenerateSku": "Auto-generate SKU",
       "edition": "Edition",
       "language": "Language",

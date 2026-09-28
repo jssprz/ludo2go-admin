@@ -28,6 +28,7 @@ export async function PUT(
 
     const {
       sku,
+      eanUpc,
       edition,
       language,
       status,
@@ -48,6 +49,10 @@ export async function PUT(
         { message: 'SKU is required' },
         { status: 400 }
       );
+    }
+
+    if (eanUpc !== undefined && eanUpc !== null && typeof eanUpc !== 'string') {
+      return NextResponse.json({ message: 'EAN/UPC must be a string' }, { status: 400 });
     }
 
     // Check if variant exists
@@ -87,6 +92,7 @@ export async function PUT(
       where: { id },
       data: {
         sku,
+        ...(eanUpc !== undefined ? { eanUpc: eanUpc?.trim() || null } : {}),
         edition,
         language,
         status,
