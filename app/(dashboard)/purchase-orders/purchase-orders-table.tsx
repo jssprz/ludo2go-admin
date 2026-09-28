@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { upload } from '@vercel/blob/client';
 import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Table,
   TableBody,
   TableCell,
@@ -55,8 +64,33 @@ import {
   Loader2,
   Eye,
   PackagePlus,
+  GripVertical,
   X,
 } from 'lucide-react';
+
+type EditableItem = {
+  rowId: string;
+  variantId: string;
+  quantity: number;
+  quantityReceived: number;
+  unitCost: number;
+  discount: number;
+};
+
+function SortableOrderItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`grid gap-3 border rounded-md p-1 ${isDragging ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-2">
+        <button type="button" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none p-2" aria-label="Reorder item" title="Drag to reorder">
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 type SupplierOption = {
   id: string;
@@ -186,6 +220,10 @@ function toDateInputValue(value: string | null) {
 
 export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Props) {
   const router = useRouter();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -210,7 +248,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   const [editStatus, setEditStatus] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editPdfFileUrl, setEditPdfFileUrl] = useState('');
-  const [editItems, setEditItems] = useState<Array<{ variantId: string; quantity: number; quantityReceived: number; unitCost: number; discount: number }>>([]);
+  const [editItems, setEditItems] = useState<EditableItem[]>([]);
   const [editShipping, setEditShipping] = useState<number>(0);
   const [editIncludeShippingInTax, setEditIncludeShippingInTax] = useState(false);
   const [editOrderedAt, setEditOrderedAt] = useState('');
@@ -290,7 +328,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
   function addEditItem() {
     setEditItems([
       ...editItems,
-      { variantId: '', quantity: 1, quantityReceived: 0, unitCost: 0, discount: 0 },
+      { rowId: crypto.randomUUID(), variantId: '', quantity: 1, quantityReceived: 0, unitCost: 0, discount: 0 },
     ]);
   }
 
@@ -306,6 +344,16 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     }
     updated[index] = next;
     setEditItems(updated);
+  }
+
+  function handleEditItemDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setEditItems((items) => {
+      const from = items.findIndex((item) => item.rowId === active.id);
+      const to = items.findIndex((item) => item.rowId === over.id);
+      return from < 0 || to < 0 ? items : arrayMove(items, from, to);
+    });
   }
 
   const formSubtotal = getItemsSubtotal(formItems);
@@ -372,6 +420,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
     setEditExpectedAt(toDateInputValue(order.expectedAt));
     setEditItems(
       order.items.map((item) => ({
+        rowId: item.id,
         variantId: item.variantId,
         quantity: item.quantity,
         quantityReceived: item.quantityReceived,
@@ -884,6 +933,8 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     </p>
                   )}
 
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleEditItemDragEnd}>
+                    <SortableContext items={editItems.map((item) => item.rowId)} strategy={verticalListSortingStrategy}>
                   {editItems.map((item, idx) => {
                     const variantData = variants.find((v) => v.id === item.variantId);
                     const primaryMedia = variantData?.product.mediaLinks.find(
@@ -892,7 +943,7 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                     const productImage = primaryMedia?.media;
 
                     return (
-                      <div key={idx} className="grid gap-3 border rounded-md p-1">
+                      <SortableOrderItem key={item.rowId} id={item.rowId}>
                         <div className="grid gap-3 md:grid-cols-[80px,minmax(0,1fr),60px,60px,100px,100px,100px,25px]">
                           {/* Product Image */}
                           {productImage && (
@@ -976,9 +1027,11 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                         <div className="text-right text-sm font-medium">
                           {formatCurrency(getItemTotal(item.quantity, item.unitCost, item.discount), selectedOrder.currency)}
                         </div>
-                      </div>
+                      </SortableOrderItem>
                     );
                   })}
+                    </SortableContext>
+                  </DndContext>
 
                   <div className="border rounded-md p-3 bg-muted/30">
                     <Button type="button" variant="outline" className="w-full" onClick={addEditItem}>
