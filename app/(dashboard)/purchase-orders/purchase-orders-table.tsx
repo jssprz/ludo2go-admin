@@ -1134,13 +1134,25 @@ export function PurchaseOrdersTable({ initialOrders, suppliers, variants }: Prop
                 {/* Totals */}
                 <div className="border rounded-md p-3 space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(editSubtotal, selectedOrder.currency)}</span>
+                    <span>Subtotal before discount</span>
+                    <span>{formatCurrency(editGrossTotal, selectedOrder.currency)}</span>
                   </div>
+                  {!editDiscountAfterTax && editDiscountTotal > 0 && (
+                    <div className="flex justify-between">
+                      <span>Discount (before IVA)</span>
+                      <span>-{formatCurrency(editDiscountTotal, selectedOrder.currency)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Tax (19%)</span>
                     <span>{formatCurrency(editTax, selectedOrder.currency)}</span>
                   </div>
+                  {editDiscountAfterTax && editDiscountTotal > 0 && (
+                    <div className="flex justify-between">
+                      <span>Discount (after IVA)</span>
+                      <span>-{formatCurrency(editDiscountTotal, selectedOrder.currency)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>{formatCurrency(normalizedEditShipping, selectedOrder.currency)}</span>
