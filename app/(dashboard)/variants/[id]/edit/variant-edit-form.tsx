@@ -447,7 +447,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Variant core fields (simplified) */}
-      <div className="grid gap-4 sm:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_repeat(3,minmax(0,1fr))_minmax(0,1.25fr)]">
         <div className="space-y-2">
           <Label htmlFor="sku">{t('labels.sku')}</Label>
           <div className="flex gap-2">
