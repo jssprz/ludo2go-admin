@@ -41,6 +41,7 @@ import {
   ChevronDown,
   Pin,
   PinOff,
+  BadgePercent,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from './sidebar-context';
@@ -69,6 +70,7 @@ function useNavGroups(t: ReturnType<typeof useTranslations<'nav'>>): NavGroup[] 
       icon: <ShoppingCart className="h-4 w-4" />,
       items: [
         { href: '/orders', labelKey: 'orders', icon: <ShoppingCart className="h-4 w-4" /> },
+        { href: '/promotions', labelKey: 'promotions', icon: <BadgePercent className="h-4 w-4" /> },
         { href: '/promo-codes', labelKey: 'promoCodes', icon: <Tag className="h-4 w-4" /> },
         { href: '/presale', labelKey: 'presale', icon: <CalendarPlus className="h-4 w-4" /> },
       ],
