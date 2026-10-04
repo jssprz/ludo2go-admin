@@ -40,6 +40,9 @@ Required variables:
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app credentials |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth app credentials |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for media uploads |
+| `RESEND_API_KEY` | Resend API key for transactional and weekly report emails |
+| `RESEND_FROM_EMAIL` | Verified sender address used for emails (optional) |
+| `CRON_SECRET` | Bearer token used to authenticate scheduled Vercel cron requests |
 
 ### 3. Generate Prisma client
 
@@ -106,3 +109,5 @@ The project is deployed on Vercel. The build command runs Prisma client generati
 ```bash
 prisma generate && next build
 ```
+
+The weekly analytics report is sent to every admin user's email each Monday at 12:00 UTC (09:00 in Santiago during Chilean daylight time). It compares the most recent completed Monday-to-Monday week with the week before it.
