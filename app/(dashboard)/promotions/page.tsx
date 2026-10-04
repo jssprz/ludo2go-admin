@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 export default async function PromotionsPage() {
-  const [promotions, promoCodes] = await Promise.all([
+  const [promotions, promoCodes, brands, gameCategories, accessoryCategories, products] = await Promise.all([
     prisma.promotion.findMany({
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
       include: {
@@ -44,7 +44,30 @@ export default async function PromotionsPage() {
       },
       orderBy: { code: 'asc' },
     }),
+    prisma.brand.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, slug: true },
+    }),
+    prisma.gameCategory.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, slug: true },
+    }),
+    prisma.accessoryCategory.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, name: true, slug: true },
+    }),
+    prisma.product.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, slug: true },
+    }),
   ]);
+
+  const allCategories = [
+    ...gameCategories.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
+    ...accessoryCategories.map((c) => ({ id: c.id, name: `${c.name} (Accessory)`, slug: c.slug })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -60,6 +83,9 @@ export default async function PromotionsPage() {
       <PromotionsTable
         initialPromotions={promotions as any}
         allPromoCodes={promoCodes}
+        products={products}
+        brands={brands}
+        categories={allCategories}
       />
     </div>
   );

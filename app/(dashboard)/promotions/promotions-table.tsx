@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -53,7 +53,14 @@ import {
   Pause,
   AlertCircle,
   X,
+  Filter,
 } from 'lucide-react';
+
+export type CatalogOption = {
+  id: string;
+  name: string;
+  slug?: string;
+};
 
 type PromotionStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 type PromotionActivationMode = 'AUTOMATIC' | 'PROMO_CODE';
@@ -105,6 +112,9 @@ type Promotion = {
 type Props = {
   initialPromotions: Promotion[];
   allPromoCodes: PromoCodeSummary[];
+  products?: CatalogOption[];
+  brands?: CatalogOption[];
+  categories?: CatalogOption[];
 };
 
 const STATUS_OPTIONS: Array<{ value: PromotionStatus; label: string }> = [
@@ -120,6 +130,14 @@ const STATUS_BADGE_CLASSES: Record<PromotionStatus, string> = {
   PAUSED: 'bg-amber-100 text-amber-800 border-amber-300',
   ARCHIVED: 'bg-rose-100 text-rose-800 border-rose-300',
 };
+
+const PRODUCT_KINDS: Array<{ value: string; label: string }> = [
+  { value: 'game', label: 'Board Games' },
+  { value: 'expansion', label: 'Expansions' },
+  { value: 'accessory', label: 'Accessories' },
+  { value: 'bundle', label: 'Bundles' },
+  { value: 'merch', label: 'Merchandise' },
+];
 
 function formatCurrency(amount: number, currency: string = 'CLP') {
   return new Intl.NumberFormat(currency === 'CLP' ? 'es-CL' : 'en-US', {
@@ -160,7 +178,334 @@ function formatBenefitSummary(benefits: any, currency = 'CLP'): string {
   return JSON.stringify(benefits).slice(0, 30);
 }
 
-export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
+function formatConditionsSummary(conditions: any): string {
+  if (!conditions || typeof conditions !== 'object') return 'All products';
+  const parts: string[] = [];
+
+  if (conditions.firstOrderOnly) parts.push('First order only');
+  if (conditions.minimumQuantity) parts.push(`Min ${conditions.minimumQuantity} item(s)`);
+  if (conditions.minimumSubtotal) parts.push(`Min subtotal ${conditions.minimumSubtotal}`);
+
+  if (Array.isArray(conditions.productKinds) && conditions.productKinds.length > 0) {
+    parts.push(`Kinds: ${conditions.productKinds.join(', ')}`);
+  }
+  if (Array.isArray(conditions.brandIds) && conditions.brandIds.length > 0) {
+    parts.push(`${conditions.brandIds.length} brand(s)`);
+  }
+  if (Array.isArray(conditions.categoryIds) && conditions.categoryIds.length > 0) {
+    parts.push(`${conditions.categoryIds.length} category(ies)`);
+  }
+  if (Array.isArray(conditions.productIds) && conditions.productIds.length > 0) {
+    parts.push(`${conditions.productIds.length} product(s)`);
+  }
+  if (Array.isArray(conditions.skus) && conditions.skus.length > 0) {
+    parts.push(`${conditions.skus.length} SKU(s)`);
+  }
+  if (Array.isArray(conditions.productTags) && conditions.productTags.length > 0) {
+    parts.push(`Tags: ${conditions.productTags.join(', ')}`);
+  }
+  if (Array.isArray(conditions.excludedProductIds) && conditions.excludedProductIds.length > 0) {
+    parts.push(`${conditions.excludedProductIds.length} excl. product(s)`);
+  }
+  if (Array.isArray(conditions.excludedSkus) && conditions.excludedSkus.length > 0) {
+    parts.push(`${conditions.excludedSkus.length} excl. SKU(s)`);
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : 'All products';
+}
+
+function SearchableMultiSelect({
+  label,
+  options,
+  selectedIds,
+  onChange,
+  placeholder = 'Search by name or slug...',
+  maxDisplay = 50,
+}: {
+  label: string;
+  options: CatalogOption[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  placeholder?: string;
+  maxDisplay?: number;
+}) {
+  const [search, setSearch] = useState('');
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) => o.name.toLowerCase().includes(q) || (o.slug || '').toLowerCase().includes(q)
+    );
+  }, [options, search]);
+
+  const displayed = useMemo(() => filtered.slice(0, maxDisplay), [filtered, maxDisplay]);
+
+  function toggle(id: string) {
+    if (selectedSet.has(id)) {
+      onChange(selectedIds.filter((x) => x !== id));
+    } else {
+      onChange([...selectedIds, id]);
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border p-3 bg-card">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold">
+          {label} ({selectedIds.length} selected)
+        </Label>
+        {selectedIds.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange([])}
+            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Clear all
+          </Button>
+        )}
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={placeholder}
+          className="pl-7 h-8 text-xs"
+        />
+      </div>
+
+      <div className="max-h-36 overflow-y-auto rounded border divide-y bg-background">
+        {displayed.length === 0 ? (
+          <div className="p-2 text-xs text-muted-foreground text-center">No matches found</div>
+        ) : (
+          displayed.map((opt) => {
+            const isChecked = selectedSet.has(opt.id);
+            return (
+              <button
+                type="button"
+                key={opt.id}
+                onClick={() => toggle(opt.id)}
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-muted/50 transition-colors"
+              >
+                <Checkbox checked={isChecked} />
+                <span className="truncate">{opt.name}</span>
+                {opt.slug && (
+                  <span className="ml-auto text-[10px] text-muted-foreground font-mono truncate max-w-[120px]">
+                    {opt.slug}
+                  </span>
+                )}
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {filtered.length > maxDisplay && (
+        <p className="text-[10px] text-muted-foreground italic">
+          Showing first {maxDisplay} of {filtered.length} matches. Type to refine search.
+        </p>
+      )}
+
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pt-1">
+          {selectedIds.map((id) => {
+            const opt = options.find((o) => o.id === id);
+            return (
+              <Badge key={id} variant="secondary" className="gap-1 pr-1 text-[11px]">
+                <span className="max-w-[160px] truncate">{opt?.name || id}</span>
+                <button
+                  type="button"
+                  onClick={() => toggle(id)}
+                  className="rounded p-0.5 hover:bg-muted"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VariantSkuSearchPicker({
+  label,
+  selectedSkus,
+  onChange,
+}: {
+  label: string;
+  selectedSkus: string[];
+  onChange: (skus: string[]) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [manualSkuInput, setManualSkuInput] = useState('');
+  const [results, setResults] = useState<Array<{ id: string; sku: string; product: { name: string } }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const selectedSet = useMemo(() => new Set(selectedSkus), [selectedSkus]);
+
+  useEffect(() => {
+    const q = search.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/variants/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResults(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  function toggleSku(sku: string) {
+    if (selectedSet.has(sku)) {
+      onChange(selectedSkus.filter((s) => s !== sku));
+    } else {
+      onChange([...selectedSkus, sku]);
+    }
+  }
+
+  function handleAddManual() {
+    const parts = manualSkuInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const newOnes = parts.filter((sku) => !selectedSet.has(sku));
+    if (newOnes.length > 0) {
+      onChange([...selectedSkus, ...newOnes]);
+    }
+    setManualSkuInput('');
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border p-3 bg-card">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold">
+          {label} ({selectedSkus.length} selected)
+        </Label>
+        {selectedSkus.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange([])}
+            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Clear all
+          </Button>
+        )}
+      </div>
+
+      {/* Manual SKU input */}
+      <div className="flex gap-2">
+        <Input
+          value={manualSkuInput}
+          onChange={(e) => setManualSkuInput(e.target.value)}
+          placeholder="Paste SKU (or comma-separated SKUs)..."
+          className="h-8 text-xs font-mono"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAddManual();
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleAddManual}
+          disabled={!manualSkuInput.trim()}
+          className="h-8 text-xs shrink-0"
+        >
+          Add SKU
+        </Button>
+      </div>
+
+      {/* Live search input */}
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search catalog by variant SKU or product name..."
+          className="pl-7 h-8 text-xs"
+        />
+      </div>
+
+      {search.trim().length >= 2 && (
+        <div className="max-h-36 overflow-y-auto rounded border divide-y bg-background">
+          {isSearching ? (
+            <div className="p-2 text-xs text-muted-foreground text-center">Searching...</div>
+          ) : results.length === 0 ? (
+            <div className="p-2 text-xs text-muted-foreground text-center">No variants found</div>
+          ) : (
+            results.map((variant) => {
+              const isChecked = selectedSet.has(variant.sku);
+              return (
+                <button
+                  type="button"
+                  key={variant.id}
+                  onClick={() => toggleSku(variant.sku)}
+                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-muted/50 transition-colors"
+                >
+                  <Checkbox checked={isChecked} />
+                  <span className="truncate">{variant.product.name}</span>
+                  <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                    {variant.sku}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {selectedSkus.length > 0 && (
+        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pt-1">
+          {selectedSkus.map((sku) => (
+            <Badge key={sku} variant="secondary" className="gap-1 pr-1 font-mono text-[11px]">
+              <span>{sku}</span>
+              <button
+                type="button"
+                onClick={() => toggleSku(sku)}
+                className="rounded p-0.5 hover:bg-muted"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function PromotionsTable({
+  initialPromotions,
+  allPromoCodes,
+  products = [],
+  brands = [],
+  categories = [],
+}: Props) {
   const router = useRouter();
   const [promotions, setPromotions] = useState<Promotion[]>(initialPromotions);
   const [search, setSearch] = useState('');
@@ -192,16 +537,34 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
 
   // Visual Rule Builder state
   const [ruleTab, setRuleTab] = useState<'visual' | 'json'>('visual');
+  const [conditionsSubTab, setConditionsSubTab] = useState<'cart' | 'taxonomy' | 'products' | 'variants' | 'tags'>('cart');
+
+  // Benefits
   const [benefitType, setBenefitType] = useState<'percentage' | 'fixed_amount' | 'free_shipping' | 'custom'>('percentage');
   const [benefitPercentage, setBenefitPercentage] = useState('50');
   const [benefitAmount, setBenefitAmount] = useState('5000');
   const [benefitAppliesTo, setBenefitAppliesTo] = useState('second_eligible_item');
   const [benefitMaxDiscount, setBenefitMaxDiscount] = useState('');
 
+  // Conditions
   const [condMinSubtotal, setCondMinSubtotal] = useState('');
   const [condMinQuantity, setCondMinQuantity] = useState('2');
-  const [condProductTags, setCondProductTags] = useState('games');
+  const [condFirstOrderOnly, setCondFirstOrderOnly] = useState(false);
 
+  const [condProductKinds, setCondProductKinds] = useState<string[]>([]);
+  const [condBrandIds, setCondBrandIds] = useState<string[]>([]);
+  const [condCategoryIds, setCondCategoryIds] = useState<string[]>([]);
+
+  const [condProductIds, setCondProductIds] = useState<string[]>([]);
+  const [condExcludedProductIds, setCondExcludedProductIds] = useState<string[]>([]);
+
+  const [condVariantSKUs, setCondVariantSKUs] = useState<string[]>([]);
+  const [condExcludedVariantSKUs, setCondExcludedVariantSKUs] = useState<string[]>([]);
+
+  const [condProductTags, setCondProductTags] = useState('games');
+  const [condExcludedProductTags, setCondExcludedProductTags] = useState('');
+
+  // Application & Combination Policy
   const [policyMaxPerOrder, setPolicyMaxPerOrder] = useState('1');
   const [policyCombinable, setPolicyCombinable] = useState(false);
 
@@ -227,6 +590,78 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
       return matchesSearch && matchesStatus && matchesMode;
     });
   }, [promotions, search, statusFilter, modeFilter]);
+
+  // Counts of active filters per condition sub-tab
+  const conditionCounts = useMemo(() => {
+    let cart = 0;
+    if (condMinQuantity) cart++;
+    if (condMinSubtotal) cart++;
+    if (condFirstOrderOnly) cart++;
+
+    let taxonomy = 0;
+    if (condProductKinds.length > 0) taxonomy++;
+    if (condBrandIds.length > 0) taxonomy += condBrandIds.length;
+    if (condCategoryIds.length > 0) taxonomy += condCategoryIds.length;
+
+    let prods = 0;
+    if (condProductIds.length > 0) prods += condProductIds.length;
+    if (condExcludedProductIds.length > 0) prods += condExcludedProductIds.length;
+
+    let variantsCount = 0;
+    if (condVariantSKUs.length > 0) variantsCount += condVariantSKUs.length;
+    if (condExcludedVariantSKUs.length > 0) variantsCount += condExcludedVariantSKUs.length;
+
+    let tags = 0;
+    if (condProductTags.trim()) tags++;
+    if (condExcludedProductTags.trim()) tags++;
+
+    return { cart, taxonomy, products: prods, variants: variantsCount, tags };
+  }, [
+    condMinQuantity,
+    condMinSubtotal,
+    condFirstOrderOnly,
+    condProductKinds,
+    condBrandIds,
+    condCategoryIds,
+    condProductIds,
+    condExcludedProductIds,
+    condVariantSKUs,
+    condExcludedVariantSKUs,
+    condProductTags,
+    condExcludedProductTags,
+  ]);
+
+  // Scope summary text
+  const currentScopeSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (condFirstOrderOnly) parts.push('First purchase only');
+    if (condMinQuantity) parts.push(`Min ${condMinQuantity} item(s)`);
+    if (condMinSubtotal) parts.push(`Min subtotal ${condMinSubtotal}`);
+    if (condProductKinds.length > 0) parts.push(`Kinds: ${condProductKinds.join(', ')}`);
+    if (condBrandIds.length > 0) parts.push(`${condBrandIds.length} brand(s)`);
+    if (condCategoryIds.length > 0) parts.push(`${condCategoryIds.length} category(ies)`);
+    if (condProductIds.length > 0) parts.push(`${condProductIds.length} allowed product(s)`);
+    if (condExcludedProductIds.length > 0) parts.push(`${condExcludedProductIds.length} excluded product(s)`);
+    if (condVariantSKUs.length > 0) parts.push(`${condVariantSKUs.length} allowed SKU(s)`);
+    if (condExcludedVariantSKUs.length > 0) parts.push(`${condExcludedVariantSKUs.length} excluded SKU(s)`);
+    if (condProductTags.trim()) parts.push(`Tags: ${condProductTags}`);
+    if (condExcludedProductTags.trim()) parts.push(`Excl. tags: ${condExcludedProductTags}`);
+
+    return parts.length > 0 ? parts.join(' · ') : 'All products in catalog (no restrictions)';
+  }, [
+    condFirstOrderOnly,
+    condMinQuantity,
+    condMinSubtotal,
+    condProductKinds,
+    condBrandIds,
+    condCategoryIds,
+    condProductIds,
+    condExcludedProductIds,
+    condVariantSKUs,
+    condExcludedVariantSKUs,
+    condProductTags,
+    condExcludedProductTags,
+  ]);
 
   function syncVisualToJson() {
     // Generate benefits
@@ -262,26 +697,31 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
 
     // Generate conditions
     const conditionsObj: any = {};
-    if (condMinQuantity) {
-      conditionsObj.minimumQuantity = Number(condMinQuantity);
-    }
-    if (condMinSubtotal) {
-      conditionsObj.minimumSubtotal = Number(condMinSubtotal);
-    }
-    const tagsArray = condProductTags
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
-    if (tagsArray.length > 0) {
-      conditionsObj.productTags = tagsArray;
-    }
+    if (condMinQuantity) conditionsObj.minimumQuantity = Number(condMinQuantity);
+    if (condMinSubtotal) conditionsObj.minimumSubtotal = Number(condMinSubtotal);
+    if (condFirstOrderOnly) conditionsObj.firstOrderOnly = true;
+
+    if (condProductKinds.length > 0) conditionsObj.productKinds = condProductKinds;
+    if (condBrandIds.length > 0) conditionsObj.brandIds = condBrandIds;
+    if (condCategoryIds.length > 0) conditionsObj.categoryIds = condCategoryIds;
+
+    if (condProductIds.length > 0) conditionsObj.productIds = condProductIds;
+    if (condExcludedProductIds.length > 0) conditionsObj.excludedProductIds = condExcludedProductIds;
+
+    if (condVariantSKUs.length > 0) conditionsObj.skus = condVariantSKUs;
+    if (condExcludedVariantSKUs.length > 0) conditionsObj.excludedSkus = condExcludedVariantSKUs;
+
+    const tagsArray = condProductTags.split(',').map((t) => t.trim()).filter(Boolean);
+    if (tagsArray.length > 0) conditionsObj.productTags = tagsArray;
+
+    const exclTagsArray = condExcludedProductTags.split(',').map((t) => t.trim()).filter(Boolean);
+    if (exclTagsArray.length > 0) conditionsObj.excludedProductTags = exclTagsArray;
+
     setJsonConditions(JSON.stringify(conditionsObj, null, 2));
 
     // Generate application policy
     const appPolicyObj: any = {};
-    if (policyMaxPerOrder) {
-      appPolicyObj.maxApplicationsPerOrder = Number(policyMaxPerOrder);
-    }
+    if (policyMaxPerOrder) appPolicyObj.maxApplicationsPerOrder = Number(policyMaxPerOrder);
     setJsonApplicationPolicy(JSON.stringify(appPolicyObj, null, 2));
 
     // Generate combination policy
@@ -315,7 +755,23 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
       const cond = JSON.parse(condStr || '{}');
       setCondMinQuantity(cond.minimumQuantity != null ? String(cond.minimumQuantity) : '');
       setCondMinSubtotal(cond.minimumSubtotal != null ? String(cond.minimumSubtotal) : '');
-      setCondProductTags(Array.isArray(cond.productTags) ? cond.productTags.join(', ') : '');
+      setCondFirstOrderOnly(Boolean(cond.firstOrderOnly));
+
+      setCondProductKinds(Array.isArray(cond.productKinds) ? cond.productKinds : (cond.productKind ? [cond.productKind] : []));
+      setCondBrandIds(Array.isArray(cond.brandIds) ? cond.brandIds : (Array.isArray(cond.allowedBrandIds) ? cond.allowedBrandIds : []));
+      setCondCategoryIds(Array.isArray(cond.categoryIds) ? cond.categoryIds : (Array.isArray(cond.allowedCategoryIds) ? cond.allowedCategoryIds : (Array.isArray(cond.allowedGameCategoryIds) ? cond.allowedGameCategoryIds : [])));
+
+      setCondProductIds(Array.isArray(cond.productIds) ? cond.productIds : (Array.isArray(cond.allowedProductIds) ? cond.allowedProductIds : []));
+      setCondExcludedProductIds(Array.isArray(cond.excludedProductIds) ? cond.excludedProductIds : []);
+
+      setCondVariantSKUs(Array.isArray(cond.skus) ? cond.skus : (Array.isArray(cond.allowedVariantSKUs) ? cond.allowedVariantSKUs : []));
+      setCondExcludedVariantSKUs(Array.isArray(cond.excludedSkus) ? cond.excludedSkus : (Array.isArray(cond.excludedVariantSKUs) ? cond.excludedVariantSKUs : []));
+
+      const tags = Array.isArray(cond.productTags) ? cond.productTags : (Array.isArray(cond.allowedTags) ? cond.allowedTags : []);
+      setCondProductTags(tags.join(', '));
+
+      const exclTags = Array.isArray(cond.excludedProductTags) ? cond.excludedProductTags : (Array.isArray(cond.excludedTags) ? cond.excludedTags : []);
+      setCondExcludedProductTags(exclTags.join(', '));
     } catch {
       // ignore
     }
@@ -335,11 +791,7 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
     }
   }
 
-  function openCreateDialog() {
-    setEditingPromotion(null);
-    setFormError(null);
-    setRuleTab('visual');
-
+  function resetAllFormState() {
     setFormName('');
     setFormDescription('');
     setFormStatus('ACTIVE');
@@ -360,7 +812,20 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
 
     setCondMinQuantity('2');
     setCondMinSubtotal('');
+    setCondFirstOrderOnly(false);
+
+    setCondProductKinds([]);
+    setCondBrandIds([]);
+    setCondCategoryIds([]);
+
+    setCondProductIds([]);
+    setCondExcludedProductIds([]);
+
+    setCondVariantSKUs([]);
+    setCondExcludedVariantSKUs([]);
+
     setCondProductTags('games');
+    setCondExcludedProductTags('');
 
     setPolicyMaxPerOrder('1');
     setPolicyCombinable(false);
@@ -370,7 +835,15 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
     setJsonApplicationPolicy(JSON.stringify({ maxApplicationsPerOrder: 1 }, null, 2));
     setJsonCombinationPolicy(JSON.stringify({ combinable: false }, null, 2));
     setJsonMetadata('');
+  }
 
+  function openCreateDialog() {
+    setEditingPromotion(null);
+    setFormError(null);
+    setRuleTab('visual');
+    setConditionsSubTab('cart');
+
+    resetAllFormState();
     setShowDialog(true);
   }
 
@@ -378,6 +851,7 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
     setEditingPromotion(promo);
     setFormError(null);
     setRuleTab('visual');
+    setConditionsSubTab('cart');
 
     setFormName(promo.name);
     setFormDescription(promo.description || '');
@@ -412,6 +886,7 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
     setEditingPromotion(null);
     setFormError(null);
     setRuleTab('visual');
+    setConditionsSubTab('cart');
 
     setFormName(`Copy of ${promo.name}`);
     setFormDescription(promo.description || '');
@@ -423,7 +898,7 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
     setFormEndsAt('');
     setFormUsageLimit(promo.usageLimit != null ? String(promo.usageLimit) : '');
     setFormPerCustomerLimit(promo.perCustomerLimit != null ? String(promo.perCustomerLimit) : '');
-    setSelectedPromoCodeIds([]); // don't duplicate promo code link since codes are unique
+    setSelectedPromoCodeIds([]);
 
     const condStr = JSON.stringify(promo.conditions || {}, null, 2);
     const benStr = JSON.stringify(promo.benefits || {}, null, 2);
@@ -448,7 +923,6 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
       return;
     }
 
-    // Determine payload JSON
     let conditionsObj: any;
     let benefitsObj: any;
     let applicationPolicyObj: any;
@@ -456,7 +930,6 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
     let metadataObj: any = null;
 
     if (ruleTab === 'visual') {
-      // Build objects from visual builder
       if (benefitType === 'percentage') {
         benefitsObj = {
           type: 'percentage',
@@ -489,8 +962,23 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
       conditionsObj = {};
       if (condMinQuantity) conditionsObj.minimumQuantity = Number(condMinQuantity);
       if (condMinSubtotal) conditionsObj.minimumSubtotal = Number(condMinSubtotal);
+      if (condFirstOrderOnly) conditionsObj.firstOrderOnly = true;
+
+      if (condProductKinds.length > 0) conditionsObj.productKinds = condProductKinds;
+      if (condBrandIds.length > 0) conditionsObj.brandIds = condBrandIds;
+      if (condCategoryIds.length > 0) conditionsObj.categoryIds = condCategoryIds;
+
+      if (condProductIds.length > 0) conditionsObj.productIds = condProductIds;
+      if (condExcludedProductIds.length > 0) conditionsObj.excludedProductIds = condExcludedProductIds;
+
+      if (condVariantSKUs.length > 0) conditionsObj.skus = condVariantSKUs;
+      if (condExcludedVariantSKUs.length > 0) conditionsObj.excludedSkus = condExcludedVariantSKUs;
+
       const tags = condProductTags.split(',').map((t) => t.trim()).filter(Boolean);
       if (tags.length > 0) conditionsObj.productTags = tags;
+
+      const exclTags = condExcludedProductTags.split(',').map((t) => t.trim()).filter(Boolean);
+      if (exclTags.length > 0) conditionsObj.excludedProductTags = exclTags;
 
       applicationPolicyObj = {};
       if (policyMaxPerOrder) applicationPolicyObj.maxApplicationsPerOrder = Number(policyMaxPerOrder);
@@ -506,7 +994,6 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
         }
       }
     } else {
-      // Validate JSON strings
       try {
         conditionsObj = JSON.parse(jsonConditions || '{}');
       } catch {
@@ -581,7 +1068,6 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
       setShowDialog(false);
       router.refresh();
 
-      // Refresh local list
       const listRes = await fetch('/api/promotions');
       if (listRes.ok) {
         setPromotions(await listRes.json());
@@ -761,8 +1247,14 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
                     <div className="text-sm font-medium">
                       {formatBenefitSummary(promo.benefits, promo.currency)}
                     </div>
+                    <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                      <span className="font-semibold text-foreground/80">Target:</span>{' '}
+                      {formatConditionsSummary(promo.conditions)}
+                    </div>
                     {promo.combinationPolicy?.combinable && (
-                      <div className="text-[11px] text-muted-foreground">Combinable with others</div>
+                      <div className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                        Combinable with other promos
+                      </div>
                     )}
                   </TableCell>
 
@@ -837,7 +1329,7 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
 
       {/* Create / Edit Promotion Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingPromotion ? `Edit Promotion: ${editingPromotion.name}` : 'New Promotion'}
@@ -1064,6 +1556,8 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
                               <SelectItem value="second_eligible_item">Second Eligible Item</SelectItem>
                               <SelectItem value="all_eligible_items">All Eligible Items</SelectItem>
                               <SelectItem value="cheapest_item">Cheapest Item in Cart</SelectItem>
+                              <SelectItem value="cheapest_eligible_item">Cheapest Eligible Item</SelectItem>
+                              <SelectItem value="most_expensive_eligible_item">Most Expensive Eligible Item</SelectItem>
                               <SelectItem value="order_item">Single Item</SelectItem>
                             </SelectContent>
                           </Select>
@@ -1084,43 +1578,220 @@ export function PromotionsTable({ initialPromotions, allPromoCodes }: Props) {
                     </div>
                   </div>
 
-                  {/* Conditions Builder */}
+                  {/* Comprehensive Conditions Builder */}
                   <div className="space-y-3 border-t pt-4">
-                    <div className="text-xs font-semibold text-primary uppercase tracking-wider">
-                      2. Eligibility Conditions
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Min Quantity of Items</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="e.g. 2"
-                          value={condMinQuantity}
-                          onChange={(e) => setCondMinQuantity(e.target.value)}
-                        />
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-xs font-semibold text-primary uppercase tracking-wider">
+                        2. Eligibility Conditions
                       </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Min Subtotal ({formCurrency})</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="e.g. 30000"
-                          value={condMinSubtotal}
-                          onChange={(e) => setCondMinSubtotal(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Product Tags (comma-separated)</Label>
-                        <Input
-                          placeholder="e.g. games, accessories"
-                          value={condProductTags}
-                          onChange={(e) => setCondProductTags(e.target.value)}
-                        />
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Scope:</span>{' '}
+                        {currentScopeSummary}
                       </div>
                     </div>
+
+                    <Tabs
+                      value={conditionsSubTab}
+                      onValueChange={(val) => setConditionsSubTab(val as any)}
+                      className="w-full"
+                    >
+                      <TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto p-1 gap-1">
+                        <TabsTrigger value="cart" className="text-xs py-1.5">
+                          Cart & Buyer {conditionCounts.cart > 0 && `(${conditionCounts.cart})`}
+                        </TabsTrigger>
+                        <TabsTrigger value="taxonomy" className="text-xs py-1.5">
+                          Taxonomy {conditionCounts.taxonomy > 0 && `(${conditionCounts.taxonomy})`}
+                        </TabsTrigger>
+                        <TabsTrigger value="products" className="text-xs py-1.5">
+                          Products {conditionCounts.products > 0 && `(${conditionCounts.products})`}
+                        </TabsTrigger>
+                        <TabsTrigger value="variants" className="text-xs py-1.5">
+                          Variants & SKUs {conditionCounts.variants > 0 && `(${conditionCounts.variants})`}
+                        </TabsTrigger>
+                        <TabsTrigger value="tags" className="text-xs py-1.5 col-span-2 sm:col-span-1">
+                          Tags {conditionCounts.tags > 0 && `(${conditionCounts.tags})`}
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Sub-tab 1: Cart & Buyer */}
+                      <TabsContent value="cart" className="space-y-4 pt-3">
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Minimum Quantity of Items</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="e.g. 2"
+                              value={condMinQuantity}
+                              onChange={(e) => setCondMinQuantity(e.target.value)}
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Cart must have at least this number of eligible items.
+                            </p>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Minimum Subtotal ({formCurrency})</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="e.g. 30000"
+                              value={condMinSubtotal}
+                              onChange={(e) => setCondMinSubtotal(e.target.value)}
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Cart subtotal before shipping and discount.
+                            </p>
+                          </div>
+
+                          <div className="space-y-1.5 flex flex-col justify-end pb-2">
+                            <div className="flex items-center space-x-2 rounded-md border p-3 bg-card">
+                              <Checkbox
+                                id="cond-first-order"
+                                checked={condFirstOrderOnly}
+                                onCheckedChange={(checked) => setCondFirstOrderOnly(checked === true)}
+                              />
+                              <Label
+                                htmlFor="cond-first-order"
+                                className="text-xs font-normal cursor-pointer leading-tight"
+                              >
+                                First purchase only (new customers)
+                              </Label>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      {/* Sub-tab 2: Taxonomy & Types */}
+                      <TabsContent value="taxonomy" className="space-y-4 pt-3">
+                        {/* Product Kinds Selection */}
+                        <div className="space-y-2 rounded-md border p-3 bg-card">
+                          <Label className="text-xs font-semibold">
+                            Eligible Product Types / Kinds ({condProductKinds.length === 0 ? 'All types' : `${condProductKinds.length} selected`})
+                          </Label>
+                          <div className="flex flex-wrap gap-4 pt-1">
+                            {PRODUCT_KINDS.map((kind) => {
+                              const checked = condProductKinds.includes(kind.value);
+                              return (
+                                <label
+                                  key={kind.value}
+                                  className="flex items-center space-x-2 text-xs cursor-pointer select-none"
+                                >
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(isChecked) => {
+                                      if (isChecked) {
+                                        setCondProductKinds((prev) => [...prev, kind.value]);
+                                      } else {
+                                        setCondProductKinds((prev) => prev.filter((k) => k !== kind.value));
+                                      }
+                                    }}
+                                  />
+                                  <span>{kind.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          {condProductKinds.length > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setCondProductKinds([])}
+                              className="h-5 px-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              Reset to all types
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Brands & Categories Pickers */}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <SearchableMultiSelect
+                            label="Eligible Brands / Editoriales"
+                            options={brands}
+                            selectedIds={condBrandIds}
+                            onChange={setCondBrandIds}
+                            placeholder="Search brands..."
+                          />
+
+                          <SearchableMultiSelect
+                            label="Eligible Categories"
+                            options={categories}
+                            selectedIds={condCategoryIds}
+                            onChange={setCondCategoryIds}
+                            placeholder="Search categories..."
+                          />
+                        </div>
+                      </TabsContent>
+
+                      {/* Sub-tab 3: Specific Products */}
+                      <TabsContent value="products" className="space-y-4 pt-3">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <SearchableMultiSelect
+                            label="Allowed Specific Products"
+                            options={products}
+                            selectedIds={condProductIds}
+                            onChange={setCondProductIds}
+                            placeholder="Search products by title or slug..."
+                          />
+
+                          <SearchableMultiSelect
+                            label="Excluded Products"
+                            options={products}
+                            selectedIds={condExcludedProductIds}
+                            onChange={setCondExcludedProductIds}
+                            placeholder="Search products to exclude..."
+                          />
+                        </div>
+                      </TabsContent>
+
+                      {/* Sub-tab 4: Variants & SKUs */}
+                      <TabsContent value="variants" className="space-y-4 pt-3">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <VariantSkuSearchPicker
+                            label="Allowed Specific Variant SKUs"
+                            selectedSkus={condVariantSKUs}
+                            onChange={setCondVariantSKUs}
+                          />
+
+                          <VariantSkuSearchPicker
+                            label="Excluded Variant SKUs"
+                            selectedSkus={condExcludedVariantSKUs}
+                            onChange={setCondExcludedVariantSKUs}
+                          />
+                        </div>
+                      </TabsContent>
+
+                      {/* Sub-tab 5: Tags */}
+                      <TabsContent value="tags" className="space-y-4 pt-3">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Required Product Tags (comma-separated)</Label>
+                            <Input
+                              placeholder="e.g. games, party, familiar"
+                              value={condProductTags}
+                              onChange={(e) => setCondProductTags(e.target.value)}
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Products containing any of these tags are eligible.
+                            </p>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Excluded Product Tags (comma-separated)</Label>
+                            <Input
+                              placeholder="e.g. clearance, outlet, preventa"
+                              value={condExcludedProductTags}
+                              onChange={(e) => setCondExcludedProductTags(e.target.value)}
+                            />
+                            <p className="text-[11px] text-muted-foreground">
+                              Products with these tags are disqualified from the promotion.
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </div>
 
                   {/* Application & Combination Policy */}
