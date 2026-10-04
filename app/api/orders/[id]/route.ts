@@ -72,50 +72,64 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
 
     const { id } = await params;
-    const existingOrder = await prisma.order.findUnique({
+    const previousOrder = await prisma.order.findUnique({
       where: { id },
       select: { status: true },
     });
 
-    if (!existingOrder) {
+    if (!previousOrder) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
 
-    const order = await prisma.order.update({
-      where: { id },
-      data: {
-        status: status as OrderStatus,
-        updatedAt: new Date(),
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-          },
+    const changedAt = new Date();
+    const updateResult = await prisma.$transaction(async (tx) => {
+      const updated = await tx.order.updateMany({
+        where: { id, status: previousOrder.status },
+        data: { status: status as OrderStatus, updatedAt: changedAt },
+      });
+
+      if (updated.count !== 1) return null;
+
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id },
+        include: {
+          customer: { select: { id: true, email: true, firstName: true, lastName: true } },
+          items: { include: { variant: { include: { product: true } } } },
         },
-        items: {
-          include: {
-            variant: {
-              include: {
-                product: true,
-              },
-            },
+      });
+
+      if (previousOrder.status !== order.status) {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: id,
+            fromStatus: previousOrder.status,
+            toStatus: order.status,
+            changedAt,
+            actorType: 'ADMIN',
+            actorId: typeof session.user?.id === 'string' ? session.user.id : null,
           },
-        },
-      },
+        });
+      }
+
+      return order;
     });
 
-    if (existingOrder.status !== order.status && order.customer?.email) {
+    if (!updateResult) {
+      return NextResponse.json(
+        { message: 'Order status changed during this update. Refresh and try again.' },
+        { status: 409 }
+      );
+    }
+
+    const order = updateResult;
+    if (previousOrder.status !== order.status && order.customer?.email) {
       void sendOrderStatusNotification({
         orderId: order.id,
         customerEmail: order.customer.email,
         customerName: [order.customer.firstName, order.customer.lastName]
           .filter(Boolean)
           .join(' '),
-        previousStatus: existingOrder.status,
+        previousStatus: previousOrder.status,
         status: order.status,
         total: order.total,
         currency: order.currency,

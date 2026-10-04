@@ -13,6 +13,7 @@ import {
 } from '@/lib/date-time';
 import { FulfillmentMethod } from '@prisma/client';
 import { getLocale } from 'next-intl/server';
+import { OrderStatusControl } from './order-status-control';
 
 type PageProps = {
   params: Promise<{
@@ -132,12 +133,38 @@ export default async function OrderDetailPage({ params }: PageProps) {
       fulfillmentMethod: true,
       shippingAddr: true,
       pickupLocation: true,
+      statusHistory: {
+        orderBy: { changedAt: 'desc' },
+        select: {
+          id: true,
+          fromStatus: true,
+          toStatus: true,
+          changedAt: true,
+          actorType: true,
+          actorId: true,
+          reason: true,
+        },
+      },
     },
   });
 
   if (!order) {
     notFound();
   }
+
+  const historyActorIds = Array.from(new Set(order.statusHistory
+    .map((entry) => entry.actorId)
+    .filter((actorId): actorId is string => Boolean(actorId))));
+  const historyActors = historyActorIds.length
+    ? await prisma.adminUser.findMany({
+      where: { id: { in: historyActorIds } },
+      select: { id: true, email: true, firstName: true, lastName: true },
+    })
+    : [];
+  const historyActorNames = new Map(historyActors.map((actor) => [
+    actor.id,
+    [actor.firstName, actor.lastName].filter(Boolean).join(' ') || actor.email,
+  ]));
 
   function formatCurrency(amount: number, currency: string) {
     return new Intl.NumberFormat('es-CL', {
@@ -245,7 +272,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <CardTitle>Order Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
+            <OrderStatusControl orderId={order.id} status={order.status} />
             <p className="text-sm text-muted-foreground mt-2">
               Last updated: {formatDateTime(order.updatedAt)}
             </p>
@@ -530,6 +557,42 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </Card>
         )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Status History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {order.statusHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No status changes have been recorded for this order yet.</p>
+          ) : (
+            <ol className="space-y-4">
+              {order.statusHistory.map((entry) => (
+                <li key={entry.id} className="flex flex-col gap-1 border-l-2 pl-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      {entry.fromStatus ? (
+                        <Badge variant="outline" className={STATUS_COLORS[entry.fromStatus]}>{entry.fromStatus}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">Initial status</span>
+                      )}
+                      <span aria-hidden="true" className="text-muted-foreground">→</span>
+                      <Badge className={STATUS_COLORS[entry.toStatus]}>{entry.toStatus}</Badge>
+                    </div>
+                    {entry.reason && <p className="text-sm text-muted-foreground">{entry.reason}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      {entry.actorType === 'ADMIN'
+                        ? historyActorNames.get(entry.actorId ?? '') ?? 'Admin'
+                        : entry.actorType ?? 'System'}
+                    </p>
+                  </div>
+                  <time className="text-xs text-muted-foreground">{formatDateTime(entry.changedAt)}</time>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Notes */}
       {order.notes && (
