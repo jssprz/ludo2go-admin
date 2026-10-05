@@ -1,7 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +30,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, MoreHorizontal, Pencil, Trash2, GripVertical, Eye, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, MoreHorizontal, Pencil, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 type CarouselSlideVariant = {
   id: string;
@@ -47,9 +65,52 @@ type Props = {
   carousel: Carousel;
 };
 
+type SortHandleProps = {
+  attributes: ReturnType<typeof useSortable>['attributes'];
+  listeners: ReturnType<typeof useSortable>['listeners'];
+  disabled: boolean;
+};
+
+function SortableSlide({
+  id,
+  disabled,
+  children,
+}: {
+  id: string;
+  disabled: boolean;
+  children: (handleProps: SortHandleProps) => ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={isDragging ? 'opacity-60 z-10 relative' : ''}
+    >
+      {children({ attributes, listeners, disabled })}
+    </div>
+  );
+}
+
 export function SlidesManager({ carousel }: Props) {
   const router = useRouter();
   const [expandedSlides, setExpandedSlides] = useState<Set<string>>(new Set());
+  const [slides, setSlides] = useState(carousel.slides);
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSlides(carousel.slides);
+  }, [carousel.slides]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const toggleSlide = (slideId: string) => {
     const newExpanded = new Set(expandedSlides);
@@ -141,22 +202,42 @@ export function SlidesManager({ carousel }: Props) {
     }
   }
 
-  async function handleMoveSlide(slideId: string, direction: 'up' | 'down') {
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id || isReordering) return;
+
+    const oldIndex = slides.findIndex((slide) => slide.id === active.id);
+    const newIndex = slides.findIndex((slide) => slide.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const previousSlides = slides;
+    const reorderedSlides = arrayMove(slides, oldIndex, newIndex).map((slide, position) => ({
+      ...slide,
+      position,
+    }));
+
+    setSlides(reorderedSlides);
+    setReorderError(null);
+    setIsReordering(true);
+
     try {
-      const res = await fetch(`/api/carousels/slides/${slideId}/move`, {
-        method: 'POST',
+      const res = await fetch(`/api/carousels/${carousel.id}/slides/reorder`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction }),
+        body: JSON.stringify({ slideIds: reorderedSlides.map((slide) => slide.id) }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.message || 'Failed to move slide');
+        throw new Error(data?.message || 'Failed to reorder slides');
       }
 
       router.refresh();
-    } catch (err: any) {
-      alert(err.message || 'Unexpected error');
+    } catch (error) {
+      setSlides(previousSlides);
+      setReorderError(error instanceof Error ? error.message : 'Failed to reorder slides');
+    } finally {
+      setIsReordering(false);
     }
   }
 
@@ -194,16 +275,28 @@ export function SlidesManager({ carousel }: Props) {
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {carousel.slides.map((slide, index) => {
+        {reorderError && <p role="alert" className="text-sm text-destructive">{reorderError}</p>}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={slides.map((slide) => slide.id)} strategy={verticalListSortingStrategy}>
+        {slides.map((slide) => {
           const isExpanded = expandedSlides.has(slide.id);
-          const canMoveUp = index > 0;
-          const canMoveDown = index < carousel.slides.length - 1;
 
           return (
-            <div key={slide.id} className="border rounded-lg">
+            <SortableSlide key={slide.id} id={slide.id} disabled={isReordering}>
+              {({ attributes, listeners, disabled }) => <div className="border rounded-lg">
               {/* Slide Header */}
               <div className="p-4 flex items-center gap-3 bg-muted/30">
-                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                <button
+                  type="button"
+                  className="touch-none cursor-grab rounded p-1 active:cursor-grabbing disabled:cursor-not-allowed"
+                  aria-label={`Drag slide ${slide.position + 1} to reorder`}
+                  title="Drag to reorder"
+                  disabled={disabled}
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="h-5 w-5 text-muted-foreground" />
+                </button>
                 
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -247,19 +340,6 @@ export function SlidesManager({ carousel }: Props) {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Slide Actions</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      disabled={!canMoveUp}
-                      onClick={() => handleMoveSlide(slide.id, 'up')}
-                    >
-                      Move Up
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={!canMoveDown}
-                      onClick={() => handleMoveSlide(slide.id, 'down')}
-                    >
-                      Move Down
-                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href={`/carousels/${carousel.id}/slides/${slide.id}/edit`}>
@@ -374,9 +454,12 @@ export function SlidesManager({ carousel }: Props) {
                   )}
                 </div>
               )}
-            </div>
+              </div>}
+            </SortableSlide>
           );
         })}
+          </SortableContext>
+        </DndContext>
       </CardContent>
     </Card>
   );
