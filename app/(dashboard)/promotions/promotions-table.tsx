@@ -54,6 +54,7 @@ import {
   AlertCircle,
   X,
   Filter,
+  ImagePlus,
 } from 'lucide-react';
 
 export type CatalogOption = {
@@ -1287,6 +1288,11 @@ export function PromotionsTable({
                         <DropdownMenuItem onClick={() => openEditDialog(promo)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem onClick={() => router.push(`/promotions/${promo.id}/carousel-variant`)}>
+                          <ImagePlus className="mr-2 h-4 w-4" />
+                          Create carousel variant
                         </DropdownMenuItem>
 
                         <DropdownMenuItem onClick={() => openDuplicateDialog(promo)}>
