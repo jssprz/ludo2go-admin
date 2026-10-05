@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import { toDateTimeLocalInput } from '@/lib/date-time-local';
 
 type CarouselSlideVariant = {
   id: string;
@@ -66,8 +67,8 @@ export function VariantForm({ carouselId, slideId, variant }: Props) {
     ctaUrl: variant?.ctaUrl || '',
     ctaType: variant?.ctaType || 'INTERNAL',
     ctaTarget: variant?.ctaTarget || 'SAME_TAB',
-    startAt: variant?.startAt ? new Date(variant.startAt).toISOString().slice(0, 16) : '',
-    endAt: variant?.endAt ? new Date(variant.endAt).toISOString().slice(0, 16) : '',
+    startAt: toDateTimeLocalInput(variant?.startAt),
+    endAt: toDateTimeLocalInput(variant?.endAt),
   });
 
   const [jsonError, setJsonError] = useState<string>('');

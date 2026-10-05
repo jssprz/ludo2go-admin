@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import { toDateTimeLocalInput } from '@/lib/date-time-local';
 
 type CarouselSlide = {
   id: string;
@@ -30,8 +31,8 @@ export function SlideForm({ carouselId, slide }: Props) {
   const [formData, setFormData] = useState({
     name: slide?.name || '',
     isActive: slide?.isActive ?? true,
-    startAt: slide?.startAt ? new Date(slide.startAt).toISOString().slice(0, 16) : '',
-    endAt: slide?.endAt ? new Date(slide.endAt).toISOString().slice(0, 16) : '',
+    startAt: toDateTimeLocalInput(slide?.startAt),
+    endAt: toDateTimeLocalInput(slide?.endAt),
   });
 
   const isEditing = !!slide;

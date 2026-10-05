@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import { toDateTimeLocalInput } from '@/lib/date-time-local';
 
 type Carousel = {
   id: string;
@@ -45,8 +46,8 @@ export function CarouselForm({ carousel }: Props) {
     placement: carousel?.placement || 'HOME_MAIN',
     title: carousel?.title || '',
     isActive: carousel?.isActive ?? true,
-    startAt: carousel?.startAt ? new Date(carousel.startAt).toISOString().slice(0, 16) : '',
-    endAt: carousel?.endAt ? new Date(carousel.endAt).toISOString().slice(0, 16) : '',
+    startAt: toDateTimeLocalInput(carousel?.startAt),
+    endAt: toDateTimeLocalInput(carousel?.endAt),
   });
 
   const isEditing = !!carousel;
