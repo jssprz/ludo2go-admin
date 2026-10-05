@@ -262,7 +262,10 @@ export async function sendWeeklyAnalyticsReport(now = new Date()): Promise<{ sen
   const [current, previous, admins] = await Promise.all([
     loadPeriod(periods.current),
     loadPeriod(periods.previous),
-    prisma.adminUser.findMany({ where: { email: { not: '' } }, select: { email: true } }),
+    prisma.adminUser.findMany({
+      where: { email: { not: '' }, role: { key: 'SUPER_ADMIN' } },
+      select: { email: true },
+    }),
   ]);
   const recipients = Array.from(new Set(admins.map((admin) => admin.email.trim()).filter(Boolean)));
   if (!recipients.length) return { sent: 0, period: periods.current };
@@ -272,7 +275,7 @@ export async function sendWeeklyAnalyticsReport(now = new Date()): Promise<{ sen
   const email = buildEmail(current.data, previous.data, periods.current);
   const resend = new Resend(apiKey);
   const results = await Promise.all(recipients.map((to) => resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL || 'no-reply@jobys.cl',
+    from: 'Jobys Reports <reports@jobys.cl>',
     to,
     ...email,
     tags: [{ name: 'type', value: 'weekly_analytics_report' }],
