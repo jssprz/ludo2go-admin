@@ -1,6 +1,7 @@
 type PromotionContentInput = {
   id: string;
   name: string;
+  badge: string | null;
   description: string | null;
   status: string;
   activationMode: string;
@@ -149,7 +150,7 @@ export function buildPromotionCarouselContent(
   return {
     headline: promotion.name,
     subheadline: detailParts.join(' · '),
-    badge: activationLabel,
+    badge: promotion.badge?.trim() || activationLabel,
     image: {
       desktop: options.desktopImage?.trim() || '',
       mobile: options.mobileImage?.trim() || '',

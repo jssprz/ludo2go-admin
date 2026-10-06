@@ -151,6 +151,7 @@ export async function POST(request: Request) {
     const usageLimit = parseOptionalInt(body.usageLimit);
     const perCustomerLimit = parseOptionalInt(body.perCustomerLimit);
     const description = body.description ? String(body.description).trim() : null;
+    const badge = body.badge ? String(body.badge).trim() : null;
 
     const promoCodeIds: string[] = Array.isArray(body.promoCodeIds)
       ? body.promoCodeIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0)
@@ -160,6 +161,7 @@ export async function POST(request: Request) {
       const promo = await tx.promotion.create({
         data: {
           name,
+          badge,
           description,
           status,
           activationMode,

@@ -5,6 +5,7 @@ import { buildPromotionCarouselContent } from '../lib/promotion-carousel-content
 const promotion = {
   id: 'promo-1',
   name: 'Game night offer',
+  badge: 'Weekend deal',
   description: 'A limited-time deal',
   status: 'ACTIVE',
   activationMode: 'PROMO_CODE',
@@ -33,7 +34,7 @@ test('builds readable promo copy and retains promotion configuration in payload'
   });
 
   assert.equal(payload.headline, promotion.name);
-  assert.equal(payload.badge, 'NOCHE20');
+  assert.equal(payload.badge, 'Weekend deal');
   assert.match(payload.subheadline, /20% de descuento/);
   assert.match(payload.subheadline, /todos los productos elegibles/);
   assert.match(payload.subheadline, /Compra 2 o más productos elegibles/);
@@ -50,6 +51,7 @@ test('builds readable promo copy and retains promotion configuration in payload'
 test('describes free shipping promotions with a fallback badge when no code exists', () => {
   const payload = buildPromotionCarouselContent({
     ...promotion,
+    badge: null,
     activationMode: 'AUTOMATIC',
     conditions: {},
     benefits: { type: 'free_shipping' },
@@ -62,4 +64,10 @@ test('describes free shipping promotions with a fallback badge when no code exis
   assert.equal(payload.badge, 'Oferta especial');
   assert.match(payload.subheadline, /Envío gratis/);
   assert.doesNotMatch(payload.subheadline, /código promocional/i);
+});
+
+test('uses the promo code as the badge when no custom badge is set', () => {
+  const payload = buildPromotionCarouselContent({ ...promotion, badge: '  ' });
+
+  assert.equal(payload.badge, 'NOCHE20');
 });

@@ -34,6 +34,7 @@ export default async function CreatePromotionCarouselVariantPage({ params }: Pag
   const promotionContent = {
     id: promotion.id,
     name: promotion.name,
+    badge: promotion.badge,
     description: promotion.description,
     status: promotion.status,
     activationMode: promotion.activationMode,

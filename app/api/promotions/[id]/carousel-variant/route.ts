@@ -46,6 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const payload = buildPromotionCarouselContent({
       id: promotion.id,
       name: promotion.name,
+      badge: promotion.badge,
       description: promotion.description,
       status: promotion.status,
       activationMode: promotion.activationMode,

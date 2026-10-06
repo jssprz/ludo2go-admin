@@ -79,6 +79,7 @@ type PromoCodeSummary = {
 type Promotion = {
   id: string;
   name: string;
+  badge: string | null;
   description: string | null;
   status: PromotionStatus;
   activationMode: PromotionActivationMode;
@@ -523,6 +524,7 @@ export function PromotionsTable({
 
   // Form Fields
   const [formName, setFormName] = useState('');
+  const [formBadge, setFormBadge] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formStatus, setFormStatus] = useState<PromotionStatus>('ACTIVE');
   const [formActivationMode, setFormActivationMode] = useState<PromotionActivationMode>('AUTOMATIC');
@@ -794,6 +796,7 @@ export function PromotionsTable({
 
   function resetAllFormState() {
     setFormName('');
+    setFormBadge('');
     setFormDescription('');
     setFormStatus('ACTIVE');
     setFormActivationMode('AUTOMATIC');
@@ -855,6 +858,7 @@ export function PromotionsTable({
     setConditionsSubTab('cart');
 
     setFormName(promo.name);
+    setFormBadge(promo.badge || '');
     setFormDescription(promo.description || '');
     setFormStatus(promo.status);
     setFormActivationMode(promo.activationMode);
@@ -890,6 +894,7 @@ export function PromotionsTable({
     setConditionsSubTab('cart');
 
     setFormName(`Copy of ${promo.name}`);
+    setFormBadge(promo.badge || '');
     setFormDescription(promo.description || '');
     setFormStatus('DRAFT');
     setFormActivationMode(promo.activationMode);
@@ -1031,6 +1036,7 @@ export function PromotionsTable({
 
     const payload = {
       name: formName.trim(),
+      badge: formBadge.trim() || null,
       description: formDescription.trim() || null,
       status: formStatus,
       activationMode: formActivationMode,
@@ -1362,6 +1368,16 @@ export function PromotionsTable({
                   placeholder="e.g. 50% off second game"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="promo-badge">Badge (Optional)</Label>
+                <Input
+                  id="promo-badge"
+                  placeholder="e.g. Weekend deal"
+                  value={formBadge}
+                  onChange={(e) => setFormBadge(e.target.value)}
                 />
               </div>
 

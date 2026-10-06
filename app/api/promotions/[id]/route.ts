@@ -158,6 +158,9 @@ export async function PUT(request: Request, { params }: RouteContext) {
     const description = body.description !== undefined
       ? (body.description ? String(body.description).trim() : null)
       : existing.description;
+    const badge = body.badge !== undefined
+      ? (body.badge ? String(body.badge).trim() || null : null)
+      : existing.badge;
 
     // Check if business rules changed to increment version
     const rulesChanged =
@@ -175,6 +178,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
         where: { id },
         data: {
           name,
+          badge,
           description,
           status,
           activationMode,
