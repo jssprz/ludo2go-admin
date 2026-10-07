@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { put } from '@vercel/blob';
 import { createAndStoreThumbnailFromUrl } from '@/lib/media-thumbnails';
+import { hasTransparentBackground as checkTransparentBackground } from '@/lib/media-transparency';
 
 function isYouTubeUrl(value: string): boolean {
   try {
@@ -229,6 +230,14 @@ export async function POST(request: NextRequest) {
             pathnameHint: file.name,
           })
         : null;
+    let hasTransparentBackground: boolean | null = null;
+    if (kind === 'image') {
+      try {
+        hasTransparentBackground = await checkTransparentBackground(Buffer.from(await file.arrayBuffer()));
+      } catch (error) {
+        console.error('Failed to check image transparency:', error);
+      }
+    }
 
     // Create media asset in database
     const mediaAsset = await prisma.mediaAsset.create({
@@ -240,6 +249,7 @@ export async function POST(request: NextRequest) {
         height: thumbnail?.height ?? null,
         sizeBytes: file.size,
         mime: file.type,
+        hasTransparentBackground,
         locale: locale || null,
         alt: alt || file.name.replace(/\.[^/.]+$/, ''),
         copyright: copyright || null,

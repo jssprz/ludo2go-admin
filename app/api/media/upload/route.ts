@@ -4,6 +4,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { buildCreateAuditFields, getAdminUserIdFromSession } from '@/lib/admin-audit';
 import { createAndStoreThumbnailFromUrl } from '@/lib/media-thumbnails';
+import { checkMediaTransparencyFromUrl } from '@/lib/media-transparency';
 
 // POST /api/media/upload - Handle client-side Vercel Blob uploads
 export async function POST(request: NextRequest) {
@@ -82,6 +83,14 @@ export async function POST(request: NextRequest) {
                   pathnameHint: filename,
                 })
               : null;
+          let hasTransparentBackground: boolean | null = null;
+          if (kind === 'image') {
+            try {
+              hasTransparentBackground = await checkMediaTransparencyFromUrl(blob.url);
+            } catch (error) {
+              console.error('Failed to check image transparency:', error);
+            }
+          }
 
           const created = await prisma.mediaAsset.create({
             data: {
@@ -92,6 +101,7 @@ export async function POST(request: NextRequest) {
               height: thumbnail?.height ?? null,
               sizeBytes,
               mime: blob.contentType || payload.mime || 'application/octet-stream',
+              hasTransparentBackground,
               locale: null,
               alt,
               copyright: null,

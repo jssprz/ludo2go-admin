@@ -117,6 +117,8 @@ export function MediaGallery() {
   const [isSaving, setIsSaving] = useState(false);
   const [thumbnailingId, setThumbnailingId] = useState<string | null>(null);
   const [isBulkThumbnailing, setIsBulkThumbnailing] = useState(false);
+  const [isCheckingTransparency, setIsCheckingTransparency] = useState(false);
+  const [transparencyProgress, setTransparencyProgress] = useState(0);
 
   // Preview dialog state
   const [previewMedia, setPreviewMedia] = useState<MediaAsset | null>(null);
@@ -388,6 +390,49 @@ export function MediaGallery() {
     }
   }
 
+  async function handleCheckTransparency() {
+    setIsCheckingTransparency(true);
+    setTransparencyProgress(0);
+    let cursor: string | null = null;
+    let scanned = 0;
+    let checked = 0;
+    let transparent = 0;
+    let failed = 0;
+    try {
+      do {
+        const res: Response = await fetch('/api/media/transparency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cursor }),
+        });
+        const result: {
+          scanned: number;
+          checked: number;
+          transparent: number;
+          failedIds: string[];
+          nextCursor: string | null;
+          message?: string;
+        } = await res.json();
+        if (!res.ok) throw new Error(result.message || 'Failed to check transparency');
+        scanned += result.scanned;
+        checked += result.checked;
+        transparent += result.transparent;
+        failed += result.failedIds.length;
+        setTransparencyProgress(scanned);
+        cursor = result.nextCursor;
+      } while (cursor);
+
+      alert(`Checked ${checked} image(s): ${transparent} transparent, ${failed} failed.`);
+      await fetchMedia();
+      router.refresh();
+    } catch (error: any) {
+      alert(`${error.message || 'Transparency check failed'} (${checked} checked, ${failed} failed so far).`);
+      await fetchMedia();
+    } finally {
+      setIsCheckingTransparency(false);
+    }
+  }
+
   function formatBytes(bytes: number | null): string {
     if (!bytes) return 'Unknown';
     if (bytes < 1024) return `${bytes} B`;
@@ -490,6 +535,15 @@ export function MediaGallery() {
         </div>
 
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleCheckTransparency}
+            disabled={isCheckingTransparency || isUploading}
+            title="Check the original image of every media asset for transparent pixels"
+          >
+            {isCheckingTransparency ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            {isCheckingTransparency ? `Checking ${transparencyProgress} images...` : 'Check Transparency'}
+          </Button>
           <Button
             variant="outline"
             onClick={() => setIsCreateVideoOpen(true)}
