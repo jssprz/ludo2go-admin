@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Play, Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { ImagePlus, Loader2, Pencil, Play, Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -36,6 +37,7 @@ import {
 type PriceRule = {
   id: string;
   name: string;
+  badge: string | null;
   description: string | null;
   active: boolean;
   applied: boolean;
@@ -78,6 +80,7 @@ type Props = {
 
 type RuleFormState = {
   name: string;
+  badge: string;
   description: string;
   active: boolean;
   startsAt: string;
@@ -101,6 +104,7 @@ const VARIANT_STATUSES = ['draft', 'pending_review', 'scheduled', 'active', 'pau
 
 const DEFAULT_FORM: RuleFormState = {
   name: '',
+  badge: '',
   description: '',
   active: true,
   startsAt: '',
@@ -157,6 +161,9 @@ export function PriceRulesManager({ initialRules }: Props) {
   const [rules, setRules] = useState<PriceRule[]>(initialRules);
   const [form, setForm] = useState<RuleFormState>(DEFAULT_FORM);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingRule, setEditingRule] = useState<PriceRule | null>(null);
+  const [editDetails, setEditDetails] = useState({ name: '', badge: '', description: '' });
+  const [editError, setEditError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingCatalogOptions, setIsLoadingCatalogOptions] = useState(false);
   const [busyRuleId, setBusyRuleId] = useState<string | null>(null);
@@ -262,6 +269,7 @@ export function PriceRulesManager({ initialRules }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: form.name,
+          badge: form.badge || null,
           description: form.description || null,
           active: form.active,
           startsAt: toIsoOrNull(form.startsAt),
@@ -305,6 +313,38 @@ export function PriceRulesManager({ initialRules }: Props) {
       router.refresh();
     } catch (err: any) {
       setError(err?.message || 'Failed to create rule');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function openEditDetails(rule: PriceRule) {
+    setEditingRule(rule);
+    setEditDetails({ name: rule.name, badge: rule.badge || '', description: rule.description || '' });
+    setEditError(null);
+  }
+
+  async function saveDetails() {
+    if (!editingRule) return;
+    if (!editDetails.name.trim()) {
+      setEditError('Rule name is required.');
+      return;
+    }
+    setIsSaving(true);
+    setEditError(null);
+    try {
+      const response = await fetch(`/api/prices/rules/${editingRule.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editDetails),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update rule');
+      setRules((current) => current.map((rule) => rule.id === result.id ? result : rule));
+      setEditingRule(null);
+      router.refresh();
+    } catch (cause) {
+      setEditError(cause instanceof Error ? cause.message : 'Failed to update rule');
     } finally {
       setIsSaving(false);
     }
@@ -406,13 +446,21 @@ export function PriceRulesManager({ initialRules }: Props) {
             <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Rule Name</Label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="e.g. Winter sale 10%"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Badge (optional)</Label>
+              <Input
+                value={form.badge}
+                onChange={(e) => setForm((prev) => ({ ...prev, badge: e.target.value }))}
+                placeholder="e.g. Winter sale"
               />
             </div>
             <div className="space-y-2">
@@ -787,6 +835,7 @@ export function PriceRulesManager({ initialRules }: Props) {
                     <TableRow key={rule.id}>
                       <TableCell>
                         <div className="font-medium">{rule.name}</div>
+                        {rule.badge && <Badge variant="outline" className="mt-1">{rule.badge}</Badge>}
                         {rule.description && (
                           <div className="text-xs text-muted-foreground">{rule.description}</div>
                         )}
@@ -815,6 +864,12 @@ export function PriceRulesManager({ initialRules }: Props) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button size="icon" variant="outline" onClick={() => openEditDetails(rule)} title="Edit name, badge and description" aria-label={`Edit ${rule.name}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="outline" onClick={() => router.push(`/prices/rules/${rule.id}/carousel-variant`)} title="Create carousel variant" aria-label={`Create carousel variant from ${rule.name}`}>
+                            <ImagePlus className="h-4 w-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant={rule.applied ? 'secondary' : 'default'}
@@ -862,6 +917,30 @@ export function PriceRulesManager({ initialRules }: Props) {
           </div>
         </CardContent>
       </Card>
+      <Dialog open={editingRule !== null} onOpenChange={(open) => { if (!open && !isSaving) setEditingRule(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit price rule details</DialogTitle></DialogHeader>
+          <form onSubmit={(event) => { event.preventDefault(); void saveDetails(); }} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-rule-name">Name</Label>
+              <Input id="edit-rule-name" value={editDetails.name} onChange={(event) => setEditDetails((details) => ({ ...details, name: event.target.value }))} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-rule-badge">Badge</Label>
+              <Input id="edit-rule-badge" value={editDetails.badge} onChange={(event) => setEditDetails((details) => ({ ...details, badge: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-rule-description">Description</Label>
+              <Input id="edit-rule-description" value={editDetails.description} onChange={(event) => setEditDetails((details) => ({ ...details, description: event.target.value }))} />
+            </div>
+            {editError && <p role="alert" className="text-sm text-destructive">{editError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingRule(null)} disabled={isSaving}>Cancel</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

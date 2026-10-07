@@ -19,6 +19,7 @@ type RuleArrayField = string[] | null | undefined;
 
 export type VariantPriceRulePayload = {
   name?: unknown;
+  badge?: unknown;
   description?: unknown;
   active?: unknown;
   startsAt?: unknown;
@@ -154,6 +155,7 @@ export function buildVariantPriceRuleData(payload: VariantPriceRulePayload) {
 
   return {
     name,
+    badge: asOptionalString(payload.badge),
     description: asOptionalString(payload.description),
     active: asBoolean(payload.active, true),
     startsAt,
