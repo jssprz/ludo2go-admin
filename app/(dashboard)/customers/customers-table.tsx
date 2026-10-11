@@ -69,6 +69,7 @@ import { CreateCustomerDialog } from './create-customer-dialog';
 import { DuplicateReview } from './duplicate-review';
 import { useCustomerListPreferences } from './use-customer-list-preferences';
 import { CartItemsDialog } from './cart-items-dialog';
+import { VisitorActivityDialog } from './visitor-activity-dialog';
 
 const sortableColumns = new Set<string>([
   'ltv',
@@ -799,7 +800,10 @@ export function CustomersTable({
                         {format.number(visitor.sessionsCount)}
                       </TableCell>
                       <TableCell>
-                        {format.number(visitor.eventsCount)}
+                        <VisitorActivityDialog
+                          visitorId={visitor.id}
+                          eventCount={visitor.eventsCount}
+                        />
                       </TableCell>
                       <TableCell>{date(visitor.lastActivity)}</TableCell>
                       <TableCell>

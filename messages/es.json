@@ -969,6 +969,22 @@
   },
   "CustomerList": {
     "title": "Clientes",
+    "visitorActivity": {
+      "title": "Actividad del visitante",
+      "view": "Ver actividad del visitante",
+      "viewVisitor": "Ver {count, plural, one {# evento} other {# eventos}} del visitante {visitor}",
+      "loading": "Cargando actividad del visitante...",
+      "failed": "No se pudo cargar la actividad del visitante.",
+      "retry": "Reintentar",
+      "allTimeCounts": "Totales históricos por evento",
+      "limited": "Solo se muestran los últimos {count} eventos. Los anteriores se incluyen en los totales históricos.",
+      "latestGuestContact": "Último contacto de compra como invitado",
+      "guestContactSource": "Datos proporcionados al comprar como invitado; la identidad no está verificada.",
+      "email": "Correo electrónico",
+      "fullName": "Nombre completo",
+      "notifications": "Notificaciones",
+      "unknown": "Sin información"
+    },
     "cartItems": {
       "title": "Productos en el carrito",
       "view": "Ver productos del carrito",

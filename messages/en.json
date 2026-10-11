@@ -969,6 +969,22 @@
   },
   "CustomerList": {
     "title": "Customers",
+    "visitorActivity": {
+      "title": "Visitor activity",
+      "view": "View visitor activity",
+      "viewVisitor": "View {count, plural, one {# event} other {# events}} for visitor {visitor}",
+      "loading": "Loading visitor activity...",
+      "failed": "Visitor activity could not be loaded.",
+      "retry": "Try again",
+      "allTimeCounts": "All-time event counts",
+      "limited": "Only the latest {count} events are shown. Earlier events are included in all-time counts.",
+      "latestGuestContact": "Latest guest checkout contact",
+      "guestContactSource": "Provided during guest checkout; identity is not verified.",
+      "email": "Email",
+      "fullName": "Full name",
+      "notifications": "Notifications",
+      "unknown": "Not available"
+    },
     "cartItems": {
       "title": "Cart items",
       "view": "View cart items",
