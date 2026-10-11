@@ -344,7 +344,7 @@ export function MainContentWrapper({ children }: { children: React.ReactNode }) 
   return (
     <div
       className={clsx(
-        'flex flex-col sm:gap-4 sm:py-4 transition-all duration-200',
+        'flex min-w-0 w-full max-w-full flex-col sm:gap-4 sm:py-4 transition-all duration-200',
         isPinned ? 'sm:pl-64' : 'sm:pl-14',
       )}
     >

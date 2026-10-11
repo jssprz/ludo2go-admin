@@ -11,19 +11,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogTrigger
 } from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from '@/components/ui/select';
 import { Plus, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 export function CreateCustomerDialog() {
+  const translate = useTranslations('CustomerList');
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,16 +37,13 @@ export function CreateCustomerDialog() {
     lastName: '',
     phone: '',
     username: '',
-    preferredLanguage: '',
+    preferredLanguage: ''
   });
 
-  function handleChange(
-    field: keyof typeof formData,
-    value: string
-  ) {
+  function handleChange(field: keyof typeof formData, value: string) {
     setFormData((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: value
     }));
   }
 
@@ -63,13 +62,15 @@ export function CreateCustomerDialog() {
           lastName: formData.lastName || null,
           phone: formData.phone || null,
           username: formData.username || null,
-          preferredLanguage: formData.preferredLanguage || null,
-        }),
+          preferredLanguage: formData.preferredLanguage || null
+        })
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.message || 'Failed to create customer');
+        setError(
+          translate(res.status === 409 ? 'create.duplicate' : 'create.failed')
+        );
+        return;
       }
 
       setFormData({
@@ -78,13 +79,13 @@ export function CreateCustomerDialog() {
         lastName: '',
         phone: '',
         username: '',
-        preferredLanguage: '',
+        preferredLanguage: ''
       });
 
       setOpen(false);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create customer');
+    } catch {
+      setError(translate('create.failed'));
     } finally {
       setIsLoading(false);
     }
@@ -95,20 +96,23 @@ export function CreateCustomerDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          New Customer
+          {translate('newCustomer')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Customer</DialogTitle>
+          <DialogTitle>{translate('create.title')}</DialogTitle>
           <DialogDescription>
-            Add a new customer account to the system.
+            {translate('create.description')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
+            <div
+              role="alert"
+              className="p-3 rounded-md bg-destructive/10 text-destructive text-sm"
+            >
               {error}
             </div>
           )}
@@ -116,12 +120,12 @@ export function CreateCustomerDialog() {
           <div className="grid gap-4">
             <div className="space-y-2">
               <Label htmlFor="email">
-                Email <span className="text-red-500">*</span>
+                {translate('create.email')}{' '}
+                <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="customer@example.com"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 required
@@ -131,10 +135,11 @@ export function CreateCustomerDialog() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstName">
+                  {translate('create.firstName')}
+                </Label>
                 <Input
                   id="firstName"
-                  placeholder="John"
                   value={formData.firstName}
                   onChange={(e) => handleChange('firstName', e.target.value)}
                   disabled={isLoading}
@@ -142,10 +147,9 @@ export function CreateCustomerDialog() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastName">{translate('create.lastName')}</Label>
                 <Input
                   id="lastName"
-                  placeholder="Doe"
                   value={formData.lastName}
                   onChange={(e) => handleChange('lastName', e.target.value)}
                   disabled={isLoading}
@@ -154,7 +158,7 @@ export function CreateCustomerDialog() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{translate('create.phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -166,10 +170,9 @@ export function CreateCustomerDialog() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{translate('create.username')}</Label>
               <Input
                 id="username"
-                placeholder="johndoe"
                 value={formData.username}
                 onChange={(e) => handleChange('username', e.target.value)}
                 disabled={isLoading}
@@ -177,18 +180,26 @@ export function CreateCustomerDialog() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="language">Preferred Language</Label>
+              <Label htmlFor="language">{translate('create.language')}</Label>
               <Select
                 value={formData.preferredLanguage}
-                onValueChange={(value) => handleChange('preferredLanguage', value)}
+                onValueChange={(value) =>
+                  handleChange('preferredLanguage', value)
+                }
                 disabled={isLoading}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select language" />
+                <SelectTrigger id="language">
+                  <SelectValue
+                    placeholder={translate('create.chooseLanguage')}
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="en">
+                    {translate('create.english')}
+                  </SelectItem>
+                  <SelectItem value="es">
+                    {translate('create.spanish')}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -201,16 +212,16 @@ export function CreateCustomerDialog() {
               onClick={() => setOpen(false)}
               disabled={isLoading}
             >
-              Cancel
+              {translate('create.cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  {translate('create.creating')}
                 </>
               ) : (
-                'Create Customer'
+                translate('create.submit')
               )}
             </Button>
           </DialogFooter>

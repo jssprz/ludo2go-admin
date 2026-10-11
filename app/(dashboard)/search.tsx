@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/icons';
 import { Search } from 'lucide-react';
@@ -10,6 +10,7 @@ export function SearchInput() {
   const router = useRouter();
   const currentParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const pathname = usePathname();
 
   function searchAction(formData: FormData) {
     let value = formData.get('q') as string;
@@ -22,8 +23,10 @@ export function SearchInput() {
     });
   }
 
+  if (pathname.startsWith('/customers')) return <div className="min-w-0 flex-1" />;
+
   return (
-    <form action={searchAction} className="relative ml-auto flex-1 md:grow-0">
+    <form action={searchAction} className="relative ml-auto min-w-0 flex-1 md:grow-0">
       <Search className="absolute left-2.5 top-[.75rem] h-4 w-4 text-muted-foreground" />
       <Input
         name="q"

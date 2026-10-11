@@ -1,248 +1,241 @@
 import { prisma } from '@jssprz/ludo2go-database';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
+import { auth } from '@/lib/auth';
+import { computeCustomerProfileMetrics } from '@/lib/customer-profile-metrics';
+import { profileEventReference } from '@/lib/customer-profile-events';
 import { Customer360 } from './customer-360';
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+type Context = { params: Promise<{ id: string }> };
+
+export async function generateMetadata({ params }: Context) {
+  const translate = await getTranslations('CustomerProfile');
+  const fallback = translate('title');
+  const session = await auth();
+  if (
+    !session?.user?.id ||
+    !(await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true }
+    }))
+  )
+    return { title: fallback };
   const { id } = await params;
-  const c = await prisma.customer.findUnique({
+  const customer = await prisma.customer.findUnique({
     where: { id },
-    select: { firstName: true, lastName: true, email: true },
+    select: { firstName: true, lastName: true }
   });
-  if (!c) return { title: 'Cliente' };
-  const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email;
-  return { title: name };
+  return {
+    title: customer
+      ? [customer.firstName, customer.lastName].filter(Boolean).join(' ') ||
+        fallback
+      : fallback
+  };
 }
 
-// ─── Metric helpers ──────────────────────────────────────────────────────────
-
-type Order = {
-  id: string;
-  status: string;
-  total: number;
-  currency: string;
-  createdAt: Date;
-  items: Array<{
-    quantity: number;
-    unitPrice: number;
-    variant: { sku: string; product: { name: string } };
-  }>;
-};
-
-function computeMetrics(orders: Order[]) {
-  const completed = orders.filter((o) =>
-    ['delivered', 'shipped', 'processing', 'confirmed'].includes(o.status),
-  );
-
-  const ltv = completed.reduce((s, o) => s + o.total, 0);
-  const orderCount = completed.length;
-  const aov = orderCount > 0 ? Math.round(ltv / orderCount) : 0;
-
-  const sorted = [...completed].sort((a, b) => +a.createdAt - +b.createdAt);
-  let avgDaysBetween: number | null = null;
-  if (sorted.length >= 2) {
-    const gaps: number[] = [];
-    for (let i = 1; i < sorted.length; i++) {
-      const diff = (+sorted[i].createdAt - +sorted[i - 1].createdAt) / 86_400_000;
-      gaps.push(diff);
-    }
-    avgDaysBetween = Math.round(gaps.reduce((s, d) => s + d, 0) / gaps.length);
-  }
-
-  const lastOrder = sorted[sorted.length - 1] ?? null;
-  const firstOrder = sorted[0] ?? null;
-  const daysSinceLast = lastOrder
-    ? Math.round((Date.now() - +lastOrder.createdAt) / 86_400_000)
-    : null;
-
-  return { ltv, orderCount, aov, avgDaysBetween, lastOrder, firstOrder, daysSinceLast };
+function propertyString(properties: unknown, key: string): string | null {
+  if (
+    !properties ||
+    typeof properties !== 'object' ||
+    Array.isArray(properties)
+  )
+    return null;
+  const value = (properties as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : null;
 }
 
-// ─── RFM segment ─────────────────────────────────────────────────────────────
-
-type ChurnRisk = 'low' | 'medium' | 'high';
-type Segment =
-  | 'champion'
-  | 'loyal'
-  | 'potential'
-  | 'new'
-  | 'at_risk'
-  | 'hibernating'
-  | 'inactive'
-  | 'unknown';
-
-const SEGMENT_LABELS: Record<Segment, { label: string; color: string }> = {
-  champion:    { label: 'Campeón',          color: 'bg-emerald-100 text-emerald-800' },
-  loyal:       { label: 'Leal',             color: 'bg-blue-100 text-blue-800' },
-  potential:   { label: 'Potencial',        color: 'bg-indigo-100 text-indigo-800' },
-  new:         { label: 'Nuevo',            color: 'bg-violet-100 text-violet-800' },
-  at_risk:     { label: 'En riesgo',        color: 'bg-amber-100 text-amber-800' },
-  hibernating: { label: 'Hibernando',       color: 'bg-orange-100 text-orange-800' },
-  inactive:    { label: 'Inactivo',         color: 'bg-red-100 text-red-800' },
-  unknown:     { label: 'Sin compras',      color: 'bg-gray-100 text-gray-600' },
-};
-
-function computeSegment(
-  orderCount: number,
-  daysSinceLast: number | null,
-  avgDaysBetween: number | null,
-): Segment {
-  if (orderCount === 0 || daysSinceLast === null) return 'unknown';
-  if (orderCount === 1 && daysSinceLast <= 30) return 'new';
-  if (daysSinceLast > 300) return 'inactive';
-  if (daysSinceLast > 120) return 'hibernating';
-  if (orderCount >= 5 && daysSinceLast <= 60) return 'champion';
-  if (orderCount >= 3 && daysSinceLast <= 90) return 'loyal';
-  if (orderCount >= 2 && daysSinceLast <= 60) return 'potential';
-  // Was buying regularly but hasn't recently
-  if (avgDaysBetween !== null && daysSinceLast > avgDaysBetween * 2.5) return 'at_risk';
-  return 'potential';
-}
-
-function computeChurnRisk(
-  orderCount: number,
-  daysSinceLast: number | null,
-  avgDaysBetween: number | null,
-): ChurnRisk {
-  if (orderCount === 0 || daysSinceLast === null) return 'low';
-  if (daysSinceLast > 300) return 'high';
-  if (daysSinceLast > 150) return 'high';
-  if (daysSinceLast > 90) return 'medium';
-  if (avgDaysBetween !== null && daysSinceLast > avgDaysBetween * 2) return 'medium';
-  return 'low';
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────────
-
-export default async function Customer360Page({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function Customer360Page({ params }: Context) {
+  const session = await auth();
+  if (!session?.user?.id) redirect('/login');
+  if (
+    !(await prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true }
+    }))
+  )
+    redirect('/login');
   const { id } = await params;
-
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
       orders: {
-        where: { status: { not: 'cancelled' } },
         orderBy: { createdAt: 'desc' },
         include: {
+          payments: { select: { status: true, amount: true, currency: true } },
           items: {
             include: {
-              variant: { select: { sku: true, product: { select: { name: true } } } },
-            },
-          },
-        },
+              variant: {
+                select: { sku: true, product: { select: { name: true } } }
+              }
+            }
+          }
+        }
       },
       reviews: {
         orderBy: { createdAt: 'desc' },
         take: 10,
         include: {
-          variant: { select: { sku: true, product: { select: { name: true } } } },
-        },
+          variant: {
+            select: { sku: true, product: { select: { name: true } } }
+          }
+        }
       },
       addresses: true,
       events: {
-        orderBy: { occurredAt: 'desc' },
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
         take: 300,
-        select: { eventType: true, occurredAt: true, pagePath: true },
+        select: {
+          id: true,
+          eventType: true,
+          occurredAt: true,
+          pagePath: true,
+          sessionId: true,
+          properties: true
+        }
       },
       carts: {
         where: { status: 'active' },
+        orderBy: { updatedAt: 'desc' },
         take: 1,
-        include: {
-          items: { select: { quantity: true, unitPriceAtAdd: true } },
-        },
+        include: { items: { select: { quantity: true } } }
       },
-      wishlist: { include: { _count: { select: { items: true } } } },
-    },
+      wishlist: { include: { _count: { select: { items: true } } } }
+    }
   });
-
   if (!customer) notFound();
 
-  const orders = customer.orders as Order[];
-  const { ltv, orderCount, aov, avgDaysBetween, lastOrder, firstOrder, daysSinceLast } =
-    computeMetrics(orders);
+  const currencies = Array.from(
+    new Set(customer.orders.map((order) => order.currency))
+  ).sort();
+  const currency = currencies.includes(customer.preferredCurrency ?? '')
+    ? customer.preferredCurrency!
+    : currencies.includes('CLP') || currencies.length === 0
+      ? 'CLP'
+      : currencies[0];
+  const now = new Date();
+  const metricsByCurrency = Object.fromEntries(
+    Array.from(new Set([currency, ...currencies])).map((unit) => {
+      const metrics = computeCustomerProfileMetrics(customer.orders, unit, now);
+      return [
+        unit,
+        {
+          ltv: metrics.ltv,
+          aov: metrics.aov,
+          orderCount: metrics.orderCount,
+          avgDaysBetween: metrics.avgDaysBetween,
+          daysSinceLast: metrics.daysSinceLast,
+          firstOrderDate: metrics.firstOrder?.createdAt.toISOString() ?? null,
+          lastOrderDate: metrics.lastOrder?.createdAt.toISOString() ?? null
+        }
+      ];
+    })
+  );
 
-  const segment = computeSegment(orderCount, daysSinceLast, avgDaysBetween);
-  const churnRisk = computeChurnRisk(orderCount, daysSinceLast, avgDaysBetween);
-  const segmentMeta = SEGMENT_LABELS[segment];
-
-  // Event aggregates
-  const eventCounts: Record<string, number> = {};
-  for (const ev of customer.events) {
-    eventCounts[ev.eventType] = (eventCounts[ev.eventType] ?? 0) + 1;
-  }
-
-  const activeCart = customer.carts[0] ?? null;
-  const cartTotal = activeCart
-    ? activeCart.items.reduce((s, i) => s + i.quantity * (i.unitPriceAtAdd ?? 0), 0)
-    : 0;
-  const cartItemCount = activeCart
-    ? activeCart.items.reduce((s, i) => s + i.quantity, 0)
-    : 0;
-
-  // Serialize dates → strings for client component
+  const productIds = Array.from(
+    new Set(
+      customer.events
+        .map((event) => propertyString(event.properties, 'productId'))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const variantIds = Array.from(
+    new Set(
+      customer.events
+        .map((event) => propertyString(event.properties, 'variantId'))
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  const [products, variants] = await Promise.all([
+    productIds.length
+      ? prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, name: true }
+        })
+      : [],
+    variantIds.length
+      ? prisma.productVariant.findMany({
+          where: { id: { in: variantIds } },
+          select: { id: true, sku: true, product: { select: { name: true } } }
+        })
+      : []
+  ]);
+  const productNames = new Map(
+    products.map((product) => [product.id, product.name])
+  );
+  const variantNames = new Map(
+    variants.map((variant) => [
+      variant.id,
+      `${variant.product.name} (${variant.sku})`
+    ])
+  );
+  const orderIds = new Set(customer.orders.map((order) => order.id));
+  const activeCart = customer.carts[0];
   const serialized = {
     id: customer.id,
     email: customer.email,
     firstName: customer.firstName,
     lastName: customer.lastName,
-    username: customer.username,
     phone: customer.phone,
-    avatar: customer.avatar,
     newsletter: customer.newsletter,
-    notifications: customer.notifications,
     preferredLanguage: customer.preferredLanguage,
     preferredCurrency: customer.preferredCurrency,
     favoriteGameCategories: customer.favoriteGameCategories,
     createdAt: customer.createdAt.toISOString(),
-    addresses: customer.addresses,
-    orders: orders.map((o) => ({
-      id: o.id,
-      status: o.status,
-      total: o.total,
-      currency: o.currency,
-      createdAt: o.createdAt.toISOString(),
-      itemCount: o.items.reduce((s, i) => s + i.quantity, 0),
-      items: o.items.map((i) => ({
-        sku: i.variant.sku,
-        name: i.variant.product.name,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-      })),
+    addresses: customer.addresses.map((address) => ({
+      id: address.id,
+      label: address.label,
+      line1: address.line1,
+      line2: address.line2,
+      city: address.city,
+      region: address.region,
+      country: address.country
     })),
-    reviews: customer.reviews.map((r) => ({
-      id: r.id,
-      rating: r.rating,
-      title: r.title,
-      comment: r.comment,
-      createdAt: r.createdAt.toISOString(),
-      productName: r.variant.product.name,
-      sku: r.variant.sku,
+    orders: customer.orders.map((order) => ({
+      id: order.id,
+      status: order.status,
+      total: order.total,
+      currency: order.currency,
+      createdAt: order.createdAt.toISOString(),
+      itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0)
     })),
-    recentEvents: customer.events.slice(0, 50).map((e) => ({
-      eventType: e.eventType,
-      occurredAt: e.occurredAt.toISOString(),
-      pagePath: e.pagePath,
+    reviews: customer.reviews.map((review) => ({
+      id: review.id,
+      rating: review.rating,
+      title: review.title,
+      comment: review.comment,
+      createdAt: review.createdAt.toISOString(),
+      productName: review.variant.product.name,
+      sku: review.variant.sku
     })),
-    eventCounts,
+    recentEvents: customer.events.map((event) => {
+      const orderId = propertyString(event.properties, 'orderId');
+      const name =
+        variantNames.get(propertyString(event.properties, 'variantId') ?? '') ??
+        productNames.get(propertyString(event.properties, 'productId') ?? '');
+      const reference = name
+        ? { kind: 'name', value: name }
+        : orderId && orderIds.has(orderId)
+          ? { kind: 'order', value: orderId }
+          : profileEventReference(event.properties);
+      return {
+        id: event.id,
+        eventType: event.eventType,
+        occurredAt: event.occurredAt.toISOString(),
+        pagePath: event.pagePath,
+        sessionId: event.sessionId,
+        reference
+      };
+    }),
     wishlistCount: customer.wishlist?._count.items ?? 0,
-    cartTotal,
-    cartItemCount,
-    cartCurrency: 'CLP',
+    cartItemCount:
+      activeCart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0
   };
-
   return (
     <Customer360
+      key={customer.id}
       customer={serialized}
-      metrics={{ ltv, orderCount, aov, avgDaysBetween, daysSinceLast }}
-      firstOrderDate={firstOrder?.createdAt?.toISOString() ?? null}
-      lastOrderDate={lastOrder?.createdAt?.toISOString() ?? null}
-      segment={segment}
-      segmentLabel={segmentMeta.label}
-      segmentColor={segmentMeta.color}
-      churnRisk={churnRisk}
+      metricsByCurrency={metricsByCurrency}
+      initialCurrency={currency}
     />
   );
 }

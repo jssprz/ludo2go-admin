@@ -2,12 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Star, ShoppingBag, Heart, ShoppingCart, Mail, Phone, MapPin, Globe, Tag, StickyNote, X, Plus, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
+import {
+  ArrowLeft,
+  Star,
+  Mail,
+  Phone,
+  Globe,
+  MapPin,
+  TrendingUp,
+  X
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -15,22 +23,38 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
+  TableRow
 } from '@/components/ui/table';
+import { useTimeZone } from '@/components/timezone-provider';
+import {
+  computeProfileChurnRisk,
+  computeProfileSegment
+} from '@/lib/customer-profile-metrics';
+import {
+  PROFILE_EVENT_CATEGORIES,
+  normalizeProfileEvent,
+  groupProfileSessions,
+  type ProfileEventCategory
+} from '@/lib/customer-profile-events';
+import { CustomerNotes } from './customer-notes';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
+type Metrics = {
+  ltv: number;
+  aov: number;
+  orderCount: number;
+  avgDaysBetween: number | null;
+  daysSinceLast: number | null;
+  firstOrderDate: string | null;
+  lastOrderDate: string | null;
+};
 type Props = {
   customer: {
     id: string;
     email: string;
     firstName: string | null;
     lastName: string | null;
-    username: string | null;
     phone: string | null;
-    avatar: string | null;
     newsletter: boolean | null;
-    notifications: boolean | null;
     preferredLanguage: string | null;
     preferredCurrency: string | null;
     favoriteGameCategories: string[];
@@ -51,7 +75,6 @@ type Props = {
       currency: string;
       createdAt: string;
       itemCount: number;
-      items: Array<{ sku: string; name: string; quantity: number; unitPrice: number }>;
     }>;
     reviews: Array<{
       id: string;
@@ -62,535 +85,632 @@ type Props = {
       productName: string;
       sku: string;
     }>;
-    recentEvents: Array<{ eventType: string; occurredAt: string; pagePath: string | null }>;
-    eventCounts: Record<string, number>;
+    recentEvents: Array<{
+      id: string;
+      eventType: string;
+      occurredAt: string;
+      pagePath: string | null;
+      sessionId: string;
+      reference: { kind: string; value: string } | null;
+    }>;
     wishlistCount: number;
-    cartTotal: number;
     cartItemCount: number;
-    cartCurrency: string;
   };
-  metrics: {
-    ltv: number;
-    orderCount: number;
-    aov: number;
-    avgDaysBetween: number | null;
-    daysSinceLast: number | null;
-  };
-  firstOrderDate: string | null;
-  lastOrderDate: string | null;
-  segment: string;
-  segmentLabel: string;
-  segmentColor: string;
-  churnRisk: 'low' | 'medium' | 'high';
+  metricsByCurrency: Record<string, Metrics>;
+  initialCurrency: string;
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function fmt(n: number, currency = 'CLP') {
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
-}
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function fmtRelative(iso: string) {
-  const diff = (Date.now() - new Date(iso).getTime()) / 86_400_000;
-  if (diff < 1) return 'hoy';
-  if (diff < 2) return 'ayer';
-  if (diff < 7) return `hace ${Math.floor(diff)} días`;
-  if (diff < 30) return `hace ${Math.floor(diff / 7)} sem.`;
-  if (diff < 365) return `hace ${Math.floor(diff / 30)} meses`;
-  return `hace ${Math.floor(diff / 365)} años`;
-}
-
-const ORDER_STATUS_COLORS: Record<string, string> = {
-  pending:    'bg-yellow-100 text-yellow-800',
-  confirmed:  'bg-blue-100 text-blue-800',
-  processing: 'bg-purple-100 text-purple-800',
-  shipped:    'bg-indigo-100 text-indigo-800',
-  delivered:  'bg-emerald-100 text-emerald-800',
-  cancelled:  'bg-red-100 text-red-800',
+const SEGMENT_COLORS: Record<string, string> = {
+  champion: 'bg-emerald-100 text-emerald-800',
+  loyal: 'bg-blue-100 text-blue-800',
+  potential: 'bg-cyan-100 text-cyan-800',
+  new: 'bg-teal-100 text-teal-800',
+  at_risk: 'bg-amber-100 text-amber-800',
+  hibernating: 'bg-orange-100 text-orange-800',
+  inactive: 'bg-red-100 text-red-800',
+  unknown: 'bg-gray-100 text-gray-600'
 };
-
-const ORDER_STATUS_ES: Record<string, string> = {
-  pending:    'Pendiente',
-  confirmed:  'Confirmado',
-  processing: 'En proceso',
-  shipped:    'Enviado',
-  delivered:  'Entregado',
-  cancelled:  'Cancelado',
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  processing: 'bg-cyan-100 text-cyan-800',
+  shipped: 'bg-indigo-100 text-indigo-800',
+  delivered: 'bg-emerald-100 text-emerald-800',
+  cancelled: 'bg-red-100 text-red-800'
 };
-
-const EVENT_LABELS: Record<string, string> = {
-  page_view:           'Vista de página',
-  product_view:        'Vio producto',
-  add_to_cart:         'Agregó al carro',
-  purchase:            'Compra',
-  search_performed:    'Búsqueda',
-  begin_checkout:      'Inició checkout',
-  login:               'Inicio de sesión',
-  signup:              'Registro',
-  match_tool_start:    'Usó Match Tool',
-};
-
-const CHURN_CONFIG = {
-  low:    { label: 'Bajo', color: 'text-emerald-600', Icon: CheckCircle },
-  medium: { label: 'Medio', color: 'text-amber-600',  Icon: AlertTriangle },
-  high:   { label: 'Alto',  color: 'text-red-600',    Icon: TrendingDown },
-};
-
-// ─── LocalStorage helpers ─────────────────────────────────────────────────────
-
-function useLocalNotes(customerId: string) {
-  const key = `customer-notes-${customerId}`;
-  const [notes, setNotes] = useState('');
-  useEffect(() => {
-    setNotes(localStorage.getItem(key) ?? '');
-  }, [key]);
-  function save(val: string) {
-    setNotes(val);
-    localStorage.setItem(key, val);
-  }
-  return { notes, save };
-}
 
 function useLocalTags(customerId: string) {
   const key = `customer-tags-${customerId}`;
   const [tags, setTags] = useState<string[]>([]);
   useEffect(() => {
     try {
-      setTags(JSON.parse(localStorage.getItem(key) ?? '[]'));
+      const stored = JSON.parse(localStorage.getItem(key) ?? '[]');
+      setTags(
+        Array.isArray(stored)
+          ? stored.filter((tag): tag is string => typeof tag === 'string')
+          : []
+      );
     } catch {
       setTags([]);
     }
   }, [key]);
-  function addTag(tag: string) {
-    const next = Array.from(new Set([...tags, tag.trim()])).filter(Boolean);
+  function save(next: string[]) {
+    try {
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch {}
     setTags(next);
-    localStorage.setItem(key, JSON.stringify(next));
   }
-  function removeTag(tag: string) {
-    const next = tags.filter((t) => t !== tag);
-    setTags(next);
-    localStorage.setItem(key, JSON.stringify(next));
-  }
-  return { tags, addTag, removeTag };
+  return {
+    tags,
+    add: (tag: string) =>
+      save(Array.from(new Set([...tags, tag.trim()])).filter(Boolean)),
+    remove: (tag: string) => save(tags.filter((value) => value !== tag))
+  };
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function KpiCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Kpi({
+  label,
+  value,
+  sub
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
   return (
-    <Card>
-      <CardContent className="pt-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold mt-0.5">{value}</p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
-      </CardContent>
-    </Card>
+    <div className="min-w-0 border-l pl-3 py-1">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-semibold break-words mt-1">{value}</p>
+      {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+    </div>
   );
 }
 
-function StarRating({ rating }: { rating: number }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <span className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <Star
-          key={n}
-          className={`h-3.5 w-3.5 ${n <= rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`}
-        />
-      ))}
-    </span>
+    <div className="flex justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right break-words min-w-0">
+        {value}
+      </span>
+    </div>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
-export function Customer360({ customer, metrics, firstOrderDate, lastOrderDate, segment, segmentLabel, segmentColor, churnRisk }: Props) {
-  const { notes, save: saveNotes } = useLocalNotes(customer.id);
-  const { tags, addTag, removeTag } = useLocalTags(customer.id);
+export function Customer360({
+  customer,
+  metricsByCurrency,
+  initialCurrency
+}: Props) {
+  const translate = useTranslations('CustomerProfile');
+  const locale = useLocale();
+  const { timeZone } = useTimeZone();
+  const [currency, setCurrency] = useState(initialCurrency);
+  const [category, setCategory] = useState<ProfileEventCategory>('all');
+  const { tags, add, remove } = useLocalTags(customer.id);
   const [tagInput, setTagInput] = useState('');
-
-  const fullName = [customer.firstName, customer.lastName].filter(Boolean).join(' ') || '—';
-  const initials = [customer.firstName?.[0], customer.lastName?.[0]].filter(Boolean).join('').toUpperCase() || customer.email[0].toUpperCase();
-  const churn = CHURN_CONFIG[churnRisk];
-  const ChurnIcon = churn.Icon;
-
-  function handleAddTag(e: React.FormEvent) {
-    e.preventDefault();
-    if (tagInput.trim()) { addTag(tagInput); setTagInput(''); }
+  const metrics =
+    metricsByCurrency[currency] ?? metricsByCurrency[initialCurrency];
+  const segment = computeProfileSegment(
+    metrics.orderCount,
+    metrics.daysSinceLast,
+    metrics.avgDaysBetween
+  );
+  const churn = computeProfileChurnRisk(
+    metrics.orderCount,
+    metrics.daysSinceLast,
+    metrics.avgDaysBetween
+  );
+  const fullName =
+    [customer.firstName, customer.lastName].filter(Boolean).join(' ') ||
+    customer.email;
+  const initials =
+    [customer.firstName?.[0], customer.lastName?.[0]]
+      .filter(Boolean)
+      .join('')
+      .toUpperCase() || customer.email[0].toUpperCase();
+  const unknown = translate('unknown');
+  function money(amount: number, unit = currency) {
+    return new Intl.NumberFormat(locale === 'es' ? 'es-CL' : 'en-US', {
+      style: 'currency',
+      currency: unit,
+      maximumFractionDigits: unit === 'CLP' ? 0 : 2
+    }).format(amount);
   }
+  function date(iso: string, exact = false) {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      ...(exact ? { timeStyle: 'long' as const } : {}),
+      timeZone
+    }).format(new Date(iso));
+  }
+  function days(value: number | null) {
+    return value === null
+      ? unknown
+      : translate('dayCount', { count: Math.round(value) });
+  }
+  const sessions = groupProfileSessions(customer.recentEvents);
+  const visibleSessions = sessions
+    .map((session, index) => ({
+      ...session,
+      number: index + 1,
+      events: session.events.filter(
+        (event) =>
+          category === 'all' ||
+          normalizeProfileEvent(event.eventType).category === category
+      )
+    }))
+    .filter((session) => session.events.length > 0);
 
   return (
     <div className="space-y-6">
-      {/* ── Header ── */}
-      <div className="flex items-start gap-4">
+      <header className="flex flex-wrap items-start gap-4">
         <Button asChild variant="outline" size="sm">
-          <Link href="/customers"><ArrowLeft className="h-4 w-4 mr-1.5" />Clientes</Link>
+          <Link href="/customers">
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            {translate('customers')}
+          </Link>
         </Button>
-        <div className="flex flex-1 items-start gap-4 min-w-0">
-          {/* Avatar */}
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-bold">
+        <div className="flex flex-1 min-w-0 gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
             {initials}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight truncate">{fullName}</h1>
-              <Badge className={segmentColor}>{segmentLabel}</Badge>
-              <span className={`flex items-center gap-1 text-sm font-medium ${churn.color}`}>
-                <ChurnIcon className="h-4 w-4" />
-                Riesgo de abandono: {churn.label}
+              <h1 className="text-2xl font-bold break-words">{fullName}</h1>
+              <Badge className={SEGMENT_COLORS[segment]}>
+                {translate(`segments.${segment}`)}
+              </Badge>
+            </div>
+            <p className="text-sm">
+              {translate('churnTitle')}:{' '}
+              <span className="font-medium">{translate(`churn.${churn}`)}</span>
+            </p>
+            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1 break-all">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                {customer.email}
+              </span>
+              {customer.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3.5 w-3.5" />
+                  {customer.phone}
+                </span>
+              )}
+              <span>
+                {translate('since', { date: date(customer.createdAt) })}
               </span>
             </div>
-            <div className="flex flex-wrap gap-3 mt-1 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{customer.email}</span>
-              {customer.phone && <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{customer.phone}</span>}
-              <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Cliente desde {fmtDate(customer.createdAt)}</span>
-            </div>
-            {/* Tags */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div
+              className="flex flex-wrap gap-1.5"
+              aria-label={translate('tags.local')}
+            >
               {tags.map((tag) => (
-                <span key={tag} className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-xs break-all"
+                >
                   {tag}
-                  <button onClick={() => removeTag(tag)} aria-label={`Quitar etiqueta ${tag}`}>
-                    <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                  <button
+                    title={translate('tags.remove', { tag })}
+                    aria-label={translate('tags.remove', { tag })}
+                    onClick={() => remove(tag)}
+                  >
+                    <X className="h-3 w-3" />
                   </button>
                 </span>
               ))}
-              <form onSubmit={handleAddTag} className="flex items-center gap-1">
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (tagInput.trim()) {
+                    add(tagInput);
+                    setTagInput('');
+                  }
+                }}
+              >
                 <Input
                   value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  placeholder="+ etiqueta"
-                  className="h-6 w-28 text-xs px-2 rounded-full border-dashed"
-                  aria-label="Nueva etiqueta"
+                  onChange={(event) => setTagInput(event.target.value)}
+                  placeholder={translate('tags.placeholder')}
+                  aria-label={translate('tags.new')}
+                  maxLength={80}
+                  className="h-7 w-32 text-xs"
                 />
               </form>
             </div>
           </div>
         </div>
+      </header>
+
+      <div className="space-y-3 border-y py-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {translate('currencyScope', { currency })}
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            {translate('currency')}
+            <select
+              className="h-8 rounded border bg-background px-2"
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value)}
+            >
+              {Object.keys(metricsByCurrency).map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+          <Kpi
+            label={translate('ltv')}
+            value={money(metrics.ltv)}
+            sub={translate('completed')}
+          />
+          <Kpi
+            label={translate('aov')}
+            value={money(metrics.aov)}
+            sub={translate('perOrder')}
+          />
+          <Kpi
+            label={translate('orders')}
+            value={String(metrics.orderCount)}
+            sub={translate('orderCount', { count: metrics.orderCount })}
+          />
+          <Kpi
+            label={translate('frequency')}
+            value={days(metrics.avgDaysBetween)}
+            sub={translate('betweenOrders')}
+          />
+          <Kpi
+            label={translate('lastOrder')}
+            value={days(metrics.daysSinceLast)}
+            sub={
+              metrics.lastOrderDate ? date(metrics.lastOrderDate) : undefined
+            }
+          />
+          <Kpi
+            label={translate('cart')}
+            value={translate('itemCount', { count: customer.cartItemCount })}
+          />
+        </div>
       </div>
 
-      {/* ── KPI Row ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard label="LTV" value={fmt(metrics.ltv)} sub="pedidos completados" />
-        <KpiCard label="AOV" value={fmt(metrics.aov)} sub="por pedido" />
-        <KpiCard label="Pedidos" value={String(metrics.orderCount)} sub={firstOrderDate ? `desde ${fmtDate(firstOrderDate)}` : undefined} />
-        <KpiCard
-          label="Frecuencia"
-          value={metrics.avgDaysBetween !== null ? `${metrics.avgDaysBetween}d` : '—'}
-          sub="días entre pedidos"
-        />
-        <KpiCard
-          label="Último pedido"
-          value={lastOrderDate ? fmtRelative(lastOrderDate) : '—'}
-          sub={lastOrderDate ? fmtDate(lastOrderDate) : undefined}
-        />
-        <KpiCard
-          label="Carrito activo"
-          value={customer.cartItemCount > 0 ? fmt(customer.cartTotal, customer.cartCurrency) : '—'}
-          sub={customer.cartItemCount > 0 ? `${customer.cartItemCount} ítem(s)` : 'vacío'}
-        />
-      </div>
-
-      {/* ── Body ── */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: 2 cols */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="min-w-0 lg:col-span-2">
           <Tabs defaultValue="orders">
-            <TabsList>
+            <TabsList className="max-w-full">
               <TabsTrigger value="orders">
-                Pedidos <Badge variant="secondary" className="ml-1.5 text-xs">{metrics.orderCount}</Badge>
+                {translate('orders')}{' '}
+                <Badge variant="secondary" className="ml-1">
+                  {customer.orders.length}
+                </Badge>
               </TabsTrigger>
-              <TabsTrigger value="activity">Actividad</TabsTrigger>
-              {customer.reviews.length > 0 && (
-                <TabsTrigger value="reviews">
-                  Reseñas <Badge variant="secondary" className="ml-1.5 text-xs">{customer.reviews.length}</Badge>
-                </TabsTrigger>
-              )}
+              <TabsTrigger value="activity">
+                {translate('activity')}
+              </TabsTrigger>
+              <TabsTrigger value="reviews">{translate('reviews')}</TabsTrigger>
             </TabsList>
-
-            {/* Orders tab */}
             <TabsContent value="orders">
-              <Card>
-                <CardContent className="p-0">
-                  {customer.orders.length === 0 ? (
-                    <p className="py-8 text-center text-muted-foreground text-sm">Sin pedidos aún.</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Estado</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                          <TableHead className="text-right">Ítems</TableHead>
-                          <TableHead>Fecha</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {customer.orders.map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell>
-                              <Link href={`/orders/${order.id}`} className="font-mono text-xs hover:underline text-indigo-700">
-                                #{order.id.slice(0, 8)}
-                              </Link>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={`text-xs ${ORDER_STATUS_COLORS[order.status] ?? ''}`}>
-                                {ORDER_STATUS_ES[order.status] ?? order.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {fmt(order.total, order.currency)}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground text-sm">
-                              {order.itemCount}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {fmtDate(order.createdAt)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
+              {customer.orders.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  {translate('emptyOrders')}
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{translate('id')}</TableHead>
+                      <TableHead>{translate('status')}</TableHead>
+                      <TableHead className="text-right">
+                        {translate('total')}
+                      </TableHead>
+                      <TableHead className="text-right">
+                        {translate('items')}
+                      </TableHead>
+                      <TableHead>{translate('date')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {customer.orders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell>
+                          <Link
+                            href={`/orders/${order.id}`}
+                            className="font-mono text-xs underline-offset-2 hover:underline"
+                            title={order.id}
+                          >
+                            #{order.id.slice(0, 8)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={STATUS_COLORS[order.status]}>
+                            {translate(
+                              `statuses.${STATUS_COLORS[order.status] ? order.status : 'unknown'}`
+                            )}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {money(order.total, order.currency)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {order.itemCount}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {date(order.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </TabsContent>
-
-            {/* Activity tab */}
-            <TabsContent value="activity">
-              <div className="space-y-4">
-                {/* Event summary grid */}
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {[
-                    { key: 'product_view', label: 'Vistas producto', Icon: ShoppingBag },
-                    { key: 'search_performed', label: 'Búsquedas', Icon: TrendingUp },
-                    { key: 'add_to_cart', label: 'Al carro', Icon: ShoppingCart },
-                    { key: 'purchase', label: 'Compras', Icon: CheckCircle },
-                  ].map(({ key, label, Icon }) => (
-                    <Card key={key}>
-                      <CardContent className="pt-3 pb-3">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-xs text-muted-foreground">{label}</p>
-                            <p className="text-xl font-bold">{customer.eventCounts[key] ?? 0}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+            <TabsContent value="activity" className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  'product_view',
+                  'search_performed',
+                  'add_to_cart',
+                  'purchase'
+                ].map((type) => (
+                  <Kpi
+                    key={type}
+                    label={translate(`events.${type}`)}
+                    value={String(
+                      customer.recentEvents.filter(
+                        (event) =>
+                          normalizeProfileEvent(event.eventType).labelKey ===
+                          `events.${type}`
+                      ).length
+                    )}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold">
+                    {translate('timeline')}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {translate('activityWindow', {
+                      count: customer.recentEvents.length
+                    })}
+                  </p>
                 </div>
-
-                {/* Recent events timeline */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Últimos 50 eventos</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="max-h-72 overflow-y-auto">
-                      {customer.recentEvents.length === 0 ? (
-                        <p className="py-6 text-center text-sm text-muted-foreground">Sin eventos registrados.</p>
-                      ) : (
-                        <div className="divide-y">
-                          {customer.recentEvents.map((ev, i) => (
-                            <div key={i} className="flex items-center justify-between px-4 py-2 text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
-                                <span className="font-medium">{EVENT_LABELS[ev.eventType] ?? ev.eventType}</span>
-                                {ev.pagePath && (
-                                  <span className="text-xs text-muted-foreground truncate max-w-40">{ev.pagePath}</span>
+                <select
+                  aria-label={translate('categoryFilter')}
+                  className="h-9 max-w-full rounded border bg-background px-2 text-sm"
+                  value={category}
+                  onChange={(event) =>
+                    setCategory(event.target.value as ProfileEventCategory)
+                  }
+                >
+                  {PROFILE_EVENT_CATEGORIES.map((value) => (
+                    <option key={value} value={value}>
+                      {translate(`categories.${value}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {visibleSessions.length === 0 && (
+                <p className="py-6 text-sm text-muted-foreground">
+                  {translate('emptyEvents')}
+                </p>
+              )}
+              <div className="max-h-[36rem] overflow-y-auto space-y-5">
+                {visibleSessions.map((session) => (
+                  <section key={session.id}>
+                    <h3 className="text-xs font-semibold border-b py-2">
+                      {translate('session', { number: session.number })}
+                    </h3>
+                    <ol className="divide-y">
+                      {session.events.map((event) => (
+                        <li
+                          key={event.id}
+                          className="flex flex-wrap justify-between gap-2 py-3 text-sm"
+                        >
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <p className="font-medium">
+                              {translate(
+                                normalizeProfileEvent(event.eventType).labelKey
+                              )}
+                            </p>
+                            {event.reference ? (
+                              <p className="text-xs text-muted-foreground break-words">
+                                {event.reference.kind === 'order' ? (
+                                  <Link
+                                    href={`/orders/${event.reference.value}`}
+                                    className="underline"
+                                  >
+                                    {translate('orderReference', {
+                                      reference: event.reference.value.slice(
+                                        0,
+                                        8
+                                      )
+                                    })}
+                                  </Link>
+                                ) : event.reference.kind === 'search' ? (
+                                  translate('searchReference', {
+                                    query: event.reference.value
+                                  })
+                                ) : (
+                                  event.reference.value
                                 )}
-                              </div>
-                              <span className="text-xs text-muted-foreground shrink-0">{fmtRelative(ev.occurredAt)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                              </p>
+                            ) : (
+                              event.pagePath && (
+                                <p className="text-xs text-muted-foreground break-all">
+                                  {translate('pageReference', {
+                                    path: event.pagePath.split('?')[0]
+                                  })}
+                                </p>
+                              )
+                            )}
+                          </div>
+                          <time
+                            dateTime={event.occurredAt}
+                            className="text-xs text-muted-foreground shrink-0"
+                          >
+                            {date(event.occurredAt, true)}
+                          </time>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                ))}
               </div>
             </TabsContent>
-
-            {/* Reviews tab */}
-            {customer.reviews.length > 0 && (
-              <TabsContent value="reviews">
-                <Card>
-                  <CardContent className="p-0 divide-y">
-                    {customer.reviews.map((r) => (
-                      <div key={r.id} className="p-4 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-sm">{r.productName}</p>
-                            <p className="text-xs text-muted-foreground">{r.sku}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <StarRating rating={r.rating} />
-                            <span className="text-xs text-muted-foreground">{fmtDate(r.createdAt)}</span>
-                          </div>
-                        </div>
-                        <p className="font-semibold text-sm">{r.title}</p>
-                        <p className="text-sm text-muted-foreground">{r.comment}</p>
+            <TabsContent value="reviews">
+              {customer.reviews.length === 0 && (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  {translate('emptyReviews')}
+                </p>
+              )}
+              <div className="divide-y">
+                {customer.reviews.map((review) => (
+                  <article key={review.id} className="py-4 space-y-1">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {review.productName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {review.sku}
+                        </p>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
+                      <div className="flex gap-2 items-center">
+                        <span
+                          className="flex gap-0.5"
+                          aria-label={`${review.rating}/5`}
+                        >
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <Star
+                              key={value}
+                              aria-hidden
+                              className={`h-3.5 w-3.5 ${value <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`}
+                            />
+                          ))}
+                        </span>
+                        <time dateTime={review.createdAt} className="text-xs">
+                          {date(review.createdAt)}
+                        </time>
+                      </div>
+                    </div>
+                    <p className="font-semibold text-sm break-words">
+                      {review.title}
+                    </p>
+                    <p className="text-sm text-muted-foreground break-words">
+                      {review.comment}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
-
-        {/* Right: sidebar */}
-        <div className="space-y-4">
-          {/* RFM profile */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" /> Perfil RFM
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <RfmBar label="Recencia" value={metrics.daysSinceLast} unit="días" lowerIsBetter />
-              <RfmBar label="Frecuencia" value={metrics.orderCount} unit="pedidos" />
-              <RfmBar label="Monetario" value={metrics.ltv} unit="CLP" isMonetary currency="CLP" />
-              <div className="pt-1 border-t">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Riesgo de abandono</span>
-                  <span className={`font-semibold ${churn.color}`}>{churn.label}</span>
+        <aside className="min-w-0 space-y-5">
+          <section className="space-y-3 border-t pt-4">
+            <h2 className="flex gap-2 items-center text-sm font-semibold">
+              <TrendingUp className="h-4 w-4" />
+              {translate('rfm')}
+            </h2>
+            <Row
+              label={translate('recency')}
+              value={days(metrics.daysSinceLast)}
+            />
+            <Row
+              label={translate('frequency')}
+              value={translate('orderCount', { count: metrics.orderCount })}
+            />
+            <Row label={translate('monetary')} value={money(metrics.ltv)} />
+            <p className="text-xs text-muted-foreground">
+              {translate('rfmExplanation')}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {translate('segmentRule', {
+                rule: translate(`segmentRules.${segment}`)
+              })}
+            </p>
+            <Row
+              label={translate('churnTitle')}
+              value={translate(`churn.${churn}`)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {translate('churnExplanation')}
+            </p>
+          </section>
+          <section className="space-y-2 border-t pt-4">
+            <h2 className="flex gap-2 items-center text-sm font-semibold">
+              <Globe className="h-4 w-4" />
+              {translate('preferences')}
+            </h2>
+            <Row
+              label={translate('language')}
+              value={customer.preferredLanguage?.toUpperCase() ?? unknown}
+            />
+            <Row
+              label={translate('currency')}
+              value={customer.preferredCurrency ?? unknown}
+            />
+            <Row
+              label={translate('newsletter')}
+              value={
+                customer.newsletter === null
+                  ? unknown
+                  : translate(customer.newsletter ? 'yes' : 'no')
+              }
+            />
+            <Row
+              label={translate('wishlist')}
+              value={translate('itemCount', { count: customer.wishlistCount })}
+            />
+            {customer.favoriteGameCategories.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  {translate('favoriteCategories')}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {customer.favoriteGameCategories.map((value) => (
+                    <Badge key={value} variant="secondary">
+                      {value}
+                    </Badge>
+                  ))}
                 </div>
-                {metrics.avgDaysBetween && (
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-muted-foreground">Ciclo habitual</span>
-                    <span>{metrics.avgDaysBetween} días</span>
-                  </div>
-                )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Preferences */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Globe className="h-4 w-4" /> Preferencias
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <Row label="Idioma" value={customer.preferredLanguage?.toUpperCase() ?? '—'} />
-              <Row label="Moneda" value={customer.preferredCurrency ?? '—'} />
-              <Row label="Newsletter" value={customer.newsletter ? 'Sí' : 'No'} />
-              <Row label="Wishlist" value={`${customer.wishlistCount} ítem(s)`} />
-              {customer.favoriteGameCategories.length > 0 && (
-                <div>
-                  <p className="text-muted-foreground mb-1">Categorías favoritas</p>
-                  <div className="flex flex-wrap gap-1">
-                    {customer.favoriteGameCategories.map((c) => (
-                      <Badge key={c} variant="secondary" className="text-xs">{c}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Addresses */}
+            )}
+          </section>
           {customer.addresses.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <MapPin className="h-4 w-4" /> Direcciones ({customer.addresses.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {customer.addresses.map((addr) => (
-                  <div key={addr.id} className="text-xs text-muted-foreground">
-                    {addr.label && <span className="font-medium text-foreground block">{addr.label}</span>}
-                    <span>{addr.line1}{addr.line2 ? `, ${addr.line2}` : ''}</span>
-                    <span className="block">{addr.city}{addr.region ? `, ${addr.region}` : ''} · {addr.country}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <section className="space-y-2 border-t pt-4">
+              <h2 className="flex gap-2 items-center text-sm font-semibold">
+                <MapPin className="h-4 w-4" />
+                {translate('addresses', { count: customer.addresses.length })}
+              </h2>
+              {customer.addresses.map((address) => (
+                <address
+                  key={address.id}
+                  className="text-xs text-muted-foreground not-italic break-words"
+                >
+                  {address.label && (
+                    <strong className="block text-foreground">
+                      {address.label}
+                    </strong>
+                  )}
+                  {address.line1}
+                  {address.line2 ? `, ${address.line2}` : ''}
+                  <span className="block">
+                    {address.city}
+                    {address.region ? `, ${address.region}` : ''} ·{' '}
+                    {address.country}
+                  </span>
+                </address>
+              ))}
+            </section>
           )}
-
-          {/* Notes — stored in localStorage */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <StickyNote className="h-4 w-4" /> Notas internas
-              </CardTitle>
-              <CardDescription className="text-xs">Guardadas localmente en este navegador</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={notes}
-                onChange={(e) => saveNotes(e.target.value)}
-                placeholder="Agrega notas sobre este cliente…"
-                className="min-h-24 text-sm resize-none"
-                aria-label="Notas internas del cliente"
-              />
-            </CardContent>
-          </Card>
-        </div>
+          <CustomerNotes customerId={customer.id} locale={locale} />
+        </aside>
       </div>
-    </div>
-  );
-}
-
-// ─── Small helpers ────────────────────────────────────────────────────────────
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
-}
-
-function RfmBar({
-  label,
-  value,
-  unit,
-  lowerIsBetter = false,
-  isMonetary = false,
-  currency,
-}: {
-  label: string;
-  value: number | null;
-  unit: string;
-  lowerIsBetter?: boolean;
-  isMonetary?: boolean;
-  currency?: string;
-}) {
-  if (value === null) return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-muted-foreground">—</span>
-    </div>
-  );
-
-  const display = isMonetary && currency
-    ? new Intl.NumberFormat('es-CL', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)
-    : `${value} ${unit}`;
-
-  const Icon = lowerIsBetter
-    ? value > 90 ? TrendingDown : value > 30 ? Minus : TrendingUp
-    : value >= 5 ? TrendingUp : value >= 2 ? Minus : TrendingDown;
-
-  const color = lowerIsBetter
-    ? value > 90 ? 'text-red-500' : value > 30 ? 'text-amber-500' : 'text-emerald-500'
-    : value >= 5 ? 'text-emerald-500' : value >= 2 ? 'text-amber-500' : 'text-red-500';
-
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`flex items-center gap-1 font-medium ${color}`}>
-        <Icon className="h-3.5 w-3.5" /> {display}
-      </span>
     </div>
   );
 }
