@@ -68,6 +68,7 @@ import {
 import { CreateCustomerDialog } from './create-customer-dialog';
 import { DuplicateReview } from './duplicate-review';
 import { useCustomerListPreferences } from './use-customer-list-preferences';
+import { CartItemsDialog } from './cart-items-dialog';
 
 const sortableColumns = new Set<string>([
   'ltv',
@@ -256,7 +257,14 @@ export function CustomersTable({
       case 'activity':
         return activity(customer.activitySummary);
       case 'cartValue':
-        return money(customer.cartValue, customer.currency);
+        return (
+          <CartItemsDialog
+            ownerType="customer"
+            ownerId={customer.id}
+            ownerName={customer.name}
+            totalLabel={money(customer.cartValue, customer.currency)}
+          />
+        );
       case 'risk':
         return (
           <Badge variant={customer.risk === 'high' ? 'destructive' : 'outline'}>
@@ -758,6 +766,13 @@ export function CustomersTable({
                         </TableCell>
                       ))}
                       <TableCell>
+                        {(customer.cartCount > 0 || customer.abandoned) && (
+                          <CartItemsDialog
+                            ownerType="customer"
+                            ownerId={customer.id}
+                            ownerName={customer.name}
+                          />
+                        )}
                         <Button asChild variant="ghost" size="icon">
                           <Link
                             href={`/customers/${customer.id}`}
@@ -788,7 +803,15 @@ export function CustomersTable({
                       </TableCell>
                       <TableCell>{date(visitor.lastActivity)}</TableCell>
                       <TableCell>
-                        {money(visitor.cartValue, visitor.currency)}
+                        <CartItemsDialog
+                          ownerType="visitor"
+                          ownerId={visitor.id}
+                          ownerName={visitor.id}
+                          totalLabel={money(
+                            visitor.cartValue,
+                            visitor.currency
+                          )}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

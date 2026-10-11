@@ -969,6 +969,21 @@
   },
   "CustomerList": {
     "title": "Customers",
+    "cartItems": {
+      "title": "Cart items",
+      "view": "View cart items",
+      "viewOwner": "View cart items for {name}",
+      "loading": "Loading cart items…",
+      "failed": "Cart items could not be loaded.",
+      "retry": "Try again",
+      "empty": "No items in active or abandoned carts.",
+      "quantity": "Quantity: {count}",
+      "unitPrice": "Unit price: {value}",
+      "lineTotal": "Total: {value}",
+      "unknownPrice": "Not available",
+      "limited": "Only the first 200 carts and 2,000 items are shown.",
+      "statuses": { "active": "Active cart", "abandoned": "Abandoned cart" }
+    },
     "customers": "Customers",
     "visitors": "Anonymous visitors",
     "newCustomer": "New customer",

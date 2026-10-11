@@ -969,6 +969,24 @@
   },
   "CustomerList": {
     "title": "Clientes",
+    "cartItems": {
+      "title": "Productos en el carrito",
+      "view": "Ver productos del carrito",
+      "viewOwner": "Ver productos del carrito de {name}",
+      "loading": "Cargando productos del carrito…",
+      "failed": "No se pudieron cargar los productos del carrito.",
+      "retry": "Reintentar",
+      "empty": "No hay productos en carritos activos o abandonados.",
+      "quantity": "Cantidad: {count}",
+      "unitPrice": "Precio unitario: {value}",
+      "lineTotal": "Total: {value}",
+      "unknownPrice": "Sin información",
+      "limited": "Se muestran los primeros 200 carritos y 2.000 productos.",
+      "statuses": {
+        "active": "Carrito activo",
+        "abandoned": "Carrito abandonado"
+      }
+    },
     "aov": "Ticket promedio {value}",
     "customers": "Clientes",
     "visitors": "Visitantes anónimos",
