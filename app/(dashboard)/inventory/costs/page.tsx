@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { PurchaseOrderStatus } from '@prisma/client';
 
 export const metadata = { title: 'Costos y Márgenes' };
 
@@ -24,30 +25,90 @@ function pct(n: number) {
 }
 
 export default async function CostsPage() {
-  // Get all active cost prices with their variants and cheapest = preferred supplier
-  const costPrices = await prisma.costPrice.findMany({
-    where: { isActive: true },
-    include: {
-      supplier: { select: { id: true, name: true, code: true } },
-      variant: {
-        select: {
-          id: true,
-          sku: true,
-          product: { select: { id: true, name: true } },
-          prices: {
-            where: { active: true, type: { in: ['retail', 'sale'] } },
-            orderBy: [{ type: 'asc' }, { amount: 'desc' }],
-            take: 1,
-            select: { amount: true, type: true, currency: true },
-          },
-          inventory: {
-            select: { onHand: true, reserved: true },
+  const now = new Date();
+  const [costPrices, purchaseItems] = await Promise.all([
+    prisma.costPrice.findMany({
+      where: {
+        isActive: true,
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+        supplier: { isActive: true },
+      },
+      include: {
+        supplier: { select: { id: true, name: true, code: true } },
+        variant: {
+          select: {
+            id: true,
+            sku: true,
+            product: { select: { id: true, name: true } },
+            prices: {
+              where: { active: true, type: { in: ['retail', 'sale'] } },
+              orderBy: [{ type: 'asc' }, { amount: 'desc' }],
+              take: 1,
+              select: { amount: true, type: true, currency: true },
+            },
+            inventory: { select: { onHand: true, reserved: true } },
           },
         },
       },
-    },
-    orderBy: { amount: 'asc' },
-  });
+      orderBy: [{ amount: 'asc' }, { effectiveFrom: 'desc' }],
+    }),
+    prisma.purchaseOrderItem.findMany({
+      where: {
+        purchaseOrder: {
+          status: {
+            in: [
+              PurchaseOrderStatus.submitted,
+              PurchaseOrderStatus.confirmed,
+              PurchaseOrderStatus.partially_received,
+              PurchaseOrderStatus.received,
+            ],
+          },
+        },
+      },
+      orderBy: { purchaseOrder: { createdAt: 'desc' } },
+      include: {
+        purchaseOrder: {
+          select: {
+            supplierId: true,
+            currency: true,
+            supplier: { select: { id: true, name: true, code: true } },
+          },
+        },
+        variant: {
+          select: {
+            id: true,
+            sku: true,
+            product: { select: { id: true, name: true } },
+            prices: {
+              where: { active: true, type: { in: ['retail', 'sale'] } },
+              orderBy: [{ type: 'asc' }, { amount: 'desc' }],
+              take: 1,
+              select: { amount: true, type: true, currency: true },
+            },
+            inventory: { select: { onHand: true, reserved: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const costPriceByVariantSupplier = new Map<string, (typeof costPrices)[number]>();
+  const cheapestCostPriceByVariant = new Map<string, (typeof costPrices)[number]>();
+  for (const costPrice of costPrices) {
+    const key = `${costPrice.variantId}:${costPrice.supplierId}`;
+    if (!costPriceByVariantSupplier.has(key)) costPriceByVariantSupplier.set(key, costPrice);
+    if (!cheapestCostPriceByVariant.has(costPrice.variantId)) {
+      cheapestCostPriceByVariant.set(costPrice.variantId, costPrice);
+    }
+  }
+
+  const latestPurchaseByVariant = new Map<string, (typeof purchaseItems)[number]>();
+  for (const purchaseItem of purchaseItems) {
+    if (!latestPurchaseByVariant.has(purchaseItem.variantId)) {
+      latestPurchaseByVariant.set(purchaseItem.variantId, purchaseItem);
+    }
+  }
 
   // Group by variant — keep the cheapest active cost per variant as "preferred"
   const variantMap = new Map<
@@ -70,31 +131,44 @@ export default async function CostsPage() {
     }
   >();
 
-  for (const cp of costPrices) {
-    const vid = cp.variant.id;
-    if (variantMap.has(vid)) continue; // already set from cheapest
+  const variantIds = new Set([
+    ...Array.from(cheapestCostPriceByVariant.keys()),
+    ...Array.from(latestPurchaseByVariant.keys()),
+  ]);
 
-    const salePrice = cp.variant.prices[0] ?? null;
+  for (const variantId of Array.from(variantIds)) {
+    const lastPurchase = latestPurchaseByVariant.get(variantId);
+    const costPrice = lastPurchase
+      ? costPriceByVariantSupplier.get(`${variantId}:${lastPurchase.purchaseOrder.supplierId}`)
+      : cheapestCostPriceByVariant.get(variantId);
+    const variant = lastPurchase?.variant ?? costPrice?.variant;
+    const supplier = lastPurchase?.purchaseOrder.supplier ?? costPrice?.supplier;
+    if (!variant || !supplier) continue;
+
+    const salePrice = variant.prices[0] ?? null;
+    const costAmount = costPrice?.amount ?? lastPurchase?.unitCost;
+    const costCurrency = costPrice?.currency ?? lastPurchase?.purchaseOrder.currency ?? 'CLP';
+    if (costAmount === undefined) continue;
     const saleAmount = salePrice?.amount ?? null;
     const margin =
       saleAmount && saleAmount > 0
-        ? ((saleAmount - cp.amount) / saleAmount) * 100
+        ? ((saleAmount - costAmount) / saleAmount) * 100
         : null;
 
-    const totalStock = cp.variant.inventory.reduce((s, inv) => s + inv.onHand, 0);
-    const stockValue = totalStock * cp.amount;
+    const totalStock = variant.inventory.reduce((s, inv) => s + inv.onHand, 0);
+    const stockValue = totalStock * costAmount;
 
-    variantMap.set(vid, {
-      variantId: vid,
-      sku: cp.variant.sku,
-      productName: cp.variant.product.name,
-      productId: cp.variant.product.id,
-      costAmount: cp.amount,
-      costCurrency: cp.currency,
-      supplierName: cp.supplier.name,
-      supplierCode: cp.supplier.code,
+    variantMap.set(variantId, {
+      variantId,
+      sku: variant.sku,
+      productName: variant.product.name,
+      productId: variant.product.id,
+      costAmount,
+      costCurrency,
+      supplierName: supplier.name,
+      supplierCode: supplier.code,
       saleAmount,
-      saleCurrency: salePrice?.currency ?? cp.currency,
+      saleCurrency: salePrice?.currency ?? costCurrency,
       saleType: salePrice?.type ?? null,
       margin,
       totalStock,
@@ -119,7 +193,7 @@ export default async function CostsPage() {
             Costos y Márgenes
           </h1>
           <p className="text-sm text-muted-foreground">
-            Proveedor preferente = precio de costo activo más bajo por variante
+            Proveedor según la última orden de compra; costo vigente de ese proveedor cuando está disponible
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -152,7 +226,7 @@ export default async function CostsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{rows.length} variantes con costo activo</CardTitle>
+          <CardTitle className="text-base">{rows.length} variantes con costo u orden de compra</CardTitle>
           <CardDescription>Ordenado por margen ascendente — más bajo primero</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
