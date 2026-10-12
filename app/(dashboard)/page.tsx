@@ -366,7 +366,7 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{avgMobileProductImprs}</div>
+                <div className="text-xl font-bold">{Math.round(avgMobileProductImprs)}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('traffic.avgItemImpressions')}
                 </p>
@@ -420,7 +420,7 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{avgDesktopProductImprs}</div>
+                <div className="text-xl font-bold">{Math.round(avgDesktopProductImprs)}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('traffic.avgItemImpressions')}
                 </p>
@@ -468,7 +468,7 @@ export default async function AdminHomePage() {
                 </p>
               </div>
               <div>
-                <div className="text-xl font-bold">{avgDesktopProductImprs}</div>
+                <div className="text-xl font-bold">{Math.round(avgDesktopProductImprs)}</div>
                 <p className="text-xs text-muted-foreground">
                   {td('traffic.avgItemImpressions')}
                 </p>
