@@ -43,10 +43,9 @@ export default async function CostsPage() {
             sku: true,
             product: { select: { id: true, name: true } },
             prices: {
-              where: { active: true, type: { in: ['retail', 'sale'] } },
-              orderBy: [{ type: 'asc' }, { amount: 'desc' }],
-              take: 1,
-              select: { amount: true, type: true, currency: true },
+              where: { active: true, type: { in: ['retail', 'sale', 'rule_based'] } },
+              orderBy: [{ startsAt: 'desc' }, { createdAt: 'desc' }],
+              select: { amount: true, type: true, currency: true, startsAt: true, createdAt: true },
             },
             inventory: { select: { onHand: true, reserved: true } },
           },
@@ -86,10 +85,9 @@ export default async function CostsPage() {
             sku: true,
             product: { select: { id: true, name: true } },
             prices: {
-              where: { active: true, type: { in: ['retail', 'sale'] } },
-              orderBy: [{ type: 'asc' }, { amount: 'desc' }],
-              take: 1,
-              select: { amount: true, type: true, currency: true },
+              where: { active: true, type: { in: ['retail', 'sale', 'rule_based'] } },
+              orderBy: [{ startsAt: 'desc' }, { createdAt: 'desc' }],
+              select: { amount: true, type: true, currency: true, startsAt: true, createdAt: true },
             },
             inventory: { select: { onHand: true, reserved: true } },
           },
@@ -151,7 +149,17 @@ export default async function CostsPage() {
     const supplier = lastPurchase?.purchaseOrder.supplier ?? costPrice?.supplier;
     if (!variant || !supplier) continue;
 
-    const salePrice = variant.prices[0] ?? null;
+    const retailPrice = variant.prices.find((price) => price.type === 'retail');
+    const saleCandidates = variant.prices
+      .filter((price) => price.type === 'sale' || price.type === 'rule_based')
+      .filter((price) => retailPrice ? price.amount < retailPrice.amount : true)
+      .sort((a, b) => {
+        if (a.amount !== b.amount) return a.amount - b.amount;
+        const aTime = a.startsAt?.getTime() ?? a.createdAt.getTime();
+        const bTime = b.startsAt?.getTime() ?? b.createdAt.getTime();
+        return bTime - aTime;
+      });
+    const salePrice = saleCandidates[0] ?? retailPrice ?? null;
     const purchaseTaxOptions = lastPurchase
       ? inferPurchaseOrderTaxOptions({
           subtotal: lastPurchase.purchaseOrder.subtotal,
@@ -200,7 +208,7 @@ export default async function CostsPage() {
       supplierCode: supplier.code,
       saleAmount,
       saleCurrency: salePrice?.currency ?? costCurrency,
-      saleType: salePrice?.type ?? null,
+      saleType: salePrice?.type === 'rule_based' ? 'rule' : salePrice?.type ?? null,
       margin,
       totalStock,
       stockValue,
