@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PurchaseOrderStatus } from '@prisma/client';
+import { inferPurchaseOrderTaxOptions } from '@/lib/purchase-order-tax';
 
 export const metadata = { title: 'Costos y Márgenes' };
 
@@ -72,6 +73,10 @@ export default async function CostsPage() {
           select: {
             supplierId: true,
             currency: true,
+            subtotal: true,
+            tax: true,
+            shipping: true,
+            items: { select: { discount: true } },
             supplier: { select: { id: true, name: true, code: true } },
           },
         },
@@ -119,6 +124,7 @@ export default async function CostsPage() {
       productName: string;
       productId: string;
       costAmount: number;
+      costWithVat: number;
       costCurrency: string;
       supplierName: string;
       supplierCode: string;
@@ -146,17 +152,41 @@ export default async function CostsPage() {
     if (!variant || !supplier) continue;
 
     const salePrice = variant.prices[0] ?? null;
-    const costAmount = costPrice?.amount ?? lastPurchase?.unitCost;
-    const costCurrency = costPrice?.currency ?? lastPurchase?.purchaseOrder.currency ?? 'CLP';
+    const purchaseTaxOptions = lastPurchase
+      ? inferPurchaseOrderTaxOptions({
+          subtotal: lastPurchase.purchaseOrder.subtotal,
+          tax: lastPurchase.purchaseOrder.tax,
+          shipping: lastPurchase.purchaseOrder.shipping,
+          items: lastPurchase.purchaseOrder.items,
+        })
+      : null;
+    const purchaseUnitDiscount = lastPurchase
+      ? lastPurchase.discount / Math.max(1, lastPurchase.quantity)
+      : 0;
+    const costAmount = lastPurchase
+      ? purchaseTaxOptions?.discountAfterTax
+        ? lastPurchase.unitCost
+        : lastPurchase.unitCost - purchaseUnitDiscount
+      : costPrice?.taxIncluded
+        ? costPrice.amount / 1.19
+        : costPrice?.amount;
+    const costWithVat = lastPurchase
+      ? purchaseTaxOptions?.discountAfterTax
+        ? lastPurchase.unitCost * 1.19 - purchaseUnitDiscount
+        : (lastPurchase.unitCost - purchaseUnitDiscount) * 1.19
+      : costPrice?.taxIncluded
+        ? costPrice.amount
+        : (costPrice?.amount ?? 0) * 1.19;
+    const costCurrency = lastPurchase?.purchaseOrder.currency ?? costPrice?.currency ?? 'CLP';
     if (costAmount === undefined) continue;
     const saleAmount = salePrice?.amount ?? null;
     const margin =
       saleAmount && saleAmount > 0
-        ? ((saleAmount - costAmount) / saleAmount) * 100
+        ? ((saleAmount - costWithVat) / saleAmount) * 100
         : null;
 
     const totalStock = variant.inventory.reduce((s, inv) => s + inv.onHand, 0);
-    const stockValue = totalStock * costAmount;
+    const stockValue = totalStock * costWithVat;
 
     variantMap.set(variantId, {
       variantId,
@@ -164,6 +194,7 @@ export default async function CostsPage() {
       productName: variant.product.name,
       productId: variant.product.id,
       costAmount,
+      costWithVat,
       costCurrency,
       supplierName: supplier.name,
       supplierCode: supplier.code,
@@ -235,7 +266,8 @@ export default async function CostsPage() {
               <TableRow>
                 <TableHead>Producto / SKU</TableHead>
                 <TableHead>Proveedor preferente</TableHead>
-                <TableHead className="text-right">Costo</TableHead>
+                <TableHead className="text-right">Costo neto c/desc.</TableHead>
+                <TableHead className="text-right">Costo + IVA</TableHead>
                 <TableHead className="text-right">Precio venta</TableHead>
                 <TableHead className="text-right">Margen</TableHead>
                 <TableHead className="text-right">Stock</TableHead>
@@ -272,6 +304,9 @@ export default async function CostsPage() {
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {fmt(row.costAmount, row.costCurrency)}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {fmt(row.costWithVat, row.costCurrency)}
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {row.saleAmount !== null ? (
