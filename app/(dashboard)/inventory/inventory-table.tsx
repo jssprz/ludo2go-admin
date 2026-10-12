@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  AlertTriangle,
   Save,
   X,
   ArrowUpDown,
@@ -61,9 +60,6 @@ type EditingState = {
   onHand: number;
   reserved: number;
 } | null;
-
-const LOW_STOCK_THRESHOLD = Number(process.env.NEXT_PUBLIC_LOW_STOCK_THRESHOLD ?? 5);
-const CRITICAL_STOCK_THRESHOLD = Number(process.env.NEXT_PUBLIC_CRITICAL_STOCK_THRESHOLD ?? 2);
 
 export function InventoryTable({ variants, locations }: Props) {
   const t = useTranslations('locations');
@@ -167,7 +163,6 @@ export function InventoryTable({ variants, locations }: Props) {
     switch (sortCol) {
       case 'product': return dir * a.product.name.localeCompare(b.product.name);
       case 'sku': return dir * a.sku.localeCompare(b.sku);
-      case 'status': return dir * (a.status ?? '').localeCompare(b.status ?? '');
       case 'onHand': return dir * (getVals(a).onHand - getVals(b).onHand);
       case 'reserved': return dir * (getVals(a).reserved - getVals(b).reserved);
       case 'available': return dir * (getVals(a).available - getVals(b).available);
@@ -187,20 +182,13 @@ export function InventoryTable({ variants, locations }: Props) {
   }
 
   function getStockStatus(available: number) {
-    if (available <= 0) return 'out';
-    if (available <= CRITICAL_STOCK_THRESHOLD) return 'critical';
-    if (available <= LOW_STOCK_THRESHOLD) return 'low';
-    return 'ok';
+    return available <= 0 ? 'out' : 'ok';
   }
 
   function getStockBadgeClass(status: string) {
     switch (status) {
       case 'out':
         return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'critical':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      case 'low':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
       default:
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
     }
@@ -262,17 +250,12 @@ export function InventoryTable({ variants, locations }: Props) {
           acc.available += available;
 
           if (status === 'out') acc.out += 1;
-          if (status === 'critical') acc.critical += 1;
-          if (status === 'low') acc.low += 1;
-
           return acc;
         },
         {
           onHand: 0,
           reserved: 0,
           available: 0,
-          low: 0,
-          critical: 0,
           out: 0,
         }
       );
@@ -296,17 +279,12 @@ export function InventoryTable({ variants, locations }: Props) {
         acc.available += available;
 
         if (status === 'out') acc.out += 1;
-        if (status === 'critical') acc.critical += 1;
-        if (status === 'low') acc.low += 1;
-
         return acc;
       },
       {
         onHand: 0,
         reserved: 0,
         available: 0,
-        low: 0,
-        critical: 0,
         out: 0,
       }
     );
@@ -335,7 +313,6 @@ export function InventoryTable({ variants, locations }: Props) {
           return {
             product: variant.product.name,
             sku: variant.sku,
-            status: variant.status ?? '—',
             onHand: total.onHand,
             reserved: total.reserved,
             available,
@@ -349,7 +326,6 @@ export function InventoryTable({ variants, locations }: Props) {
         return {
           product: variant.product.name,
           sku: variant.sku,
-          status: variant.status ?? '—',
           onHand,
           reserved,
           available,
@@ -378,11 +354,10 @@ export function InventoryTable({ variants, locations }: Props) {
 
       (autoTable as any)(doc, {
         startY: 38,
-        head: [['Product', 'SKU', 'Status', 'On Hand', 'Reserved', 'Available']],
+        head: [['Product', 'SKU', 'On Hand', 'Reserved', 'Available']],
         body: rows.map((row) => [
           row.product,
           row.sku,
-          row.status,
           row.onHand,
           row.reserved,
           row.available,
@@ -390,9 +365,9 @@ export function InventoryTable({ variants, locations }: Props) {
         styles: { fontSize: 8 },
         headStyles: { fillColor: [31, 41, 55] },
         columnStyles: {
+          2: { halign: 'right' },
           3: { halign: 'right' },
           4: { halign: 'right' },
-          5: { halign: 'right' },
         },
       });
 
@@ -527,16 +502,8 @@ export function InventoryTable({ variants, locations }: Props) {
               {totalSummary.out > 0 && (
                 <Badge className={getStockBadgeClass('out')}>Out: {totalSummary.out}</Badge>
               )}
-              {totalSummary.critical > 0 && (
-                <Badge className={getStockBadgeClass('critical')}>
-                  Critical: {totalSummary.critical}
-                </Badge>
-              )}
-              {totalSummary.low > 0 && (
-                <Badge className={getStockBadgeClass('low')}>Low: {totalSummary.low}</Badge>
-              )}
-              {totalSummary.out === 0 && totalSummary.critical === 0 && totalSummary.low === 0 && (
-                <Badge className={getStockBadgeClass('ok')}>Healthy</Badge>
+              {totalSummary.out === 0 && (
+                <Badge className={getStockBadgeClass('ok')}>No stockouts</Badge>
               )}
             </div>
           </CardContent>
@@ -584,16 +551,8 @@ export function InventoryTable({ variants, locations }: Props) {
                 {summary.out > 0 && (
                   <Badge className={getStockBadgeClass('out')}>Out: {summary.out}</Badge>
                 )}
-                {summary.critical > 0 && (
-                  <Badge className={getStockBadgeClass('critical')}>
-                    Critical: {summary.critical}
-                  </Badge>
-                )}
-                {summary.low > 0 && (
-                  <Badge className={getStockBadgeClass('low')}>Low: {summary.low}</Badge>
-                )}
-                {summary.out === 0 && summary.critical === 0 && summary.low === 0 && (
-                  <Badge className={getStockBadgeClass('ok')}>Healthy</Badge>
+                {summary.out === 0 && (
+                  <Badge className={getStockBadgeClass('ok')}>No stockouts</Badge>
                 )}
               </div>
             </CardContent>
@@ -627,16 +586,9 @@ export function InventoryTable({ variants, locations }: Props) {
         />
       </div>
 
-      {/* Stock Status Legend */}
       <div className="flex gap-4 text-xs items-center flex-wrap">
-        <span className="text-muted-foreground">Stock Status:</span>
+        <span className="text-muted-foreground">Availability:</span>
         <Badge className={getStockBadgeClass('ok')}>In Stock</Badge>
-        <Badge className={getStockBadgeClass('low')}>
-          Low (&le;{LOW_STOCK_THRESHOLD})
-        </Badge>
-        <Badge className={getStockBadgeClass('critical')}>
-          Critical (&le;{CRITICAL_STOCK_THRESHOLD})
-        </Badge>
         <Badge className={getStockBadgeClass('out')}>Out of Stock</Badge>
       </div>
 
@@ -650,9 +602,6 @@ export function InventoryTable({ variants, locations }: Props) {
               </TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => handleSort('sku')}>
                 SKU <SortIcon col="sku" />
-              </TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => handleSort('status')}>
-                Status <SortIcon col="status" />
               </TableHead>
               {selectedLocation === 'all' ? (
                 <>
@@ -695,13 +644,7 @@ export function InventoryTable({ variants, locations }: Props) {
                 return (
                   <TableRow
                     key={variant.id}
-                    className={
-                      status === 'critical' || status === 'out'
-                        ? 'bg-red-50 dark:bg-red-950/10'
-                        : status === 'low'
-                          ? 'bg-yellow-50 dark:bg-yellow-950/10'
-                          : ''
-                    }
+                    className={status === 'out' ? 'bg-red-50 dark:bg-red-950/10' : ''}
                   >
                     <TableCell>
                       <Link
@@ -714,18 +657,12 @@ export function InventoryTable({ variants, locations }: Props) {
                     <TableCell className="font-mono text-xs">
                       {variant.sku}
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {variant.status}
-                    </TableCell>
                     <TableCell className="text-right">{total.onHand}</TableCell>
                     <TableCell className="text-right">
                       {total.reserved}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {(status === 'critical' || status === 'low') && (
-                          <AlertTriangle className="w-4 h-4 text-orange-600" />
-                        )}
                         <Badge className={getStockBadgeClass(status)}>
                           {available}
                         </Badge>
@@ -747,13 +684,7 @@ export function InventoryTable({ variants, locations }: Props) {
                 return (
                   <TableRow
                     key={variant.id}
-                    className={
-                      status === 'critical' || status === 'out'
-                        ? 'bg-red-50 dark:bg-red-950/10'
-                        : status === 'low'
-                          ? 'bg-yellow-50 dark:bg-yellow-950/10'
-                          : ''
-                    }
+                    className={status === 'out' ? 'bg-red-50 dark:bg-red-950/10' : ''}
                   >
                     <TableCell>
                       <Link
@@ -765,9 +696,6 @@ export function InventoryTable({ variants, locations }: Props) {
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {variant.sku}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {variant.status}
                     </TableCell>
                     <TableCell className="text-right">
                       {editing && editingCell ? (
@@ -853,9 +781,6 @@ export function InventoryTable({ variants, locations }: Props) {
                         </Badge>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
-                          {(status === 'critical' || status === 'low') && (
-                            <AlertTriangle className="w-4 h-4 text-orange-600" />
-                          )}
                           <Badge className={getStockBadgeClass(status)}>
                             {available}
                           </Badge>
@@ -914,7 +839,7 @@ export function InventoryTable({ variants, locations }: Props) {
               const totals = calculateTableTotals();
               return (
                 <TableRow className="font-semibold bg-muted/50 border-t-2 border-t-border">
-                  <TableCell colSpan={3}>Total</TableCell>
+                  <TableCell colSpan={2}>Total</TableCell>
                   {selectedLocation === 'all' ? (
                     <>
                       <TableCell className="text-right">{totals.onHand}</TableCell>

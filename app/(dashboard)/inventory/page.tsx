@@ -1,7 +1,8 @@
 import { prisma } from '@jssprz/ludo2go-database';
 import Link from 'next/link';
-import { AlertTriangle, GitCompareArrows, TrendingUp } from 'lucide-react';
+import { GitCompareArrows, TrendingUp } from 'lucide-react';
 import { InventoryTable } from './inventory-table';
+import { InventoryWorkspace } from './inventory-workspace';
 import { Button } from '@/components/ui/button';
 import { StockTrendChart } from './stock-trend-chart';
 import { PurchaseOrderStatus } from '@prisma/client';
@@ -12,6 +13,7 @@ export default async function InventoryPage() {
   const weeksToShow = 12;
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
   const now = new Date();
+  const yearStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
   const currentWeekStart = new Date(now);
   const day = currentWeekStart.getDay();
   const diffToMonday = (day + 6) % 7;
@@ -34,11 +36,6 @@ export default async function InventoryPage() {
     prisma.location.findMany({ orderBy: { name: 'asc' } }),
   ]);
 
-  // Quick stats for sub-nav badges
-  const lowStockCount = await prisma.inventory.count({
-    where: { onHand: { lte: 5 } },
-  });
-
   const discrepancyOrderCount = await prisma.purchaseOrder.count({
     where: {
       status: { notIn: ['cancelled', 'received'] },
@@ -46,7 +43,7 @@ export default async function InventoryPage() {
     },
   });
 
-  const [stockAggregate, soldItems, receivedItems] = await Promise.all([
+  const [stockAggregate, soldItems, receivedItems, costPrices, incomingItems, lastPurchaseItems] = await Promise.all([
     prisma.inventory.aggregate({
       _sum: {
         onHand: true,
@@ -56,7 +53,7 @@ export default async function InventoryPage() {
       where: {
         order: {
           createdAt: {
-            gte: firstWeekStart,
+            gte: yearStart,
           },
           status: {
             not: 'cancelled',
@@ -64,10 +61,13 @@ export default async function InventoryPage() {
         },
       },
       select: {
+        variantId: true,
         quantity: true,
+        unitPrice: true,
         order: {
           select: {
             createdAt: true,
+            currency: true,
           },
         },
       },
@@ -95,15 +95,75 @@ export default async function InventoryPage() {
         },
       },
     }),
+    prisma.costPrice.findMany({
+      where: {
+        isActive: true,
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+        supplier: { isActive: true },
+      },
+      include: {
+        supplier: { select: { id: true, name: true, leadTimeDays: true } },
+      },
+      orderBy: [{ amount: 'asc' }, { effectiveFrom: 'desc' }],
+    }),
+    prisma.purchaseOrderItem.findMany({
+      where: {
+        purchaseOrder: {
+          status: {
+            in: [
+              PurchaseOrderStatus.submitted,
+              PurchaseOrderStatus.confirmed,
+              PurchaseOrderStatus.partially_received,
+            ],
+          },
+        },
+      },
+      select: { variantId: true, quantity: true, quantityReceived: true },
+    }),
+    prisma.purchaseOrderItem.findMany({
+      where: {
+        purchaseOrder: {
+          status: {
+            in: [
+              PurchaseOrderStatus.submitted,
+              PurchaseOrderStatus.confirmed,
+              PurchaseOrderStatus.partially_received,
+              PurchaseOrderStatus.received,
+            ],
+          },
+        },
+      },
+      orderBy: { purchaseOrder: { createdAt: 'desc' } },
+      select: {
+        variantId: true,
+        unitCost: true,
+        purchaseOrder: { select: { supplierId: true, currency: true, supplier: { select: { id: true, name: true, leadTimeDays: true } } } },
+      },
+    }),
   ]);
 
   const soldByWeek = Array.from({ length: weeksToShow }).map(() => 0);
   const receivedByWeek = Array.from({ length: weeksToShow }).map(() => 0);
+  const weeklySalesByVariant = new Map<string, number[]>();
+  const revenueByCurrency = new Map<string, Map<string, number>>();
 
   for (const item of soldItems) {
     const index = Math.floor((item.order.createdAt.getTime() - firstWeekStart.getTime()) / msPerWeek);
     if (index >= 0 && index < weeksToShow) {
       soldByWeek[index] += item.quantity;
+    }
+
+    if (index >= 0 && index < weeksToShow) {
+      const weeklySales = weeklySalesByVariant.get(item.variantId) ?? Array.from({ length: weeksToShow }).map(() => 0);
+      weeklySales[index] += item.quantity;
+      weeklySalesByVariant.set(item.variantId, weeklySales);
+    }
+
+    if (item.order.currency === 'CLP') {
+      const currencyRevenue = revenueByCurrency.get(item.order.currency) ?? new Map<string, number>();
+      currencyRevenue.set(item.variantId, (currencyRevenue.get(item.variantId) ?? 0) + item.quantity * item.unitPrice);
+      revenueByCurrency.set(item.order.currency, currencyRevenue);
     }
   }
 
@@ -140,6 +200,73 @@ export default async function InventoryPage() {
     };
   });
 
+  const abcGrades = new Map<string, 'A' | 'B' | 'C'>();
+  for (const currencyRevenue of Array.from(revenueByCurrency.values())) {
+    const rankedVariants = Array.from(currencyRevenue.entries()).sort((a, b) => b[1] - a[1]);
+    const totalRevenue = rankedVariants.reduce((sum, [, revenue]) => sum + revenue, 0);
+    let cumulativeRevenue = 0;
+    for (const [variantId, revenue] of rankedVariants) {
+      const shareBeforeCurrentItem = totalRevenue > 0 ? cumulativeRevenue / totalRevenue : 1;
+      const grade = shareBeforeCurrentItem < 0.8 ? 'A' : shareBeforeCurrentItem < 0.95 ? 'B' : 'C';
+      const currentGrade = abcGrades.get(variantId);
+      if (!currentGrade || grade < currentGrade) abcGrades.set(variantId, grade);
+      cumulativeRevenue += revenue;
+    }
+  }
+
+  const costPriceByVariant = new Map<string, (typeof costPrices)[number]>();
+  for (const costPrice of costPrices) {
+    if (!costPriceByVariant.has(costPrice.variantId)) costPriceByVariant.set(costPrice.variantId, costPrice);
+  }
+
+  const lastPurchaseBySupplierVariant = new Map<string, (typeof lastPurchaseItems)[number]>();
+  const latestPurchaseByVariant = new Map<string, (typeof lastPurchaseItems)[number]>();
+  for (const purchaseItem of lastPurchaseItems) {
+    const key = `${purchaseItem.variantId}:${purchaseItem.purchaseOrder.supplierId}`;
+    if (!lastPurchaseBySupplierVariant.has(key)) lastPurchaseBySupplierVariant.set(key, purchaseItem);
+    if (!latestPurchaseByVariant.has(purchaseItem.variantId)) latestPurchaseByVariant.set(purchaseItem.variantId, purchaseItem);
+  }
+
+  const incomingByVariant = new Map<string, number>();
+  for (const item of incomingItems) {
+    incomingByVariant.set(item.variantId, (incomingByVariant.get(item.variantId) ?? 0) + Math.max(0, item.quantity - item.quantityReceived));
+  }
+
+  const recommendations = variants.map((variant) => {
+    const costPrice = costPriceByVariant.get(variant.id);
+    const lastPurchase = costPrice
+      ? lastPurchaseBySupplierVariant.get(`${variant.id}:${costPrice.supplierId}`)
+      : latestPurchaseByVariant.get(variant.id);
+    const supplier = costPrice?.supplier ?? lastPurchase?.purchaseOrder.supplier ?? null;
+    const weeklySales = weeklySalesByVariant.get(variant.id) ?? Array.from({ length: weeksToShow }).map(() => 0);
+    return {
+      variantId: variant.id,
+      productId: variant.product.id,
+      productName: variant.product.name,
+      sku: variant.sku,
+      weeklySales,
+      abcGrade: abcGrades.get(variant.id) ?? 'C',
+      incoming: incomingByVariant.get(variant.id) ?? 0,
+      leadTimeDays: supplier?.leadTimeDays ?? 14,
+      supplierId: supplier?.id ?? null,
+      supplierName: supplier?.name ?? null,
+      currency: costPrice?.currency ?? lastPurchase?.purchaseOrder.currency ?? 'CLP',
+      unitCost: costPrice?.amount ?? lastPurchase?.unitCost ?? null,
+      lastPurchaseCost: lastPurchase?.unitCost ?? null,
+      moq: costPrice?.moq ?? 1,
+      packSize: 1,
+      locations: locations.map((location) => {
+        const inventory = variant.inventory.find((entry) => entry.locationId === location.id);
+        return {
+          id: location.id,
+          name: location.name,
+          code: location.code,
+          available: Math.max(0, (inventory?.onHand ?? 0) - (inventory?.reserved ?? 0)),
+        };
+      }),
+    };
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -150,17 +277,6 @@ export default async function InventoryPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/inventory/alerts" className="flex items-center gap-1.5">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Alertas
-              {lowStockCount > 0 && (
-                <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-700">
-                  {lowStockCount}
-                </span>
-              )}
-            </Link>
-          </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/inventory/discrepancies" className="flex items-center gap-1.5">
               <GitCompareArrows className="h-4 w-4 text-indigo-500" />
@@ -183,7 +299,9 @@ export default async function InventoryPage() {
 
       <StockTrendChart points={stockTrendPoints} />
 
-      <InventoryTable variants={variants} locations={locations} />
+      <InventoryWorkspace recommendations={recommendations} locations={locations}>
+        <InventoryTable variants={variants} locations={locations} />
+      </InventoryWorkspace>
     </div>
   );
 }
