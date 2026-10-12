@@ -220,6 +220,10 @@ export default async function CostsPage() {
   const totalInventoryValue = rows.reduce((s, r) => s + r.stockValue, 0);
   const avgMargin = rows.filter((r) => r.margin !== null).reduce((s, r) => s + (r.margin ?? 0), 0) /
     (rows.filter((r) => r.margin !== null).length || 1);
+  const inStockRows = rows.filter((row) => row.totalStock > 0 && row.margin !== null);
+  const avgInStockMargin = inStockRows.length > 0
+    ? inStockRows.reduce((sum, row) => sum + (row.margin ?? 0), 0) / inStockRows.length
+    : null;
 
   const lowMargin = rows.filter((r) => r.margin !== null && r.margin < 20).length;
 
@@ -240,7 +244,7 @@ export default async function CostsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Valorización total inventario</p>
@@ -251,6 +255,14 @@ export default async function CostsPage() {
           <CardContent className="pt-4">
             <p className="text-xs text-muted-foreground">Margen promedio</p>
             <p className="text-xl font-bold">{pct(avgMargin)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Margen promedio en stock</p>
+            <p className="text-xl font-bold">
+              {avgInStockMargin === null ? '—' : pct(avgInStockMargin)}
+            </p>
           </CardContent>
         </Card>
         <Card className={lowMargin > 0 ? 'border-amber-300' : ''}>
