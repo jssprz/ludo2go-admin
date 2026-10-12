@@ -215,15 +215,17 @@ export default async function InventoryPage() {
   }
 
   const costPriceByVariant = new Map<string, (typeof costPrices)[number]>();
+  const costPriceBySupplierVariant = new Map<string, (typeof costPrices)[number]>();
   for (const costPrice of costPrices) {
+    const supplierVariantKey = `${costPrice.variantId}:${costPrice.supplierId}`;
+    if (!costPriceBySupplierVariant.has(supplierVariantKey)) {
+      costPriceBySupplierVariant.set(supplierVariantKey, costPrice);
+    }
     if (!costPriceByVariant.has(costPrice.variantId)) costPriceByVariant.set(costPrice.variantId, costPrice);
   }
 
-  const lastPurchaseBySupplierVariant = new Map<string, (typeof lastPurchaseItems)[number]>();
   const latestPurchaseByVariant = new Map<string, (typeof lastPurchaseItems)[number]>();
   for (const purchaseItem of lastPurchaseItems) {
-    const key = `${purchaseItem.variantId}:${purchaseItem.purchaseOrder.supplierId}`;
-    if (!lastPurchaseBySupplierVariant.has(key)) lastPurchaseBySupplierVariant.set(key, purchaseItem);
     if (!latestPurchaseByVariant.has(purchaseItem.variantId)) latestPurchaseByVariant.set(purchaseItem.variantId, purchaseItem);
   }
 
@@ -233,11 +235,11 @@ export default async function InventoryPage() {
   }
 
   const recommendations = variants.map((variant) => {
-    const costPrice = costPriceByVariant.get(variant.id);
-    const lastPurchase = costPrice
-      ? lastPurchaseBySupplierVariant.get(`${variant.id}:${costPrice.supplierId}`)
-      : latestPurchaseByVariant.get(variant.id);
-    const supplier = costPrice?.supplier ?? lastPurchase?.purchaseOrder.supplier ?? null;
+    const lastPurchase = latestPurchaseByVariant.get(variant.id);
+    const costPrice = lastPurchase
+      ? costPriceBySupplierVariant.get(`${variant.id}:${lastPurchase.purchaseOrder.supplierId}`)
+      : costPriceByVariant.get(variant.id);
+    const supplier = lastPurchase?.purchaseOrder.supplier ?? costPrice?.supplier ?? null;
     const weeklySales = weeklySalesByVariant.get(variant.id) ?? Array.from({ length: weeksToShow }).map(() => 0);
     return {
       variantId: variant.id,
