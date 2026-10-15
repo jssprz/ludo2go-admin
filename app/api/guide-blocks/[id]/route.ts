@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { deleteGuideBlock, guideBlockErrorResponse, parseGuideBlockRequest, saveGuideBlock } from '@/lib/guide-block-persistence';
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -52,52 +53,16 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-    const body = await request.json();
-    const {
-      type,
-      sortOrder,
-      title,
-      body: blockBody,
-      imageUrl,
-      imageAlt,
-      buttonText,
-      buttonUrl,
-      data,
-    } = body;
-
-    if (!type) {
-      return NextResponse.json(
-        { error: 'Type is required' },
-        { status: 400 }
-      );
-    }
-
-    const block = await prisma.guideBlock.update({
-      where: { id },
-      data: {
-        type,
-        sortOrder,
-        title,
-        body: blockBody,
-        imageUrl,
-        imageAlt,
-        buttonText,
-        buttonUrl,
-        data,
-      },
-      include: {
-        guide: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-          },
-        },
-      },
-    });
+    const payload = await parseGuideBlockRequest(request);
+    const block = await prisma.$transaction(
+      (transaction) => saveGuideBlock(transaction, payload, id),
+      { isolationLevel: 'Serializable' }
+    );
 
     return NextResponse.json(block);
   } catch (error) {
+    const response = guideBlockErrorResponse(error);
+    if (response) return NextResponse.json(response.body, { status: response.status });
     console.error('Error updating guide block:', error);
     return NextResponse.json(
       { error: 'Failed to update guide block' },
@@ -116,12 +81,15 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    await prisma.guideBlock.delete({
-      where: { id },
-    });
+    await prisma.$transaction(
+      (transaction) => deleteGuideBlock(transaction, id),
+      { isolationLevel: 'Serializable' }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const response = guideBlockErrorResponse(error);
+    if (response) return NextResponse.json(response.body, { status: response.status });
     console.error('Error deleting guide block:', error);
     return NextResponse.json(
       { error: 'Failed to delete guide block' },

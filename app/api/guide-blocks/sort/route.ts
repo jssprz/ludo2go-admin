@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@jssprz/ludo2go-database';
+import { guideBlockErrorResponse, parseGuideBlockSortRequest, sortGuideBlocks } from '@/lib/guide-block-persistence';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -9,24 +10,16 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { updates } = await request.json();
-
-    if (!Array.isArray(updates)) {
-      return NextResponse.json({ error: 'Invalid updates format' }, { status: 400 });
-    }
-
-    // Update sort orders in a transaction
+    const updates = await parseGuideBlockSortRequest(request);
     await prisma.$transaction(
-      updates.map((update: { id: string; sortOrder: number }) =>
-        prisma.guideBlock.update({
-          where: { id: update.id },
-          data: { sortOrder: update.sortOrder },
-        })
-      )
+      (transaction) => sortGuideBlocks(transaction, updates),
+      { isolationLevel: 'Serializable' }
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const response = guideBlockErrorResponse(error);
+    if (response) return NextResponse.json(response.body, { status: response.status });
     console.error('Error updating guide block sort orders:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
-import { GuideBlockType } from '@prisma/client';
+import { guideBlockErrorResponse, parseGuideBlockRequest, saveGuideBlock } from '@/lib/guide-block-persistence';
 
 // GET /api/guide-blocks - List guide blocks (optionally filtered by guideId)
 export async function GET(request: Request) {
@@ -52,65 +52,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json();
-    const {
-      guideId,
-      type,
-      sortOrder,
-      title,
-      body: blockBody,
-      imageUrl,
-      imageAlt,
-      buttonText,
-      buttonUrl,
-      data,
-    } = body;
-
-    if (!guideId || !type) {
-      return NextResponse.json(
-        { error: 'Guide ID and type are required' },
-        { status: 400 }
-      );
-    }
-
-    // Verify guide exists
-    const guide = await prisma.guide.findUnique({
-      where: { id: guideId },
-    });
-
-    if (!guide) {
-      return NextResponse.json(
-        { error: 'Guide not found' },
-        { status: 404 }
-      );
-    }
-
-    const block = await prisma.guideBlock.create({
-      data: {
-        guideId,
-        type,
-        sortOrder: sortOrder || 0,
-        title,
-        body: blockBody,
-        imageUrl,
-        imageAlt,
-        buttonText,
-        buttonUrl,
-        data,
-      },
-      include: {
-        guide: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-          },
-        },
-      },
-    });
+    const payload = await parseGuideBlockRequest(request, true);
+    const block = await prisma.$transaction(
+      (transaction) => saveGuideBlock(transaction, payload),
+      { isolationLevel: 'Serializable' }
+    );
 
     return NextResponse.json(block, { status: 201 });
   } catch (error) {
+    const response = guideBlockErrorResponse(error);
+    if (response) return NextResponse.json(response.body, { status: response.status });
     console.error('Error creating guide block:', error);
     return NextResponse.json(
       { error: 'Failed to create guide block' },

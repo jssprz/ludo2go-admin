@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -75,6 +83,10 @@ export function GuideEditor({ guide, categories }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const savingRef = useRef(false);
+  const dirtyRef = useRef(false);
+  const allowNavigationRef = useRef(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | 'back' | null>(null);
 
   const [formData, setFormData] = useState({
     title: guide.title,
@@ -96,21 +108,70 @@ export function GuideEditor({ guide, categories }: Props) {
     targetKeyword: guide.targetKeyword || '',
     searchIntent: guide.searchIntent || '',
   });
+  const formDataRef = useRef(formData);
+  const [baseline, setBaseline] = useState(() => JSON.stringify(formData));
+  const baselineRef = useRef(baseline);
+  const isDirty = JSON.stringify(formData) !== baseline;
+  const unsavedLabel = t.has('unsavedChanges') ? t('unsavedChanges') : 'Unsaved changes';
+  const leaveDescription = t.has('leaveWithoutSavingDescription')
+    ? t('leaveWithoutSavingDescription')
+    : 'Your metadata changes have not been saved. Leave without saving?';
+  const leaveLabel = t.has('leaveWithoutSaving') ? t('leaveWithoutSaving') : 'Leave without saving';
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!dirtyRef.current || allowNavigationRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    }
+
+    function handleLinkClick(event: MouseEvent) {
+      if (!dirtyRef.current || event.defaultPrevented || event.button !== 0 ||
+          event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!(link instanceof HTMLAnchorElement) || link.hasAttribute('download') ||
+          (link.target && link.target !== '_self')) return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin !== window.location.origin ||
+          (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setPendingNavigation(`${destination.pathname}${destination.search}${destination.hash}`);
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleLinkClick, true);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleLinkClick, true);
+    };
+  }, []);
 
   function handleInputChange(
-    field: string,
+    field: keyof typeof formData,
     value: string | boolean
   ) {
-    setFormData((prev) => ({
-      ...prev,
+    const next = {
+      ...formDataRef.current,
       [field]: value,
-    }));
+    };
+    formDataRef.current = next;
+    dirtyRef.current = JSON.stringify(next) !== baselineRef.current;
+    setFormData(next);
     setError(null);
     setSuccess(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (savingRef.current) return;
+    const formData = formDataRef.current;
+    if (!formData.title.trim() || !formData.slug.trim()) {
+      setError(`${t('title')} / ${t('slug')}: ${tc('required')}`);
+      setSuccess(false);
+      return;
+    }
+    savingRef.current = true;
     setIsLoading(true);
     setError(null);
     setSuccess(false);
@@ -149,17 +210,23 @@ export function GuideEditor({ guide, categories }: Props) {
         throw new Error(errorData.error || tc('error'));
       }
 
+      const savedBaseline = JSON.stringify(formData);
+      baselineRef.current = savedBaseline;
+      dirtyRef.current = JSON.stringify(formDataRef.current) !== savedBaseline;
+      setBaseline(savedBaseline);
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : tc('error'));
     } finally {
+      savingRef.current = false;
       setIsLoading(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" aria-busy={isLoading}>
+      {isDirty && <p role="status" className="text-sm text-amber-700">{unsavedLabel}</p>}
       <Card>
         <CardHeader>
           <CardTitle>{t('basicInfo')}</CardTitle>
@@ -173,6 +240,7 @@ export function GuideEditor({ guide, categories }: Props) {
               <Label htmlFor="title">{t('title')} *</Label>
               <Input
                 id="title"
+                required
                 value={formData.title}
                 onChange={(e) => handleInputChange('title', e.target.value)}
                 placeholder={t('titlePlaceholder')}
@@ -182,6 +250,7 @@ export function GuideEditor({ guide, categories }: Props) {
               <Label htmlFor="slug">{t('slug')} *</Label>
               <Input
                 id="slug"
+                required
                 value={formData.slug}
                 onChange={(e) => handleInputChange('slug', e.target.value)}
                 placeholder={t('slugPlaceholder')}
@@ -340,26 +409,54 @@ export function GuideEditor({ guide, categories }: Props) {
       </Card>
 
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
+        <div role="alert" className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="rounded-md bg-green-50 p-4 text-sm text-green-700">
+        <div role="status" className="rounded-md bg-green-50 p-4 text-sm text-green-700">
           {t('updatedSuccessfully')}
         </div>
       )}
 
       <div className="flex gap-4">
-        <Button variant="outline" onClick={() => window.history.back()}>
+        <Button type="button" variant="outline" onClick={() => {
+          if (dirtyRef.current) setPendingNavigation('back');
+          else router.back();
+        }}>
           {tc('back')}
         </Button>
         <Button type="submit" disabled={isLoading}>
           {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {tc('save')}
+          {isLoading ? tc('saving') : tc('save')}
         </Button>
       </div>
+      <Dialog open={pendingNavigation !== null} onOpenChange={(open) => {
+        if (!open) setPendingNavigation(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{unsavedLabel}</DialogTitle>
+            <DialogDescription>{leaveDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPendingNavigation(null)}>
+              {tc('cancel')}
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => {
+              const destination = pendingNavigation;
+              if (!destination) return;
+              allowNavigationRef.current = true;
+              setPendingNavigation(null);
+              if (destination === 'back') router.back();
+              else router.push(destination);
+            }}>
+              {leaveLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

@@ -76,7 +76,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
     const {
       slug,
       title,
@@ -101,7 +109,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       searchIntent,
     } = body;
 
-    if (!title || !slug) {
+    if (typeof title !== 'string' || !title.trim() || typeof slug !== 'string' || !slug.trim()) {
       return NextResponse.json(
         { error: 'Title and slug are required' },
         { status: 400 }
@@ -135,7 +143,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
         coverImageAlt,
         intro,
         content,
-        publishedAt: publishedAt ? new Date(publishedAt) : null,
+        publishedAt: publishedAt === undefined ? undefined : publishedAt === null ? null : new Date(publishedAt),
         authorId,
         authorName,
         seoTitle,

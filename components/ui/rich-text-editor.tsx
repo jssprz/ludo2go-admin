@@ -253,6 +253,8 @@ export function RichTextEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
+        link: false,
+        underline: false,
       }),
       Underline,
       Link.configure({
@@ -283,7 +285,7 @@ export function RichTextEditor({
   // Sync external value changes (e.g. when BGG data is fetched)
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
