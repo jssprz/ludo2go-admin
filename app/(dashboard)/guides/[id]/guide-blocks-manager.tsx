@@ -287,6 +287,8 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const requestGuard = useRef(false);
+  const uploadGuard = useRef(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [checklist, setChecklist] = useState<GuidePublicationIssue[] | null>(null);
   const [checking, setChecking] = useState(false);
   const [deleting, setDeleting] = useState<GuideBlock | null>(null);
@@ -301,7 +303,7 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
         editor.json !== JSON.stringify(editor.draft.data, null, 2))
   );
   const protect = useRef(false);
-  protect.current = dirty && !busy;
+  protect.current = (dirty || uploadingImage) && !busy;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -348,6 +350,10 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
       if (url.origin !== location.origin || url.href === location.href) return;
       event.preventDefault();
       event.stopPropagation();
+      if (uploadGuard.current) {
+        setError('Wait for the image upload to finish before leaving.');
+        return;
+      }
       setPendingLeave({ href: `${url.pathname}${url.search}${url.hash}` });
     };
     window.addEventListener('beforeunload', beforeUnload);
@@ -392,7 +398,7 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
   }
 
   function closeEditor() {
-    if (requestGuard.current) return;
+    if (requestGuard.current || uploadGuard.current) return;
     if (dirty) setPendingLeave({});
     else setEditor(null);
   }
@@ -420,7 +426,7 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
   }
 
   async function save() {
-    if (requestGuard.current || !editor) return;
+    if (requestGuard.current || uploadGuard.current || !editor) return;
     setError('');
     setIssues({});
     let data: unknown;
@@ -664,10 +670,10 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
         <DialogContent
           className="max-h-[90dvh] max-w-3xl overflow-y-auto"
           onEscapeKeyDown={(event) => {
-            if (busy) event.preventDefault();
+            if (busy || uploadingImage) event.preventDefault();
           }}
           onInteractOutside={(event) => {
-            if (busy) event.preventDefault();
+            if (busy || uploadingImage) event.preventDefault();
           }}
         >
           <DialogHeader>
@@ -689,7 +695,7 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
               className="min-w-0 space-y-5"
             >
               <p role="status" aria-live="polite" className="text-sm">
-                {busy
+                {uploadingImage ? 'Uploading image...' : busy
                   ? 'Saving...'
                   : dirty
                     ? 'Unsaved changes'
@@ -702,7 +708,7 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
                   {error}
                 </p>
               )}
-              <fieldset disabled={busy} className="min-w-0 space-y-5">
+              <fieldset disabled={busy || uploadingImage} className="min-w-0 space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="block-type">Block type</Label>
                   <Select
@@ -732,6 +738,10 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
                   value={editor.draft}
                   issues={issues}
                   onChange={(next) => updateDraft(next as Draft)}
+                  onUploadingChange={(uploading) => {
+                    uploadGuard.current = uploading;
+                    setUploadingImage(uploading);
+                  }}
                 />
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm">
@@ -805,11 +815,11 @@ export function GuideBlocksManager({ guide }: { guide: Guide }) {
                   type="button"
                   variant="outline"
                   onClick={closeEditor}
-                  disabled={busy}
+                  disabled={busy || uploadingImage}
                 >
                   Close
                 </Button>
-                <Button type="submit" disabled={busy || Boolean(jsonError)}>
+                <Button type="submit" disabled={busy || uploadingImage || Boolean(jsonError)}>
                   {busy ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (

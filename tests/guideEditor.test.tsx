@@ -8,8 +8,10 @@ import GuideDetailPage from '../app/(dashboard)/guides/[id]/page';
 import messages from '../messages/en.json';
 
 const mocks = vi.hoisted(() => ({
-  refresh: vi.fn(), push: vi.fn(), findGuide: vi.fn(), findCategories: vi.fn()
+  refresh: vi.fn(), push: vi.fn(), findGuide: vi.fn(), findCategories: vi.fn(), upload: vi.fn()
 }));
+
+vi.mock('@vercel/blob/client', () => ({ upload: mocks.upload }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }),
@@ -75,6 +77,7 @@ function deferred<Value>() {
 }
 
 beforeEach(() => {
+  mocks.upload.mockReset();
   mocks.refresh.mockReset();
   mocks.push.mockReset();
   mocks.findGuide.mockReset();
@@ -109,6 +112,66 @@ async function chooseType(user: ReturnType<typeof userEvent.setup>, label: strin
   await user.click(screen.getByRole('combobox', { name: 'Block type' }));
   await user.click(await screen.findByRole('option', { name: label }));
 }
+
+test.each(['image', 'hero'] as const)('uploads a %s image into its existing URL field and blocks saving until completion', async (type) => {
+  const user = userEvent.setup();
+  const guide = makeGuide();
+  guide.blocks[0] = { ...guide.blocks[0], type, imageUrl: type === 'image' ? 'https://example.com/old.jpg' : null, data: type === 'hero' ? { title: 'Hero', imageUrl: 'https://example.com/old.jpg' } : {} };
+  const response = deferred<{ url: string }>();
+  mocks.upload.mockReturnValue(response.promise);
+  const fetchMock = vi.fn().mockImplementation(async (_url, request) => Response.json({ ...guide.blocks[0], ...JSON.parse(request.body) }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<GuideBlocksManager guide={guide} />);
+  const dialog = await openBlock(user);
+  const file = new File(['image'], 'game.png', { type: 'image/png' });
+  await user.upload(within(dialog).getByLabelText('Choose image file'), file);
+  expect(mocks.upload).toHaveBeenCalledTimes(1);
+  expect(mocks.upload.mock.calls[0][1]).toBe(file);
+  expect(mocks.upload.mock.calls[0][2]).toMatchObject({ access: 'public', handleUploadUrl: '/api/media/upload' });
+  expect((within(dialog).getByRole('button', { name: 'Save block' }) as HTMLButtonElement).disabled).toBe(true);
+  expect((dialog.querySelector('button[type="button"][disabled].h-10') as HTMLButtonElement)).toBeTruthy();
+  fireEvent.submit(dialog.querySelector('form')!);
+  expect(fetchMock).not.toHaveBeenCalled();
+  await act(async () => { response.resolve({ url: 'https://example.com/uploaded.png' }); });
+  expect((within(dialog).getByRole('textbox', { name: /^Image(?: \*)?$/ }) as HTMLInputElement).value).toBe('https://example.com/uploaded.png');
+  expect(within(dialog).getByText('Image uploaded. Save the block to apply it.')).toBeTruthy();
+  await user.click(within(dialog).getByRole('button', { name: 'Save block' }));
+  const payload = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(type === 'hero' ? payload.data.imageUrl : payload.imageUrl).toBe('https://example.com/uploaded.png');
+});
+
+test('failed uploads retain the existing URL and allow retrying the same file', async () => {
+  const user = userEvent.setup();
+  const guide = makeGuide();
+  guide.blocks[0] = { ...guide.blocks[0], type: 'image', imageUrl: 'https://example.com/old.jpg' };
+  mocks.upload.mockRejectedValueOnce(new Error('Upload unavailable')).mockResolvedValueOnce({ url: 'https://example.com/new.png' });
+  render(<GuideBlocksManager guide={guide} />);
+  const dialog = await openBlock(user);
+  const input = within(dialog).getByLabelText('Choose image file');
+  const file = new File(['image'], 'game.png', { type: 'image/png' });
+  await user.upload(input, file);
+  expect(await within(dialog).findByRole('alert')).toHaveProperty('textContent', 'Upload unavailable');
+  expect((within(dialog).getByRole('textbox', { name: /^Image(?: \*)?$/ }) as HTMLInputElement).value).toBe('https://example.com/old.jpg');
+  await user.upload(input, file);
+  expect(mocks.upload).toHaveBeenCalledTimes(2);
+  expect((within(dialog).getByRole('textbox', { name: /^Image(?: \*)?$/ }) as HTMLInputElement).value).toBe('https://example.com/new.png');
+});
+
+test('invalid and oversized image files are rejected before uploading', async () => {
+  const user = userEvent.setup({ applyAccept: false });
+  const guide = makeGuide();
+  guide.blocks[0] = { ...guide.blocks[0], type: 'image' };
+  render(<GuideBlocksManager guide={guide} />);
+  const dialog = await openBlock(user);
+  const input = within(dialog).getByLabelText('Choose image file');
+  await user.upload(input, new File(['text'], 'notes.txt', { type: 'text/plain' }));
+  expect(within(dialog).getByRole('alert').textContent).toContain('Choose a JPEG');
+  const large = new File(['image'], 'large.png', { type: 'image/png' });
+  Object.defineProperty(large, 'size', { value: 50 * 1024 * 1024 + 1 });
+  await user.upload(input, large);
+  expect(within(dialog).getByRole('alert').textContent).toContain('50 MB');
+  expect(mocks.upload).not.toHaveBeenCalled();
+});
 
 test('one Save block click immediately sends one PUT and commits the response', async () => {
   const user = userEvent.setup();

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { upload } from '@vercel/blob/client';
+import { Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -204,18 +205,80 @@ function ProductSelector({
   );
 }
 
+function ImageUpload({ id, onChange, onUploadingChange }: {
+  id: string;
+  onChange: (url: string) => void;
+  onUploadingChange?: (uploading: boolean) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+
+  async function uploadImage(file: File) {
+    if (uploadingRef.current) return;
+    setError('');
+    setStatus('');
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/avif'].includes(file.type)) {
+      setError('Choose a JPEG, PNG, GIF, WebP, SVG, or AVIF image.');
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      setError('Image must be 50 MB or smaller.');
+      return;
+    }
+    uploadingRef.current = true;
+    setUploading(true);
+    onUploadingChange?.(true);
+    try {
+      const blob = await upload(`media/image/${crypto.randomUUID()}-${file.name}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/media/upload',
+        clientPayload: JSON.stringify({ sizeBytes: file.size, mime: file.type })
+      });
+      onChange(blob.url);
+      setStatus('Image uploaded. Save the block to apply it.');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Image upload failed. Try again.');
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+      onUploadingChange?.(false);
+    }
+  }
+
+  return <div className="space-y-2">
+    <input ref={inputRef} id={`${id}-file`} type="file" className="sr-only" tabIndex={-1}
+      aria-label="Choose image file" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,image/avif" disabled={uploading}
+      onChange={(event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (file) void uploadImage(file);
+      }} />
+    <Button type="button" variant="outline" disabled={uploading} onClick={() => inputRef.current?.click()}>
+      {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+      {uploading ? 'Uploading image...' : 'Upload image'}
+    </Button>
+    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <p role="status" aria-live="polite" className="text-sm text-muted-foreground">{status}</p>
+  </div>;
+}
+
 export function GuideBlockFields({
   fields,
   value,
   onChange,
   issues = {},
-  prefix = ''
+  prefix = '',
+  onUploadingChange
 }: {
   fields: BlockField[];
   value: RecordValue;
   onChange: (value: RecordValue) => void;
   issues?: FieldIssues;
   prefix?: string;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   const instanceId = useId();
   return (
@@ -267,6 +330,7 @@ export function GuideBlockFields({
                       }
                       prefix={`${path}.${index}`}
                       issues={issues}
+                      onUploadingChange={onUploadingChange}
                       onChange={(next) =>
                         update(
                           items.map((existing, itemIndex) =>
@@ -391,6 +455,7 @@ export function GuideBlockFields({
                 aria-describedby={error ? `${id}-error` : undefined}
               />
             )}
+            {field.kind === 'image' && <ImageUpload id={id} onChange={update} onUploadingChange={onUploadingChange} />}
             {field.kind === 'image' && text && (
               <img
                 src={text}
