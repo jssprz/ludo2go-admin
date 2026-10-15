@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { GuideStatus } from '@prisma/client';
+import { guideEditAttribution, resolveGuideActor } from '@/lib/guide-attribution';
+import { parseGuideSchedule } from '@/lib/guide-scheduling';
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -70,12 +72,14 @@ export async function GET(request: Request, { params }: RouteParams) {
 // PUT /api/guides/[id] - Update a guide
 export async function PUT(request: Request, { params }: RouteParams) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const { id } = await params;
+    const actor = await resolveGuideActor(prisma, session.user.id);
+    if (!actor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     let body;
     try {
       body = await request.json();
@@ -96,8 +100,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       intro,
       content,
       publishedAt,
-      authorId,
-      authorName,
+      scheduledAt,
       seoTitle,
       seoDescription,
       seoCanonicalUrl,
@@ -115,6 +118,20 @@ export async function PUT(request: Request, { params }: RouteParams) {
         { status: 400 }
       );
     }
+
+    const current = status === undefined || (status === GuideStatus.scheduled && scheduledAt === undefined)
+      ? await prisma.guide.findUnique({ where: { id }, select: { status: true, scheduledAt: true } })
+      : null;
+    if ((status === undefined || (status === GuideStatus.scheduled && scheduledAt === undefined)) && !current) {
+      return NextResponse.json({ error: 'Guide not found' }, { status: 404 });
+    }
+    const effectiveStatus = status ?? current?.status;
+    const existingSchedule = current?.scheduledAt?.toISOString();
+    const preserveSchedule = scheduledAt === undefined && effectiveStatus === GuideStatus.scheduled && current?.status === GuideStatus.scheduled && Boolean(current.scheduledAt);
+    const schedule = preserveSchedule
+      ? { scheduledAt: current!.scheduledAt }
+      : parseGuideSchedule(effectiveStatus, scheduledAt === undefined ? existingSchedule : scheduledAt);
+    if ('error' in schedule && schedule.error) return NextResponse.json({ error: schedule.error }, { status: 400 });
 
     // Check if slug already exists (excluding current guide)
     const existing = await prisma.guide.findFirst({
@@ -139,13 +156,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
         subtitle,
         excerpt,
         status,
+        scheduledAt: schedule.scheduledAt,
         coverImageUrl,
         coverImageAlt,
         intro,
         content,
         publishedAt: publishedAt === undefined ? undefined : publishedAt === null ? null : new Date(publishedAt),
-        authorId,
-        authorName,
+        ...guideEditAttribution(actor),
         seoTitle,
         seoDescription,
         seoCanonicalUrl,

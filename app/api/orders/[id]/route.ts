@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
-import { OrderStatus } from '@prisma/client';
+import { canEditOrderTracking, orderUpdateSchema } from '@/lib/order-update';
 import { sendOrderStatusNotification } from '@/lib/order-status-email';
 
 type RouteContext = {
@@ -53,39 +53,50 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 }
 
-// PATCH update order status
+// PATCH update order status or courier tracking
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const session = await auth();
-    if (!session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { status } = body;
-
-    if (!status || !Object.values(OrderStatus).includes(status)) {
+    let body: unknown;
+    try { body = await request.json(); } catch {
+      return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
+    }
+    const parsed = orderUpdateSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { message: 'Invalid order status' },
+        { message: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
+    const { status, courierTrackingNumber } = parsed.data;
 
     const { id } = await params;
     const previousOrder = await prisma.order.findUnique({
       where: { id },
-      select: { status: true },
+      select: { status: true, updatedAt: true },
     });
 
     if (!previousOrder) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
+    const nextStatus = status ?? previousOrder.status;
+    if (courierTrackingNumber !== undefined && !canEditOrderTracking(nextStatus)) {
+      return NextResponse.json({ message: 'Courier tracking can only be edited for ready_to_ship, shipped, delivered or cancelled orders.' }, { status: 400 });
+    }
 
     const changedAt = new Date();
     const updateResult = await prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
-        where: { id, status: previousOrder.status },
-        data: { status: status as OrderStatus, updatedAt: changedAt },
+        where: { id, status: previousOrder.status, updatedAt: previousOrder.updatedAt },
+        data: {
+          status: nextStatus,
+          ...(courierTrackingNumber === undefined ? {} : { courierTrackingNumber: courierTrackingNumber || null }),
+          updatedAt: changedAt
+        },
       });
 
       if (updated.count !== 1) return null;
@@ -116,7 +127,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     if (!updateResult) {
       return NextResponse.json(
-        { message: 'Order status changed during this update. Refresh and try again.' },
+        { message: 'Order changed during this update. Refresh and try again.' },
         { status: 409 }
       );
     }

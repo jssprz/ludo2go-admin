@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { GuideStatus } from '@prisma/client';
+import { guideCreateAttribution, resolveGuideActor } from '@/lib/guide-attribution';
+import { parseGuideSchedule } from '@/lib/guide-scheduling';
 
 // GET /api/guides - List all guides
 export async function GET(request: Request) {
@@ -64,11 +66,13 @@ export async function GET(request: Request) {
 // POST /api/guides - Create a new guide
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    const actor = await resolveGuideActor(prisma, session.user.id);
+    if (!actor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const body = await request.json();
     const {
       slug,
@@ -81,8 +85,7 @@ export async function POST(request: Request) {
       intro,
       content,
       publishedAt,
-      authorId,
-      authorName,
+      scheduledAt,
       seoTitle,
       seoDescription,
       seoCanonicalUrl,
@@ -100,6 +103,9 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const schedule = parseGuideSchedule(status, scheduledAt);
+    if (schedule.error) return NextResponse.json({ error: schedule.error }, { status: 400 });
 
     // Check if slug already exists
     const existing = await prisma.guide.findUnique({
@@ -120,13 +126,13 @@ export async function POST(request: Request) {
         subtitle,
         excerpt,
         status,
+        scheduledAt: schedule.scheduledAt,
         coverImageUrl,
         coverImageAlt,
         intro,
         content,
         publishedAt: publishedAt ? new Date(publishedAt) : null,
-        authorId,
-        authorName,
+        ...guideCreateAttribution(actor),
         seoTitle,
         seoDescription,
         seoCanonicalUrl,

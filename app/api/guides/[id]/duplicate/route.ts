@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { GuideStatus, Prisma } from '@prisma/client';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { guideCreateAttribution, resolveGuideActor } from '@/lib/guide-attribution';
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -30,12 +31,14 @@ async function generateUniqueSlug(baseSlug: string) {
 // POST /api/guides/[id]/duplicate - Duplicate a guide with blocks and product variants
 export async function POST(request: Request, { params }: RouteParams) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const { id } = await params;
+    const actor = await resolveGuideActor(prisma, session.user.id);
+    if (!actor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const sourceGuide = await prisma.guide.findUnique({
       where: { id },
@@ -68,8 +71,8 @@ export async function POST(request: Request, { params }: RouteParams) {
           intro: sourceGuide.intro,
           content: sourceGuide.content,
           publishedAt: null,
-          authorId: sourceGuide.authorId,
-          authorName: sourceGuide.authorName,
+          scheduledAt: null,
+          ...guideCreateAttribution(actor),
           seoTitle: sourceGuide.seoTitle,
           seoDescription: sourceGuide.seoDescription,
           seoCanonicalUrl: sourceGuide.seoCanonicalUrl,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { guideEditAttribution, resolveGuideActor } from '@/lib/guide-attribution';
 import { guideBlockErrorResponse, parseGuideBlockRequest, saveGuideBlock } from '@/lib/guide-block-persistence';
 
 // GET /api/guide-blocks - List guide blocks (optionally filtered by guideId)
@@ -47,17 +48,25 @@ export async function GET(request: Request) {
 // POST /api/guide-blocks - Create a new guide block
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const adminUserId = session.user.id;
 
   try {
     const payload = await parseGuideBlockRequest(request, true);
     const block = await prisma.$transaction(
-      (transaction) => saveGuideBlock(transaction, payload),
+      async (transaction) => {
+        const actor = await resolveGuideActor(transaction, adminUserId);
+        if (!actor) return null;
+        const saved = await saveGuideBlock(transaction, payload);
+        await transaction.guide.update({ where: { id: saved.guideId }, data: guideEditAttribution(actor) });
+        return saved;
+      },
       { isolationLevel: 'Serializable' }
     );
 
+    if (!block) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     return NextResponse.json(block, { status: 201 });
   } catch (error) {
     const response = guideBlockErrorResponse(error);

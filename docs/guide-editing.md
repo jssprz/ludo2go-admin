@@ -15,6 +15,22 @@ database transaction. All variants of a referenced product are linked through
 `GuideProductVariant`; existing unused associations are retained and shown as
 warnings. Reordering uses the existing `sortOrder` field and does not change IDs.
 
+New guides and copies record the authenticated admin as author and editor, using
+the admin's current display name. Metadata edits preserve the original author.
+Block and product-association mutations update the last editor in the same
+transaction. Client-supplied author/editor attribution is ignored. Existing guides
+with no author remain unattributed; no historical authorship is inferred.
+
+## Scheduling
+
+Choose `scheduled` and a future publishing date/time to store `scheduledAt`.
+Inputs use the browser's local timezone and submit UTC ISO timestamps. Switching
+to another status clears the schedule; copies always start as unscheduled drafts.
+Scheduling is available in both the detail editor and list create/edit dialogs.
+This admin stores scheduling intent, not a background publishing job. The
+storefront or publishing worker must honor due scheduled guides while keeping
+future scheduled guides private, including listings, direct URLs and sitemaps.
+
 ## Rendering Boundary
 
 The production storefront renderer is not part of this repository. The admin
@@ -33,7 +49,7 @@ results. Image checks validate URLs and descriptions, not remote asset reachabil
 ## Verification
 
 ```sh
-npx tsx --test tests/guideBlocks.test.ts tests/guideChecklist.test.ts
+npx tsx --test tests/guideBlocks.test.ts tests/guideChecklist.test.ts tests/guideScheduling.test.ts
 npx vitest run --config tests/vitest.guides.config.ts --reporter=verbose
 npx tsc --noEmit
 ```

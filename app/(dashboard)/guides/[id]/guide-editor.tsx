@@ -32,6 +32,8 @@ import {
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { GuideStatus } from '@prisma/client';
+import { toDateTimeLocalInput } from '@/lib/date-time-local';
+import { guideScheduleInputToIso, parseGuideSchedule } from '@/lib/guide-scheduling';
 
 type Guide = {
   id: string;
@@ -45,10 +47,13 @@ type Guide = {
   intro: string | null;
   content: string | null;
   publishedAt: Date | null;
+  scheduledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   authorId: string | null;
   authorName: string | null;
+  editorId: string | null;
+  editorName: string | null;
   seoTitle: string | null;
   seoDescription: string | null;
   seoCanonicalUrl: string | null;
@@ -83,6 +88,7 @@ export function GuideEditor({ guide, categories }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [scheduleError, setScheduleError] = useState(false);
   const savingRef = useRef(false);
   const dirtyRef = useRef(false);
   const allowNavigationRef = useRef(false);
@@ -94,12 +100,12 @@ export function GuideEditor({ guide, categories }: Props) {
     subtitle: guide.subtitle || '',
     excerpt: guide.excerpt || '',
     status: guide.status,
+    scheduledAt: toDateTimeLocalInput(guide.scheduledAt),
     categoryId: guide.categoryId || '',
     coverImageUrl: guide.coverImageUrl || '',
     coverImageAlt: guide.coverImageAlt || '',
     intro: guide.intro || '',
     content: guide.content || '',
-    authorName: guide.authorName || '',
     seoTitle: guide.seoTitle || '',
     seoDescription: guide.seoDescription || '',
     ogImageUrl: guide.ogImageUrl || '',
@@ -160,6 +166,7 @@ export function GuideEditor({ guide, categories }: Props) {
     setFormData(next);
     setError(null);
     setSuccess(false);
+    setScheduleError(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -168,6 +175,13 @@ export function GuideEditor({ guide, categories }: Props) {
     const formData = formDataRef.current;
     if (!formData.title.trim() || !formData.slug.trim()) {
       setError(`${t('title')} / ${t('slug')}: ${tc('required')}`);
+      setSuccess(false);
+      return;
+    }
+    const schedule = parseGuideSchedule(formData.status, formData.status === GuideStatus.scheduled ? guideScheduleInputToIso(formData.scheduledAt) : null);
+    if (schedule.error) {
+      setScheduleError(true);
+      setError(t('scheduleInvalid'));
       setSuccess(false);
       return;
     }
@@ -186,12 +200,12 @@ export function GuideEditor({ guide, categories }: Props) {
           subtitle: formData.subtitle.trim() || null,
           excerpt: formData.excerpt.trim() || null,
           status: formData.status,
+          scheduledAt: schedule.scheduledAt?.toISOString() ?? null,
           categoryId: formData.categoryId || null,
           coverImageUrl: formData.coverImageUrl.trim() || null,
           coverImageAlt: formData.coverImageAlt.trim() || null,
           intro: formData.intro.trim() || null,
           content: formData.content.trim() || null,
-          authorName: formData.authorName.trim() || null,
           seoTitle: formData.seoTitle.trim() || null,
           seoDescription: formData.seoDescription.trim() || null,
           ogImageUrl: formData.ogImageUrl.trim() || null,
@@ -235,6 +249,10 @@ export function GuideEditor({ guide, categories }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <div><dt className="text-muted-foreground">{t('author')}</dt><dd>{guide.authorName || t('attributionUnknown')}</dd></div>
+            <div><dt className="text-muted-foreground">{t('lastEditor')}</dt><dd>{guide.editorName || t('attributionUnknown')}</dd></div>
+          </dl>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="title">{t('title')} *</Label>
@@ -291,6 +309,7 @@ export function GuideEditor({ guide, categories }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={GuideStatus.draft}>{t('draft')}</SelectItem>
+                  <SelectItem value={GuideStatus.scheduled}>{t('scheduled')}</SelectItem>
                   <SelectItem value={GuideStatus.published}>{t('published')}</SelectItem>
                   <SelectItem value={GuideStatus.archived}>{t('archived')}</SelectItem>
                 </SelectContent>
@@ -315,6 +334,16 @@ export function GuideEditor({ guide, categories }: Props) {
               </Select>
             </div>
           </div>
+          {formData.status === GuideStatus.scheduled && (
+            <div className="space-y-2">
+              <Label htmlFor="scheduled-at">{t('scheduledAt')} *</Label>
+              <Input id="scheduled-at" type="datetime-local" required value={formData.scheduledAt}
+                aria-invalid={scheduleError} aria-describedby="scheduled-at-hint scheduled-at-error"
+                onChange={(event) => handleInputChange('scheduledAt', event.target.value)} />
+              <p id="scheduled-at-hint" className="text-xs text-muted-foreground">{t('scheduleTimezone')}</p>
+              {scheduleError && <p id="scheduled-at-error" role="alert" className="text-sm text-destructive">{t('scheduleInvalid')}</p>}
+            </div>
+          )}
         </CardContent>
       </Card>
 

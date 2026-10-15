@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { guideEditAttribution, resolveGuideActor } from '@/lib/guide-attribution';
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -46,9 +47,10 @@ export async function GET(request: Request, { params }: RouteParams) {
 // POST /api/guide-product-variants/[id] - Add a product variant to a guide
 export async function POST(request: Request, { params }: RouteParams) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const adminUserId = session.user.id;
 
   try {
     const { id } = await params;
@@ -94,7 +96,10 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const association = await prisma.guideProductVariant.create({
+    const association = await prisma.$transaction(async (transaction) => {
+      const actor = await resolveGuideActor(transaction, adminUserId);
+      if (!actor) return null;
+      const created = await transaction.guideProductVariant.create({
       data: {
         guideId: id,
         variantId,
@@ -112,8 +117,12 @@ export async function POST(request: Request, { params }: RouteParams) {
           },
         },
       },
+      });
+      await transaction.guide.update({ where: { id }, data: guideEditAttribution(actor) });
+      return created;
     });
 
+    if (!association) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     return NextResponse.json(association, { status: 201 });
   } catch (error) {
     console.error('Error adding guide product variant:', error);
@@ -127,9 +136,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 // DELETE /api/guide-product-variants/[id]?variantId=... - Remove a product variant from a guide
 export async function DELETE(request: Request, { params }: RouteParams) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const adminUserId = session.user.id;
 
   try {
     const { id } = await params;
@@ -143,15 +153,22 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       );
     }
 
-    const association = await prisma.guideProductVariant.delete({
-      where: {
-        guideId_variantId: {
-          guideId: id,
-          variantId,
+    const association = await prisma.$transaction(async (transaction) => {
+      const actor = await resolveGuideActor(transaction, adminUserId);
+      if (!actor) return null;
+      const deleted = await transaction.guideProductVariant.delete({
+        where: {
+          guideId_variantId: {
+            guideId: id,
+            variantId,
+          },
         },
-      },
+      });
+      await transaction.guide.update({ where: { id }, data: guideEditAttribution(actor) });
+      return deleted;
     });
 
+    if (!association) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     return NextResponse.json(association);
   } catch (error) {
     console.error('Error removing guide product variant:', error);

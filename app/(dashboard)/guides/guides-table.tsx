@@ -55,6 +55,8 @@ import {
   CopyPlus,
 } from 'lucide-react';
 import { GuideStatus } from '@prisma/client';
+import { toDateTimeLocalInput } from '@/lib/date-time-local';
+import { guideScheduleInputToIso, parseGuideSchedule } from '@/lib/guide-scheduling';
 
 type GuideCategory = {
   id: string;
@@ -71,6 +73,7 @@ type Guide = {
   status: GuideStatus;
   coverImageUrl: string | null;
   publishedAt: Date | null;
+  scheduledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   categoryId: string | null;
@@ -111,8 +114,10 @@ export function GuidesTable({ initialGuides, categories }: Props) {
   const [formSubtitle, setFormSubtitle] = useState('');
   const [formExcerpt, setFormExcerpt] = useState('');
   const [formStatus, setFormStatus] = useState<GuideStatus>(GuideStatus.draft);
+  const [formScheduledAt, setFormScheduledAt] = useState('');
   const [formCategoryId, setFormCategoryId] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
+  const isScheduleInvalid = formStatus === GuideStatus.scheduled && formError === t('scheduleInvalid');
 
   const filteredGuides = guides.filter((guide) => {
     const matchesSearch =
@@ -147,6 +152,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
     setFormSubtitle('');
     setFormExcerpt('');
     setFormStatus(GuideStatus.draft);
+    setFormScheduledAt('');
     setFormCategoryId('');
     setFormError(null);
   }
@@ -164,6 +170,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
     setFormSubtitle(guide.subtitle || '');
     setFormExcerpt(guide.excerpt || '');
     setFormStatus(guide.status);
+    setFormScheduledAt(toDateTimeLocalInput(guide.scheduledAt));
     setFormCategoryId(guide.categoryId || '');
     setFormError(null);
     setShowEditDialog(true);
@@ -180,6 +187,8 @@ export function GuidesTable({ initialGuides, categories }: Props) {
         return 'default';
       case GuideStatus.draft:
         return 'secondary';
+      case GuideStatus.scheduled:
+        return 'outline';
       case GuideStatus.archived:
         return 'outline';
       default:
@@ -213,6 +222,15 @@ export function GuidesTable({ initialGuides, categories }: Props) {
       return;
     }
 
+    const schedule = parseGuideSchedule(
+      formStatus,
+      formStatus === GuideStatus.scheduled ? guideScheduleInputToIso(formScheduledAt) : null
+    );
+    if (schedule.error) {
+      setFormError(t('scheduleInvalid'));
+      return;
+    }
+
     setIsLoading(true);
     setFormError(null);
 
@@ -226,6 +244,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
           subtitle: formSubtitle.trim() || null,
           excerpt: formExcerpt.trim() || null,
           status: formStatus,
+          scheduledAt: schedule.scheduledAt?.toISOString() ?? null,
           categoryId: formCategoryId || null,
         }),
       });
@@ -252,6 +271,15 @@ export function GuidesTable({ initialGuides, categories }: Props) {
       return;
     }
 
+    const schedule = parseGuideSchedule(
+      formStatus,
+      formStatus === GuideStatus.scheduled ? guideScheduleInputToIso(formScheduledAt) : null
+    );
+    if (schedule.error) {
+      setFormError(t('scheduleInvalid'));
+      return;
+    }
+
     setIsLoading(true);
     setFormError(null);
 
@@ -265,6 +293,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
           subtitle: formSubtitle.trim() || null,
           excerpt: formExcerpt.trim() || null,
           status: formStatus,
+          scheduledAt: schedule.scheduledAt?.toISOString() ?? null,
           categoryId: formCategoryId || null,
         }),
       });
@@ -389,6 +418,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                 <SelectContent>
                   <SelectItem value="all">{t('allStatuses')}</SelectItem>
                   <SelectItem value={GuideStatus.draft}>{t('draft')}</SelectItem>
+                  <SelectItem value={GuideStatus.scheduled}>{t('scheduled')}</SelectItem>
                   <SelectItem value={GuideStatus.published}>{t('published')}</SelectItem>
                   <SelectItem value={GuideStatus.archived}>{t('archived')}</SelectItem>
                 </SelectContent>
@@ -448,6 +478,11 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                     <Badge variant={getStatusBadgeVariant(guide.status)}>
                       {t(guide.status)}
                     </Badge>
+                    {guide.status === GuideStatus.scheduled && guide.scheduledAt && (
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {new Date(guide.scheduledAt).toLocaleString()}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>{guide.category?.name || '-'}</TableCell>
                   <TableCell className="text-right">{guide.visits}</TableCell>
@@ -558,12 +593,16 @@ export function GuidesTable({ initialGuides, categories }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="create-status">{t('status')}</Label>
-                <Select value={formStatus} onValueChange={(value: GuideStatus) => setFormStatus(value)}>
+                <Select value={formStatus} onValueChange={(value: GuideStatus) => {
+                  setFormStatus(value);
+                  setFormError(null);
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={GuideStatus.draft}>{t('draft')}</SelectItem>
+                    <SelectItem value={GuideStatus.scheduled}>{t('scheduled')}</SelectItem>
                     <SelectItem value={GuideStatus.published}>{t('published')}</SelectItem>
                     <SelectItem value={GuideStatus.archived}>{t('archived')}</SelectItem>
                   </SelectContent>
@@ -585,7 +624,32 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                 </Select>
               </div>
             </div>
-            {formError && (
+            {formStatus === GuideStatus.scheduled && (
+              <div>
+                <Label htmlFor="create-scheduled-at">{t('scheduledAt')} *</Label>
+                <Input
+                  id="create-scheduled-at"
+                  type="datetime-local"
+                  value={formScheduledAt}
+                  onChange={(event) => {
+                    setFormScheduledAt(event.target.value);
+                    setFormError(null);
+                  }}
+                  required
+                  aria-invalid={isScheduleInvalid}
+                  aria-describedby={`create-schedule-timezone${isScheduleInvalid ? ' create-schedule-error' : ''}`}
+                />
+                <p id="create-schedule-timezone" className="mt-1 text-sm text-muted-foreground">
+                  {t('scheduleTimezone')}
+                </p>
+                {isScheduleInvalid && (
+                  <p id="create-schedule-error" role="alert" className="mt-1 text-sm text-destructive">
+                    {t('scheduleInvalid')}
+                  </p>
+                )}
+              </div>
+            )}
+            {formError && !isScheduleInvalid && (
               <div className="text-sm text-destructive">{formError}</div>
             )}
           </div>
@@ -654,12 +718,16 @@ export function GuidesTable({ initialGuides, categories }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit-status">{t('status')}</Label>
-                <Select value={formStatus} onValueChange={(value: GuideStatus) => setFormStatus(value)}>
+                <Select value={formStatus} onValueChange={(value: GuideStatus) => {
+                  setFormStatus(value);
+                  setFormError(null);
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={GuideStatus.draft}>{t('draft')}</SelectItem>
+                    <SelectItem value={GuideStatus.scheduled}>{t('scheduled')}</SelectItem>
                     <SelectItem value={GuideStatus.published}>{t('published')}</SelectItem>
                     <SelectItem value={GuideStatus.archived}>{t('archived')}</SelectItem>
                   </SelectContent>
@@ -681,7 +749,32 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                 </Select>
               </div>
             </div>
-            {formError && (
+            {formStatus === GuideStatus.scheduled && (
+              <div>
+                <Label htmlFor="edit-scheduled-at">{t('scheduledAt')} *</Label>
+                <Input
+                  id="edit-scheduled-at"
+                  type="datetime-local"
+                  value={formScheduledAt}
+                  onChange={(event) => {
+                    setFormScheduledAt(event.target.value);
+                    setFormError(null);
+                  }}
+                  required
+                  aria-invalid={isScheduleInvalid}
+                  aria-describedby={`edit-schedule-timezone${isScheduleInvalid ? ' edit-schedule-error' : ''}`}
+                />
+                <p id="edit-schedule-timezone" className="mt-1 text-sm text-muted-foreground">
+                  {t('scheduleTimezone')}
+                </p>
+                {isScheduleInvalid && (
+                  <p id="edit-schedule-error" role="alert" className="mt-1 text-sm text-destructive">
+                    {t('scheduleInvalid')}
+                  </p>
+                )}
+              </div>
+            )}
+            {formError && !isScheduleInvalid && (
               <div className="text-sm text-destructive">{formError}</div>
             )}
           </div>

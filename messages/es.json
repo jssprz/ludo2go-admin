@@ -871,6 +871,13 @@
   },
   "guides": {
     "pageTitle": "Guías",
+    "author": "Autor",
+    "lastEditor": "Último editor",
+    "attributionUnknown": "Sin registro",
+    "scheduled": "Programada",
+    "scheduledAt": "Fecha y hora de publicación",
+    "scheduleInvalid": "Elige una fecha y hora de publicación válida en el futuro.",
+    "scheduleTimezone": "La fecha y hora usan la zona horaria local de tu navegador.",
     "description": "Gestiona las guías y contenido instructivo.",
     "guides": "Guías",
     "manageGuides": "Crea y gestiona contenido de guías",
