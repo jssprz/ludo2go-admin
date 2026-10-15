@@ -25,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   confirmed: 'bg-blue-100 text-blue-800',
   processing: 'bg-purple-100 text-purple-800',
+  ready_to_ship: 'bg-cyan-100 text-cyan-800',
   shipped: 'bg-indigo-100 text-indigo-800',
   delivered: 'bg-green-100 text-green-800',
   cancelled: 'bg-red-100 text-red-800',
@@ -45,6 +46,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     select: {
       id: true,
       status: true,
+      courierTrackingNumber: true,
       createdAt: true,
       updatedAt: true,
       subtotal: true,
@@ -272,7 +274,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <CardTitle>Order Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <OrderStatusControl orderId={order.id} status={order.status} />
+            <OrderStatusControl orderId={order.id} status={order.status} courierTrackingNumber={order.courierTrackingNumber} />
             <p className="text-sm text-muted-foreground mt-2">
               Last updated: {formatDateTime(order.updatedAt)}
             </p>

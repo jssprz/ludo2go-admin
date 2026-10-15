@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'pendiente',
   confirmed: 'confirmado',
   processing: 'en preparación',
+  ready_to_ship: 'listo para enviar',
   shipped: 'enviado',
   delivered: 'entregado',
   cancelled: 'cancelado',
