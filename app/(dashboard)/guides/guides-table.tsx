@@ -497,11 +497,17 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/guides/${guide.id}`)}>
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          {t('view')}
+                        <DropdownMenuItem asChild>
+                          <a
+                            href={`${(process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl').replace(/\/+$/, '')}/borador/${encodeURIComponent(guide.slug)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            {t('view')}
+                          </a>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEditDialog(guide)}>
+                        <DropdownMenuItem onClick={() => router.push(`/guides/${guide.id}`)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           {tc('edit')}
                         </DropdownMenuItem>

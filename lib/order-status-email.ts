@@ -59,7 +59,7 @@ export async function sendOrderStatusNotification({
   const safeName = escapeHtml(customerName?.trim() || 'cliente');
   const statusLabel = STATUS_LABELS[status];
   const previousStatusLabel = STATUS_LABELS[previousStatus];
-  const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://jobys.cl'}/account/orders/${encodeURIComponent(orderId)}`;
+  const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl'}/account/orders/${encodeURIComponent(orderId)}`;
   const safeItems = itemNames.map(escapeHtml);
   const itemList = safeItems.length > 0
     ? safeItems.map((name) => `<li>${name}</li>`).join('')
