@@ -146,6 +146,7 @@ function useNavGroups(t: ReturnType<typeof useTranslations<'nav'>>): NavGroup[] 
       items: [
         { href: '/search-analytics', labelKey: 'searchAnalytics', icon: <Search className="h-4 w-4" /> },
         { href: '/analytics', labelKey: 'analytics', icon: <LineChart className="h-4 w-4" /> },
+        { href: '/match-tool-analytics', labelKey: 'matchToolAnalytics', icon: <Gamepad2 className="h-4 w-4" /> },
       ],
     },
     {
