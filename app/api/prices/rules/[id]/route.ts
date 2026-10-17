@@ -34,12 +34,50 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Invalid description' }, { status: 400 });
     }
 
+    const dateUpdates: { startsAt?: Date | null; endsAt?: Date | null } = {};
+    for (const field of ['startsAt', 'endsAt'] as const) {
+      if (!Object.prototype.hasOwnProperty.call(payload, field)) continue;
+      const value = payload[field];
+      if (value === null) {
+        dateUpdates[field] = null;
+        continue;
+      }
+      if (typeof value !== 'string') {
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
+      }
+      dateUpdates[field] = date;
+    }
+
+    if (Object.keys(dateUpdates).length > 0) {
+      const existing = await prisma.variantPriceRule.findUnique({
+        where: { id },
+        select: { startsAt: true, endsAt: true },
+      });
+      if (!existing) {
+        return NextResponse.json({ error: 'Price rule not found' }, { status: 404 });
+      }
+      const startsAt = Object.prototype.hasOwnProperty.call(dateUpdates, 'startsAt')
+        ? dateUpdates.startsAt ?? null
+        : existing.startsAt;
+      const endsAt = Object.prototype.hasOwnProperty.call(dateUpdates, 'endsAt')
+        ? dateUpdates.endsAt ?? null
+        : existing.endsAt;
+      if (startsAt && endsAt && startsAt > endsAt) {
+        return NextResponse.json({ error: 'Start date cannot be later than end date' }, { status: 400 });
+      }
+    }
+
     const updated = await prisma.variantPriceRule.update({
       where: { id },
       data: {
         name: payload.name.trim(),
         badge: typeof payload.badge === 'string' ? payload.badge.trim() || null : null,
         description: typeof payload.description === 'string' ? payload.description.trim() || null : null,
+        ...dateUpdates,
         ...buildUpdateAuditFields(getAdminUserIdFromSession(session)),
       },
       include: { _count: { select: { prices: true } } },

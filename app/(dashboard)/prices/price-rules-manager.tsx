@@ -33,6 +33,7 @@ import {
   stringToTags,
   tagsToString,
 } from '../bundles/[id]/edit/variant-selection-rule-editor';
+import { toDateTimeLocalInput } from '@/lib/date-time-local';
 
 type PriceRule = {
   id: string;
@@ -162,7 +163,13 @@ export function PriceRulesManager({ initialRules }: Props) {
   const [form, setForm] = useState<RuleFormState>(DEFAULT_FORM);
   const [isSaving, setIsSaving] = useState(false);
   const [editingRule, setEditingRule] = useState<PriceRule | null>(null);
-  const [editDetails, setEditDetails] = useState({ name: '', badge: '', description: '' });
+  const [editDetails, setEditDetails] = useState({
+    name: '',
+    badge: '',
+    description: '',
+    startsAt: '',
+    endsAt: '',
+  });
   const [editError, setEditError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingCatalogOptions, setIsLoadingCatalogOptions] = useState(false);
@@ -320,7 +327,13 @@ export function PriceRulesManager({ initialRules }: Props) {
 
   function openEditDetails(rule: PriceRule) {
     setEditingRule(rule);
-    setEditDetails({ name: rule.name, badge: rule.badge || '', description: rule.description || '' });
+    setEditDetails({
+      name: rule.name,
+      badge: rule.badge || '',
+      description: rule.description || '',
+      startsAt: toDateTimeLocalInput(rule.startsAt),
+      endsAt: toDateTimeLocalInput(rule.endsAt),
+    });
     setEditError(null);
   }
 
@@ -336,7 +349,11 @@ export function PriceRulesManager({ initialRules }: Props) {
       const response = await fetch(`/api/prices/rules/${editingRule.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editDetails),
+        body: JSON.stringify({
+          ...editDetails,
+          startsAt: toIsoOrNull(editDetails.startsAt),
+          endsAt: toIsoOrNull(editDetails.endsAt),
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to update rule');
@@ -864,7 +881,7 @@ export function PriceRulesManager({ initialRules }: Props) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button size="icon" variant="outline" onClick={() => openEditDetails(rule)} title="Edit name, badge and description" aria-label={`Edit ${rule.name}`}>
+                          <Button size="icon" variant="outline" onClick={() => openEditDetails(rule)} title="Edit rule details and dates" aria-label={`Edit ${rule.name}`}>
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button size="icon" variant="outline" onClick={() => router.push(`/prices/rules/${rule.id}/carousel-variant`)} title="Create carousel variant" aria-label={`Create carousel variant from ${rule.name}`}>
@@ -932,6 +949,16 @@ export function PriceRulesManager({ initialRules }: Props) {
             <div className="space-y-2">
               <Label htmlFor="edit-rule-description">Description</Label>
               <Input id="edit-rule-description" value={editDetails.description} onChange={(event) => setEditDetails((details) => ({ ...details, description: event.target.value }))} />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-rule-starts-at">Starts At</Label>
+                <Input id="edit-rule-starts-at" type="datetime-local" value={editDetails.startsAt} onChange={(event) => setEditDetails((details) => ({ ...details, startsAt: event.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-rule-ends-at">Ends At</Label>
+                <Input id="edit-rule-ends-at" type="datetime-local" value={editDetails.endsAt} onChange={(event) => setEditDetails((details) => ({ ...details, endsAt: event.target.value }))} />
+              </div>
             </div>
             {editError && <p role="alert" className="text-sm text-destructive">{editError}</p>}
             <DialogFooter>

@@ -421,6 +421,14 @@ export async function applyVariantPriceRule(ruleId: string, adminUserId: string 
     .filter((row): row is NonNullable<typeof row> => row != null);
 
   const totalGeneratedPrices = await prisma.$transaction(async (tx) => {
+    await tx.price.updateMany({
+      where: { sourceRuleId: rule.id },
+      data: {
+        startsAt: rule.startsAt,
+        endsAt: rule.endsAt,
+      },
+    });
+
     if (createRows.length > 0) {
       await tx.price.createMany({ data: createRows });
     }
