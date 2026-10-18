@@ -26,10 +26,22 @@ with no author remain unattributed; no historical authorship is inferred.
 Choose `scheduled` and a future publishing date/time to store `scheduledAt`.
 Inputs use the browser's local timezone and submit UTC ISO timestamps. Switching
 to another status clears the schedule; copies always start as unscheduled drafts.
-Scheduling is available in both the detail editor and list create/edit dialogs.
-This admin stores scheduling intent, not a background publishing job. The
-storefront or publishing worker must honor due scheduled guides while keeping
-future scheduled guides private, including listings, direct URLs and sitemaps.
+Scheduling is available in the detail editor, list create/edit dialogs, and inline
+in the list's Status column.
+
+Vercel calls `GET /api/cron/publish-guides` daily at 00:00 UTC (`0 0 * * *`).
+The job atomically publishes guides whose status is `scheduled` and whose
+`scheduledAt` is at or before the job's current time. It sets `publishedAt` to
+the publication time and clears `scheduledAt`. Future schedules, missing dates,
+and guides in other statuses are not changed. Repeated calls do not republish
+guides that have already transitioned to `published`.
+
+Set `CRON_SECRET` in the Vercel project's production environment before deploying.
+Vercel sends it as `Authorization: Bearer <CRON_SECRET>`; the endpoint rejects
+requests without the matching secret. Cron jobs run on production deployments.
+Because the job runs daily, a guide may publish up to roughly 24 hours after its
+scheduled time. The storefront must keep non-published guides private, including
+listings, direct URLs, and sitemaps.
 
 ## Rendering Boundary
 

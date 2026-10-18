@@ -3,6 +3,10 @@
   "buildCommand": "npm run vercel-build",
   "crons": [
     {
+      "path": "/api/cron/publish-guides",
+      "schedule": "0 11 * * *"
+    },
+    {
       "path": "/api/cron/weekly-analytics",
       "schedule": "0 12 * * 1"
     }

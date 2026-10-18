@@ -64,13 +64,23 @@ export default function DashboardLayout({
       <main className="flex min-h-screen min-w-0 w-full max-w-full flex-col bg-muted/40">
         <Sidebar />
         <MainContentWrapper>
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-            <MobileNav />
-            <DashboardBreadcrumb />
-            <SearchInput />
-            <TimeZoneSwitcher />
-            <LanguageSwitcher />
-            <User />
+          <header className="sticky top-0 z-30 grid min-w-0 gap-3 border-b bg-background px-4 py-3 sm:static sm:border-0 sm:bg-transparent sm:px-6 xl:flex xl:items-center xl:gap-4">
+            <div className="flex min-w-0 items-center gap-4 xl:flex-1">
+              <MobileNav />
+              <DashboardBreadcrumb />
+              <SearchInput />
+            </div>
+            <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-4 xl:shrink-0">
+              <div className="min-w-0 max-w-[210px] flex-1 xl:w-[210px] xl:flex-none">
+                <TimeZoneSwitcher />
+              </div>
+              <div className="shrink-0">
+                <LanguageSwitcher />
+              </div>
+              <div className="shrink-0">
+                <User />
+              </div>
+            </div>
           </header>
           <main className="grid min-w-0 w-full max-w-full grid-cols-[minmax(0,1fr)] flex-1 items-start gap-2 p-4 sm:px-6 sm:py-0 md:gap-4 bg-muted/40">
             {children}
@@ -167,7 +177,7 @@ async function MobileNav() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button size="icon" variant="outline" className="sm:hidden">
+        <Button size="icon" variant="outline" className="shrink-0 sm:hidden">
           <PanelLeft className="h-4 w-4" />
           <span className="sr-only">Abrir menú</span>
         </Button>
@@ -213,7 +223,7 @@ async function MobileNav() {
 
 function DashboardBreadcrumb() {
   return (
-    <Breadcrumb className="hidden md:flex">
+    <Breadcrumb className="hidden shrink-0 md:flex">
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>

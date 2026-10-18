@@ -17,9 +17,9 @@ export function TimeZoneSwitcher() {
 
   return (
     <Select value={timeZone} onValueChange={setTimeZone}>
-      <SelectTrigger className="w-[210px]">
-        <div className="flex items-center gap-2">
-          <Clock3 className="h-4 w-4" />
+      <SelectTrigger className="w-full min-w-0" aria-label={t('placeholder')}>
+        <div className="flex min-w-0 items-center gap-2 [&>span]:truncate">
+          <Clock3 className="h-4 w-4 shrink-0" />
           <SelectValue placeholder={t('placeholder')} />
         </div>
       </SelectTrigger>

@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +88,90 @@ type Props = {
   initialGuides: Guide[];
   categories: GuideCategory[];
 };
+
+function GuidePublicationControls({ guide, onSave }: {
+  guide: Guide;
+  onSave: (status: GuideStatus, scheduledAt: string | null) => Promise<void>;
+}) {
+  const t = useTranslations('guides');
+  const tc = useTranslations('common');
+  const initialScheduledAt = toDateTimeLocalInput(guide.scheduledAt);
+  const [status, setStatus] = useState(guide.status);
+  const [scheduledAt, setScheduledAt] = useState(initialScheduledAt);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isDirty = status !== guide.status || (status === GuideStatus.scheduled && scheduledAt !== initialScheduledAt);
+  const scheduleInputId = `guide-schedule-${guide.id}`;
+
+  async function handleSave() {
+    const schedule = parseGuideSchedule(status, status === GuideStatus.scheduled ? guideScheduleInputToIso(scheduledAt) : null);
+    if (schedule.error) {
+      setError(t('scheduleInvalid'));
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      await onSave(status, schedule.scheduledAt?.toISOString() ?? null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : tc('error'));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="w-56 space-y-2">
+      <Select value={status} disabled={isSaving} onValueChange={(value: GuideStatus) => {
+        setStatus(value);
+        setError(null);
+      }}>
+        <SelectTrigger aria-label={`${t('status')}: ${guide.title}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={GuideStatus.draft}>{t('draft')}</SelectItem>
+          <SelectItem value={GuideStatus.scheduled}>{t('scheduled')}</SelectItem>
+          <SelectItem value={GuideStatus.published}>{t('published')}</SelectItem>
+          <SelectItem value={GuideStatus.archived}>{t('archived')}</SelectItem>
+        </SelectContent>
+      </Select>
+      {status === GuideStatus.scheduled && (
+        <div className="space-y-1">
+          <Label htmlFor={scheduleInputId}>{t('scheduledAt')}</Label>
+          <Input
+            id={scheduleInputId}
+            type="datetime-local"
+            value={scheduledAt}
+            disabled={isSaving}
+            required
+            aria-invalid={error === t('scheduleInvalid')}
+            aria-describedby={`${scheduleInputId}-timezone${error ? ` ${scheduleInputId}-error` : ''}`}
+            onChange={(event) => {
+              setScheduledAt(event.target.value);
+              setError(null);
+            }}
+          />
+          <p id={`${scheduleInputId}-timezone`} className="text-xs text-muted-foreground">{t('scheduleTimezone')}</p>
+        </div>
+      )}
+      {error && <p id={`${scheduleInputId}-error`} role="alert" className="text-sm text-destructive">{error}</p>}
+      {isDirty && (
+        <div className="flex items-center gap-2">
+          <Button size="sm" disabled={isSaving} onClick={handleSave}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {tc('save')}
+          </Button>
+          <Button size="sm" variant="outline" disabled={isSaving} onClick={() => {
+            setStatus(guide.status);
+            setScheduledAt(initialScheduledAt);
+            setError(null);
+          }}>{tc('cancel')}</Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function GuidesTable({ initialGuides, categories }: Props) {
   const router = useRouter();
@@ -181,21 +264,6 @@ export function GuidesTable({ initialGuides, categories }: Props) {
     setShowDeleteDialog(true);
   }
 
-  function getStatusBadgeVariant(status: GuideStatus) {
-    switch (status) {
-      case GuideStatus.published:
-        return 'default';
-      case GuideStatus.draft:
-        return 'secondary';
-      case GuideStatus.scheduled:
-        return 'outline';
-      case GuideStatus.archived:
-        return 'outline';
-      default:
-        return 'secondary';
-    }
-  }
-
   async function getErrorMessage(res: Response) {
     try {
       const error = await res.json();
@@ -214,6 +282,17 @@ export function GuidesTable({ initialGuides, categories }: Props) {
 
   function isGuideActionLoading(guideId: string, action: 'export' | 'duplicate') {
     return activeGuideAction === `${action}:${guideId}`;
+  }
+
+  async function handlePublicationUpdate(guide: Guide, status: GuideStatus, scheduledAt: string | null) {
+    const res = await fetch(`/api/guides/${guide.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: guide.title, slug: guide.slug, status, scheduledAt }),
+    });
+    if (!res.ok) throw new Error(await getErrorMessage(res));
+    const updatedGuide = await res.json();
+    setGuides((current) => current.map((entry) => entry.id === guide.id ? { ...entry, ...updatedGuide } : entry));
   }
 
   async function handleCreate() {
@@ -475,14 +554,11 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(guide.status)}>
-                      {t(guide.status)}
-                    </Badge>
-                    {guide.status === GuideStatus.scheduled && guide.scheduledAt && (
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {new Date(guide.scheduledAt).toLocaleString()}
-                      </div>
-                    )}
+                    <GuidePublicationControls
+                      key={`${guide.id}:${guide.status}:${guide.scheduledAt}`}
+                      guide={guide}
+                      onSave={(status, scheduledAt) => handlePublicationUpdate(guide, status, scheduledAt)}
+                    />
                   </TableCell>
                   <TableCell>{guide.category?.name || '-'}</TableCell>
                   <TableCell className="text-right">{guide.visits}</TableCell>
@@ -499,7 +575,7 @@ export function GuidesTable({ initialGuides, categories }: Props) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
                           <a
-                            href={`${(process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl').replace(/\/+$/, '')}/borador/${encodeURIComponent(guide.slug)}`}
+                            href={`${(process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl').replace(/\/+$/, '')}/guias/${guide.status === GuideStatus.published ? '' : 'borrador/'}${encodeURIComponent(guide.slug)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

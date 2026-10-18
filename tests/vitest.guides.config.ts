@@ -10,7 +10,7 @@ export default defineConfig({
   esbuild: { jsx: 'automatic' },
   test: {
     environment: 'jsdom',
-    include: ['tests/guideEditor.test.tsx', 'tests/guideAttribution.test.ts'],
+    include: ['tests/guideEditor.test.tsx', 'tests/guideAttribution.test.ts', 'tests/guidesTable.test.tsx', 'tests/guidePublishingCron.test.ts'],
     setupFiles: ['tests/guideEditor.setup.ts'],
     clearMocks: true
   }
