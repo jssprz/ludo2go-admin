@@ -78,6 +78,7 @@ The app will be available at http://localhost:3000.
 | `/stores` | Physical store locations |
 | `/pickup-locations` | Click-and-collect points |
 | `/suppliers` | Supplier management |
+| `/opportunities` | Authenticated supplier stock versus linked external-store availability |
 | `/game-categories` | Board game category taxonomy |
 | `/game-mechanics` | Game mechanics taxonomy |
 | `/game-themes` | Game theme taxonomy |
@@ -92,6 +93,9 @@ The app will be available at http://localhost:3000.
 | `/admin-users` | Admin user management |
 
 ## External Trending
+
+Supplier authentication, private staging, and setup for Oportunities are documented in
+[docs/opportunities.md](docs/opportunities.md). Supplier costs are never automatically updated.
 
 The `/external-trending` page scrapes best-selling products from competitor stores and displays them as store cards.
 

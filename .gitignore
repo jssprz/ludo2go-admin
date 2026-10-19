@@ -19,6 +19,7 @@
 .DS_Store
 *.pem
 /tmp/
+/.supplier-sessions/
 
 # debug
 npm-debug.log*

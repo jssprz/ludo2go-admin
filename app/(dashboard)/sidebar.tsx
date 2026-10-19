@@ -109,6 +109,7 @@ function useNavGroups(t: ReturnType<typeof useTranslations<'nav'>>): NavGroup[] 
       items: [
         { href: '/suppliers', labelKey: 'suppliers', icon: <Truck className="h-4 w-4" /> },
         { href: '/purchase-orders', labelKey: 'purchaseOrders', icon: <ClipboardList className="h-4 w-4" /> },
+        { href: '/opportunities', labelKey: 'opportunities', icon: <TrendingUp className="h-4 w-4" /> },
       ],
     },
     {

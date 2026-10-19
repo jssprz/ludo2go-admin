@@ -131,6 +131,7 @@ async function MobileNav() {
       items: [
         { href: '/suppliers', label: t('suppliers'), icon: <Truck className="h-4 w-4" /> },
         { href: '/purchase-orders', label: t('purchaseOrders'), icon: <ClipboardList className="h-4 w-4" /> },
+        { href: '/opportunities', label: t('opportunities'), icon: <TrendingUp className="h-4 w-4" /> },
       ],
     },
     {
