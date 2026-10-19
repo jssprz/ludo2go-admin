@@ -5,7 +5,11 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('../', import.meta.url)) } },
   test: {
     environment: 'node',
-    include: ['tests/opportunitiesApi.test.ts'],
+    include: [
+      'tests/opportunitiesApi.test.ts',
+      'tests/opportunitiesStore.test.ts',
+      'tests/opportunitiesScan.test.ts'
+    ],
     clearMocks: true
   }
 });

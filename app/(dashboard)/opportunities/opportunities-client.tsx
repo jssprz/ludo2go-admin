@@ -80,7 +80,7 @@ type Run = {
   supplierId: string;
   supplierName: string;
   collectedAt: string;
-  status: 'staged' | 'rejected';
+  status: 'running' | 'staged' | 'rejected' | 'failed';
   errors: string[];
   flags: string[];
   approvedAt?: string;
@@ -223,7 +223,9 @@ export default function OpportunitiesClient() {
       if (!response.ok) {
         const failure = await response.json().catch(() => null);
         setActionError(
-          typeof failure?.error === 'string' ? failure.error : t('actionError')
+          typeof failure?.error === 'string'
+            ? statusLabel(failure.error)
+            : t('actionError')
         );
         return;
       }
@@ -292,6 +294,10 @@ export default function OpportunitiesClient() {
     return product[field] == null || product[field] === ''
       ? t('unknown')
       : String(product[field]);
+  }
+
+  function statusLabel(status: string) {
+    return t.has(`statuses.${status}`) ? t(`statuses.${status}`) : status;
   }
 
   const blocked = loading || !!pending || loadError;
@@ -407,10 +413,13 @@ export default function OpportunitiesClient() {
               {supplier.kind && (
                 <span className="text-muted-foreground">{supplier.kind}</span>
               )}
-              <span className="text-muted-foreground">{supplier.status}</span>
-              {!supplier.configured && (
-                <Badge variant="outline">{t('notConfigured')}</Badge>
-              )}
+              <span className="text-muted-foreground break-words">
+                {statusLabel(supplier.status)}
+              </span>
+              {!supplier.configured &&
+                supplier.status !== 'scan_already_running' && (
+                  <Badge variant="outline">{t('notConfigured')}</Badge>
+                )}
             </div>
             <Button
               size="sm"
@@ -694,7 +703,7 @@ export default function OpportunitiesClient() {
                         className="mt-2"
                         disabled={
                           blocked ||
-                          run.status === 'rejected' ||
+                          run.status !== 'staged' ||
                           data.variants.length === 0
                         }
                         onClick={() => {

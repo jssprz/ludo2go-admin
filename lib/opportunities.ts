@@ -1,9 +1,11 @@
 import 'server-only';
-import { randomUUID } from 'node:crypto';
 import { prisma } from '@jssprz/ludo2go-database';
 import {
   readSupplierStage,
-  writeSupplierStage,
+  startSupplierRun,
+  finishSupplierRun,
+  persistSupplierMapping,
+  persistSupplierApproval,
   type OpportunityRun,
   type StagedProduct,
   type SupplierStage
@@ -11,7 +13,6 @@ import {
 import {
   isOpportunity,
   matchSupplierProduct,
-  supplierProductIdentity,
   validateSupplierRun,
   type CatalogVariant
 } from './scraping/supplier-catalog';
@@ -34,7 +35,8 @@ function refreshRun(stage: SupplierStage, variants: CatalogVariant[]) {
   const run = stage.run;
   if (!run) return null;
   const blocked =
-    run.status === 'rejected' ||
+    run.status !== 'staged' ||
+    run.flags.includes('integration_changed') ||
     (run.flags.some((flag) => blockingFlags.includes(flag)) && !run.approvedAt);
   const products = run.products.map((product) => {
     const match = matchSupplierProduct(product, variants, stage.mappings);
@@ -80,51 +82,58 @@ export async function getOpportunities() {
   const [suppliers, variants] = await Promise.all([
     prisma.supplier.findMany({
       where: { isActive: true },
-      select: { id: true, name: true, notes: true, website: true },
+      select: { id: true, name: true },
       orderBy: { name: 'asc' }
     }),
     catalogVariants()
   ]);
-  const storageReady = Boolean(
-    process.env.SUPPLIER_STAGE_BLOB_READ_WRITE_TOKEN
-  );
   const runs: OpportunityRun[] = [];
   const statuses = await Promise.all(
     suppliers.map(async (supplier) => {
-      const config = readIntegration(supplier.notes);
-      let status = config ? 'ready' : 'integration_not_configured';
-      let configured = Boolean(config) && storageReady;
-      if (config) {
-        const refs =
-          config.auth === 'browser_session'
-            ? [config.secrets.session]
-            : [config.secrets.username, config.secrets.password];
-        if (refs.some((ref) => !ref || !process.env[ref])) {
-          status = 'secret_not_configured';
-          configured = false;
+      let config: ReturnType<typeof readIntegration> = null;
+      let status = 'integration_not_configured';
+      let configured = false;
+      try {
+        const integration = await prisma.supplierIntegration.findUnique({
+          where: { supplierId: supplier.id }
+        });
+        config = readIntegration(integration);
+        status = config ? 'ready' : 'integration_not_configured';
+        configured = Boolean(config);
+        if (config) {
+          const refs =
+            config.auth === 'browser_session'
+              ? [config.secrets.session]
+              : [config.secrets.username, config.secrets.password];
+          if (refs.some((ref) => !ref || !process.env[ref])) {
+            status = 'secret_not_configured';
+            configured = false;
+          }
+          if (config.kind === 'asmodee' && !config.catalog.structured) {
+            status = 'authenticated_catalog_request_not_configured';
+            configured = false;
+          }
+          if (
+            config.browserRendering &&
+            (!config.secrets.browser || !process.env[config.secrets.browser])
+          ) {
+            status = 'browser_renderer_not_configured';
+            configured = false;
+          }
         }
-        if (config.kind === 'asmodee' && !config.catalog.structured) {
-          status = 'authenticated_catalog_request_not_configured';
-          configured = false;
-        }
+        const { stage } = await readSupplierStage(supplier.id);
+        const run = refreshRun(stage, variants);
+        if (run) runs.push(run);
         if (
-          config.browserRendering &&
-          (!config.secrets.browser || !process.env[config.secrets.browser])
+          run?.status === 'running' &&
+          Date.now() - Date.parse(run.collectedAt) < 5 * 60 * 1000
         ) {
-          status = 'browser_renderer_not_configured';
+          status = 'scan_already_running';
           configured = false;
         }
-      }
-      if (!storageReady) status = 'private_staging_not_configured';
-      else {
-        try {
-          const { stage } = await readSupplierStage(supplier.id);
-          const run = refreshRun(stage, variants);
-          if (run) runs.push(run);
-        } catch {
-          status = 'private_staging_read_failed';
-          configured = false;
-        }
+      } catch (error) {
+        status = databaseErrorCode(error);
+        configured = false;
       }
       return {
         id: supplier.id,
@@ -140,6 +149,17 @@ export async function getOpportunities() {
     variants: variants.map(({ id, sku, name }) => ({ id, sku, name })),
     runs
   };
+}
+
+export function databaseErrorCode(error: unknown) {
+  if (error instanceof SupplierError) return error.code;
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? error.code
+      : undefined;
+  return code === 'P2021' || code === 'P2022'
+    ? 'database_migration_required'
+    : 'database_unavailable';
 }
 
 async function externalObservations(
@@ -187,6 +207,8 @@ async function externalObservations(
       url,
       variantId: link.variantId,
       observation: {
+        storeId: link.storeId,
+        variantId: link.variantId,
         storeName: link.store.name,
         url,
         availability: 'unknown',
@@ -229,20 +251,28 @@ async function externalObservations(
   return incomplete;
 }
 
-export async function scanOpportunities(supplierId: string) {
+export async function scanOpportunities(supplierId: string, adminId?: string) {
   const supplier = await prisma.supplier.findUnique({
-    where: { id: supplierId }
+    where: { id: supplierId },
+    include: { integration: true }
   });
   if (!supplier?.isActive) throw new SupplierError('supplier_not_found');
-  const config = readIntegration(supplier.notes);
+  const config = readIntegration(supplier.integration);
   if (!config) throw new SupplierError('integration_not_configured');
-  const { stage, etag } = await readSupplierStage(supplierId);
-  const variants = await catalogVariants();
+  const integration = supplier.integration!;
+  const reservation = await startSupplierRun(
+    supplierId,
+    integration.id,
+    integration.configVersion,
+    adminId,
+    integration.updatedAt
+  );
+  let variants: CatalogVariant[] = [];
   const run: OpportunityRun = {
-    id: randomUUID(),
+    id: reservation.id,
     supplierId,
     supplierName: supplier.name,
-    collectedAt: new Date().toISOString(),
+    collectedAt: reservation.startedAt.toISOString(),
     status: 'rejected',
     errors: [],
     flags: [],
@@ -250,10 +280,18 @@ export async function scanOpportunities(supplierId: string) {
   };
   const deadline = Date.now() + 230000;
   try {
+    const { stage } = await readSupplierStage(supplierId);
+    variants = await catalogVariants();
     const products = await collectSupplierCatalog(
       supplierId,
       new SupplierSession(config)
     );
+    for (const product of products) {
+      product.taxTreatment = integration.taxTreatment;
+      product.taxVerified =
+        integration.taxTreatment !== 'unconfirmed' &&
+        integration.taxVerifiedAt !== null;
+    }
     const validation = validateSupplierRun({
       authenticated: true,
       complete: true,
@@ -277,10 +315,10 @@ export async function scanOpportunities(supplierId: string) {
       error instanceof SupplierError ? error.code : 'supplier_scan_failed'
     ];
     run.products = [];
-    run.status = 'rejected';
+    run.status = 'failed';
   }
-  stage.run = run;
-  await writeSupplierStage(stage, etag);
+  await finishSupplierRun(run, integration.id, integration.configVersion);
+  const { stage } = await readSupplierStage(supplierId);
   return refreshRun(stage, variants)!;
 }
 
@@ -288,43 +326,7 @@ export async function confirmSupplierMapping(
   input: { supplierId: string; supplierProductId: string; variantId: string },
   adminId: string
 ) {
-  const [{ stage, etag }, variant] = await Promise.all([
-    readSupplierStage(input.supplierId),
-    prisma.productVariant.findUnique({
-      where: { id: input.variantId },
-      select: { id: true }
-    })
-  ]);
-  if (
-    !variant ||
-    stage.run?.status !== 'staged' ||
-    !stage.run.products.some(
-      (product) => product.supplierProductId === input.supplierProductId
-    )
-  ) {
-    throw new SupplierError('mapping_target_not_found');
-  }
-  stage.mappings = stage.mappings.filter(
-    (mapping) => mapping.supplierProductId !== input.supplierProductId
-  );
-  const productToReview = stage.run.products.find(
-    (product) => product.supplierProductId === input.supplierProductId
-  )!;
-  stage.mappings.push({
-    supplierProductId: input.supplierProductId,
-    variantId: input.variantId,
-    reviewed: true,
-    identityFingerprint: supplierProductIdentity(productToReview),
-    reviewedAt: new Date().toISOString(),
-    reviewedBy: adminId
-  });
-  for (const product of stage.run.products) {
-    if (product.supplierProductId === input.supplierProductId) {
-      product.external = [];
-      product.opportunity = false;
-    }
-  }
-  await writeSupplierStage(stage, etag);
+  await persistSupplierMapping(input, adminId);
 }
 
 export async function approveSupplierRun(
@@ -332,17 +334,5 @@ export async function approveSupplierRun(
   runId: string,
   adminId: string
 ) {
-  const { stage, etag } = await readSupplierStage(supplierId);
-  if (
-    stage.run?.id !== runId ||
-    stage.run.status !== 'staged' ||
-    stage.run.errors.length
-  )
-    throw new SupplierError('run_not_approvable');
-  stage.run.approvedAt = new Date().toISOString();
-  stage.run.approvedBy = adminId;
-  stage.baseline = stage.run.products.map(
-    ({ match, external, opportunity, ...product }) => product
-  );
-  await writeSupplierStage(stage, etag);
+  await persistSupplierApproval(supplierId, runId, adminId);
 }

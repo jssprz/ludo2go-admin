@@ -94,8 +94,8 @@ The app will be available at http://localhost:3000.
 
 ## External Trending
 
-Supplier authentication, private staging, and setup for Oportunities are documented in
-[docs/opportunities.md](docs/opportunities.md). Supplier costs are never automatically updated.
+Supplier authentication, database persistence, and setup for Opportunities are documented in
+[docs/opportunities.md](docs/opportunities.md). Apply the Opportunities model migration through the separate `@jssprz/ludo2go-database` package before deployment; Prisma generation alone does not create the tables. Configuration comes from `SupplierIntegration`, credentials remain server environment references, and supplier Notes/private Blob staging are no longer used. Vercel Blob remains required for media only. Supplier costs are never automatically updated.
 
 The `/external-trending` page scrapes best-selling products from competitor stores and displays them as store cards.
 

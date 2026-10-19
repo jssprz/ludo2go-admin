@@ -4,9 +4,11 @@ The dashboard at `/opportunities` scans authenticated supplier catalogs and the 
 
 ## Deployment
 
-No shared database-package change is required. The existing supplier record supplies its ID and a non-secret integration block in `Supplier.notes`. Preserve any existing notes when adding the block. Runtime credentials are read through `SecretProvider` from Vercel environment variables, not stored in notes or returned to the client. References must start with `SUPPLIER_`; never use `NEXT_PUBLIC_` secrets.
+Opportunities uses the models supplied by `@jssprz/ludo2go-database` 0.3.0: `SupplierIntegration`, `SupplierCatalogRun`, `SupplierCatalogProduct`, `SupplierProductObservation`, `ExternalStockObservation`, and `SupplierProductMappingReview`. **Schema migrations belong to that separate package.** Apply its reviewed migration through that package's deployment workflow before deploying this application, then run `npm run prisma:generate`. Generating the client alone does not create tables. This application does not modify installed schemas or automatically migrate a live database.
 
-Create a **private** Vercel Blob store and set its token as `SUPPLIER_STAGE_BLOB_READ_WRITE_TOKEN`. Do not reuse the public media store. The SDK explicitly requests private access and will reject a public store. Private staging stores the latest run, reviewed supplier mappings, identity fingerprints, review audit fields, and the approved comparison baseline. Conditional writes reject concurrent modifications rather than silently overwriting them. Storage access failure blocks scanning and mapping approval.
+Missing tables or columns produce `database_migration_required`; database connection/read failures produce `database_unavailable` supplier statuses. Missing, disabled, invalid, and unsupported integrations have separate setup statuses. No Opportunities Blob token or private Blob store is required. `@vercel/blob` and `BLOB_READ_WRITE_TOKEN` remain in use for media only.
+
+Each supplier's configuration lives exclusively in its `SupplierIntegration` row. Supplier Notes are never read as configuration. Runtime credentials are read through `SecretProvider` from server environment variables, not stored in the database JSON or returned to the client. References must match `SUPPLIER_[A-Z0-9_]+`; never use `NEXT_PUBLIC_` secrets. Configuration JSON accepts only `verification` and `catalog`, rejecting extra top-level fields.
 
 Example credential variable names (values belong only in the Vercel dashboard):
 
@@ -19,18 +21,27 @@ Deploy with a Vercel plan supporting the API route's 300-second maximum. Request
 
 ## Integration Configuration
 
-Add a marked JSON block to the existing supplier notes. This illustrative Devir configuration **must not be enabled without replacing and verifying its selectors, identity, catalog paths, terminal-page evidence, and expected count in the real account**:
+Provision the row using the database package's controlled tooling, not supplier Notes. There is no integration-settings editor in this dashboard. Set these columns:
 
-```text
-[opportunities-integration]
+| Column | Devir example / rule |
+|---|---|
+| `supplierId` | Existing active supplier ID |
+| `adapterKey` | `devir`; app accepts only `asmodee`, `devir`, `lanae` |
+| `baseUrl` | `https://btb.devir.cl` |
+| `authMethod` | `form`; alternatives are `asmodee_api`, `browser_session` |
+| `usernameSecretRef` / `passwordSecretRef` | `SUPPLIER_DEVIR_USERNAME` / `SUPPLIER_DEVIR_PASSWORD` |
+| `sessionSecretRef` / `browserSecretRef` | Environment variable names only, when applicable |
+| `browserRendering` | `false`, unless a verified remote rendering workflow is needed |
+| `configVersion` | Positive integer; increment whenever behavior/configuration changes |
+| `taxTreatment` | Explicit `unconfirmed`, `vat_included`, or `excluding_vat` |
+| `taxVerifiedAt` | Set only after checking actual account tax evidence |
+| `integrationVerifiedAt` | Operator verification metadata, not proof that this app has authenticated |
+| `isEnabled` | Keep `false` until account-specific configuration has been verified |
+
+This illustrative `config` JSON **must not be enabled without replacing and verifying its selectors, identity, catalog paths, terminal-page evidence, and expected count in the real account**:
+
+```json
 {
-  "kind": "devir",
-  "baseUrl": "https://btb.devir.cl",
-  "auth": "form",
-  "secrets": {
-    "username": "SUPPLIER_DEVIR_USERNAME",
-    "password": "SUPPLIER_DEVIR_PASSWORD"
-  },
   "verification": {
     "path": "/REPLACE_WITH_ACCOUNT_PRICED_PRODUCT/",
     "accountSelector": ".REPLACE_WITH_AUTHENTICATED_ACCOUNT_MARKER",
@@ -55,7 +66,6 @@ Add a marked JSON block to the existing supplier notes. This illustrative Devir 
     "maxPages": 50
   }
 }
-[/opportunities-integration]
 ```
 
 Use an actual known catalog minimum, not `1`. `verifiedAt` records when the account-price evidence was manually checked, not the time the configuration was written. An absent next link is accepted only when the configured terminal marker is present. Site changes that remove either marker reject the run. Supplier HTML IDs come from `data-product-id` or `data-product_id`; SKUs from `data-product-sku`, `data-product_sku`, or `.sku`. Missing stable IDs reject a run; do not substitute product names for IDs. Category names are merged when identical products recur across configured category pages.
@@ -64,13 +74,13 @@ For JSON account endpoints, use `verification.account.identityPath` instead of `
 
 ## Supplier Behavior And Verification Status
 
-**Asmodee:** public JavaScript inspection confirmed `POST https://b2b-back.asmodee.cl/api/login` with `{email,password,is_employee:0}`, a `plain_text_token` response, and bearer authorization with `X-Logged-As-Employee: 0`. Use `kind: "asmodee"`, `baseUrl: "https://b2b.asmodee.cl"`, and `auth: "asmodee_api"`. Only those two exact origins are permitted. Credentials and tokens remain in memory. Account identity and an account-specific purchase price must both verify. Public catalog prices are never used as a substitute.
+**Asmodee:** previous public JavaScript inspection identified `POST https://b2b-back.asmodee.cl/api/login` with `{email,password,is_employee:0}`, a `plain_text_token` response, and bearer authorization with `X-Logged-As-Employee: 0`. Use `adapterKey: "asmodee"`, `baseUrl: "https://b2b.asmodee.cl"`, and `authMethod: "asmodee_api"`. Only those two exact origins are permitted. Credentials and tokens remain in memory. Account identity and an account-specific purchase price must both verify. Public catalog prices are never used as a substitute. This DB migration did not verify a live authenticated integration.
 
 Authenticated catalog requests have **not** been inspected with this account. Asmodee scans remain disabled until `catalog.structured` is configured from actual authenticated requests. It requires dot-path keys `itemsPath`, `nextPath`, `totalPath`, `id`, `name`, `sku`, `barcode`, `url`, `categories`, `availability`, `purchasePrice`, `packQuantity`, `edition`, `language`, `expansion`; exact scalar `inStockValue` and `outOfStockValue`; and `paginationVerifiedAt`. `catalog.paths` must contain the verified structured request URLs. The next field must contain a next URL or explicit `null`/`false`, and the authoritative integer total must reconcile with collected unique IDs. Inspect the real response before configuring field names; they are deliberately not guessed. An API requiring non-URL pagination needs a verified adapter extension rather than fabricated completion.
 
-**Devir:** public inspection confirmed WordPress/WooCommerce and the form at `/wp-login.php` with `log` and `pwd`. The adapter fetches the form, carries hidden fields/CSRF values forward, submits runtime credentials, and retains cookies. Configure authenticated category pages and account-price selectors after logging in. Cheerio parses their HTML and follows pagination, merging category duplicates only when identity, stock, and price agree. CAPTCHA or interactive account verification requires `auth: "browser_session"` and a captured session instead of credential-only login.
+**Devir:** previous public inspection identified WordPress/WooCommerce and the form at `/wp-login.php` with `log` and `pwd`. The adapter fetches the form, carries hidden fields/CSRF values forward, submits runtime credentials, and retains cookies. Configure authenticated category pages and account-price selectors after logging in. Cheerio parses their HTML and follows pagination, merging category duplicates only when identity, stock, and price agree. CAPTCHA or interactive account verification requires `authMethod: "browser_session"` and a captured session instead of credential-only login. Authenticated catalog behavior remains unverified here.
 
-**LANAE:** public inspection confirmed Shopify customer authentication via `/customer_authentication/redirect` and redirection to its account service. An email code or other interactive challenge cannot be automated from secrets alone. Use `kind: "lanae"`, `baseUrl: "https://lanae.cl"`, `auth: "browser_session"`, and `secrets.session`. First verify whether authenticated HTML has the wholesale discount. If it does not, configure the actual authenticated structured pricing request, or enable `browserRendering: true` with `secrets.browser`. The rendering fallback connects to remote Chromium, creates an isolated context with only that supplier's cookies, renders the page, waits for its account price, and passes rendered HTML to Cheerio. A missing wholesale price fails explicitly; public Shopify prices are not a fallback. Rendered cards must expose stable supplier IDs. Browser fallback requires a trusted CDP provider and has not been tested against a live account here.
+**LANAE:** previous public inspection identified Shopify customer authentication via `/customer_authentication/redirect` and redirection to its account service. An email code or other interactive challenge cannot be automated from secrets alone. Use `adapterKey: "lanae"`, `baseUrl: "https://lanae.cl"`, `authMethod: "browser_session"`, and `sessionSecretRef`. First verify whether authenticated HTML has the wholesale discount. If it does not, configure the actual authenticated structured pricing request, or enable `browserRendering: true` with `browserSecretRef`. The rendering fallback connects to remote Chromium, creates an isolated context with only that supplier's cookies, renders the page, waits for its account price, and passes rendered HTML to Cheerio. A missing wholesale price fails explicitly; public Shopify prices are not a fallback. Rendered cards must expose stable supplier IDs. Browser fallback requires a trusted CDP provider and has not been tested against a live account here.
 
 ## Browser-Assisted Login
 
@@ -89,9 +99,17 @@ Sessions are isolated per scan and supplier. Expired sessions trigger one fresh 
 
 Normalized products retain supplier ID, stable supplier product ID, SKU, barcode, URL, categories, explicit availability, CLP purchase price, collection timestamp, pack quantity, edition, language, and expansion state. Missing prices and unknown pack quantities stay `null`. Purchase prices are CLP major units in staging; they are not written into the ERP's minor-unit `CostPrice.amount` field.
 
-Tax defaults are Asmodee **unconfirmed**, Devir **VAT included**, and LANAE **excluding VAT**. These are unverified until checked during integration; set `taxVerifiedAt` only after checking real account evidence. Asmodee remains unconfirmed pending an explicit verified tax-policy implementation. Pack quantities are never inferred from prices or silently converted to per-unit prices.
+Persisted tax treatment comes from the integration row, overriding adapter extraction defaults. There is no inferred legal/accounting rule: choose the actual account treatment explicitly and leave it `unconfirmed` when uncertain. Set `taxVerifiedAt` only after checking real account evidence. Pack quantities are never inferred from prices or silently converted to per-unit prices.
 
-Matching uses reviewed supplier mappings first, then exact barcode, then exact SKU; exact normalized names only propose a mapping. Identifier matches also require review. The review dialog requires explicit edition, language, expansion, and pack-size acknowledgment. A changed supplier identity invalidates the review. Mapping confirmation clears old external observations; rescan before using the result.
+Matching uses reviewed supplier mappings first, then exact barcode, then exact SKU; exact normalized names only propose a mapping. Identifier matches also require review. The review dialog requires explicit edition, language, expansion, and pack-size acknowledgment. A changed supplier identity invalidates the review and appends an invalidation audit entry. Mapping confirmation appends an audit entry with observation, previous/new variant, identity and admin, and updates the current mapping in the same transaction. Existing external observations are **not deleted or rewritten**: checks predating the review are excluded, requiring a rescan. Unknown, expired or identity-unverified checks cannot qualify a result.
+
+Reads, scan reservations/finalization, mapping reviews and approvals use parameterized Postgres transaction-scoped advisory locks per supplier. A fresh `running` attempt rejects another scan with HTTP 409. After five minutes a replacement scan marks abandoned attempts `failed` with `scan_lease_expired` and starts a new audited run. Superseded workers cannot finalize. Collection failures record sanitized errors; rejected catalog attempts record validation errors and counts without inserting invalid/duplicate observations. Valid staged supplier and retailer observations are append-only; historical runs remain stored while the API displays the latest attempt. A crashed process can leave `running` until the next scan recovers it. Persistence failures roll back their transaction; retry after restoring database access.
+
+Approvals are latest-run-only, staged, error-free, under one hour old, and tied to unchanged integration configuration. Repeated approval preserves the original approver and timestamp. Starting a scan prevents concurrent approval or mapping review of the previous run. Configuration changes block old results even when previously approved; increment `configVersion` to start a new comparison baseline. No supplier network calls occur while a database transaction is open.
+
+## Legacy Data
+
+There is no automatic Blob or Notes fallback/import. Existing private snapshots remain untouched and are not required to deploy. Prefer configuring integration rows and collecting/reviewing a fresh baseline. If historical import is required, make it an explicit, separately reviewed offline migration using database-package tooling: validate each source record, preserve true observation/review timestamps and identities, reconcile admin/variant/store foreign keys, and keep unknowns unqualified. Never copy credential values, cookies, tokens, or raw session state into configuration JSON, audit evidence, reports, or logs. Retire the old private staging token only after deciding whether that history must be retained; keep media storage credentials separate.
 
 The first run requires baseline review. Price changes over 30% or count changes over 25% are flagged and cannot produce opportunities until the staged run is approved. Missing prices and unverified taxes remain visible flags. Rejected or partial catalogs cannot be approved. Approval stores an audited baseline only; **it does not update supplier records, product records, cost prices, or purchase orders**. Supplier updates are intentionally out of scope until a separate reviewed apply workflow is requested.
 
@@ -105,4 +123,4 @@ npx vitest run --config tests/vitest.opportunities.config.ts
 npx tsc --noEmit --incremental false
 ```
 
-Automated checks use fixtures and mocked API dependencies, not live supplier credentials. Public login-flow inspection is not authenticated account-price verification. No supplier credentials, cookies, live mappings, or supplier-record updates were created during implementation.
+Automated checks use fixture adapters and mocked Prisma/service/API dependencies, including run validation, immutable persistence, mapping audit failures, stale identity/configuration, locking guards and idempotent approvals. They do not replace a real-Postgres concurrency test or authenticated supplier acceptance testing. No supplier auth secrets were supplied and no live authentication, database migration, legacy import, or supplier-record update was performed.

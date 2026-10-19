@@ -95,3 +95,17 @@ test('unexpected exceptions never expose secrets in API errors', async () => {
     error: 'opportunities_request_failed'
   });
 });
+
+test('scan requests record the authenticated admin and missing schema returns a setup status', async () => {
+  await POST(request({ supplierId: 'supplier' }));
+  expect(mocks.scan).toHaveBeenCalledWith('supplier', 'admin');
+  mocks.scan.mockRejectedValueOnce({
+    code: 'P2021',
+    message: 'private database details'
+  });
+  const response = await POST(request({ supplierId: 'supplier' }));
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({
+    error: 'database_migration_required'
+  });
+});

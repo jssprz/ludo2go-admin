@@ -1,6 +1,7 @@
 import { CookieJar } from 'tough-cookie';
 import * as cheerio from 'cheerio';
 import { z } from 'zod';
+import type { SupplierIntegration as IntegrationRow } from '@prisma/client';
 import type { SupplierKind } from './supplier-catalog';
 import { parseClp } from './supplier-catalog';
 
@@ -71,29 +72,53 @@ export const integrationSchema = z.object({
   taxVerifiedAt: z.string().datetime().optional()
 });
 export type SupplierIntegration = z.infer<typeof integrationSchema>;
-export const integrationMarker = '[opportunities-integration]';
-export const integrationEndMarker = '[/opportunities-integration]';
-
 export function readIntegration(
-  notes: string | null
+  integration: IntegrationRow | null
 ): SupplierIntegration | null {
-  if (!notes?.includes(integrationMarker)) return null;
+  if (!integration) return null;
+  if (!integration.isEnabled) throw new SupplierError('integration_disabled');
+  if (!['asmodee', 'devir', 'lanae'].includes(integration.adapterKey))
+    throw new SupplierError('unsupported_supplier_adapter');
   try {
-    const raw = notes
-      .split(integrationMarker)[1]
-      .split(integrationEndMarker)[0];
-    const config = integrationSchema.parse(JSON.parse(raw));
+    const details = z
+      .object({
+        verification: integrationSchema.shape.verification,
+        catalog: integrationSchema.shape.catalog
+      })
+      .strict()
+      .parse(integration.config);
+    const config = integrationSchema.parse({
+      ...details,
+      kind: integration.adapterKey,
+      baseUrl: integration.baseUrl,
+      auth: integration.authMethod,
+      browserRendering: integration.browserRendering,
+      secrets: {
+        username: integration.usernameSecretRef ?? undefined,
+        password: integration.passwordSecretRef ?? undefined,
+        session: integration.sessionSecretRef ?? undefined,
+        browser: integration.browserSecretRef ?? undefined
+      },
+      taxVerifiedAt:
+        integration.taxTreatment !== 'unconfirmed'
+          ? integration.taxVerifiedAt?.toISOString()
+          : undefined
+    });
     const expected: Record<SupplierKind, string> = {
       asmodee: 'https://b2b.asmodee.cl',
       devir: 'https://btb.devir.cl',
       lanae: 'https://lanae.cl'
     };
-    if (new URL(config.baseUrl).origin !== expected[config.kind]) return null;
-    if (config.auth === 'form' && config.kind !== 'devir') return null;
-    if (config.auth === 'asmodee_api' && config.kind !== 'asmodee') return null;
+    const url = new URL(config.baseUrl);
+    if (url.origin !== expected[config.kind] || url.username || url.password)
+      throw new Error();
+    if (config.auth === 'form' && config.kind !== 'devir') throw new Error();
+    if (config.auth === 'asmodee_api' && config.kind !== 'asmodee')
+      throw new Error();
+    if (integration.configVersion < 1) throw new Error();
     return config;
   } catch {
-    return null;
+    throw new SupplierError('integration_config_invalid');
   }
 }
 

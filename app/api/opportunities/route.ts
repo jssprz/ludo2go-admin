@@ -27,9 +27,26 @@ function failure(error: unknown) {
       error:
         error instanceof SupplierError
           ? error.code
-          : 'opportunities_request_failed'
+          : error &&
+              typeof error === 'object' &&
+              'code' in error &&
+              ['P2021', 'P2022'].includes(String(error.code))
+            ? 'database_migration_required'
+            : 'opportunities_request_failed'
     },
-    400
+    error instanceof SupplierError &&
+      [
+        'scan_already_running',
+        'scan_superseded',
+        'integration_changed'
+      ].includes(error.code)
+      ? 409
+      : error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          ['P2021', 'P2022'].includes(String(error.code))
+        ? 503
+        : 400
   );
 }
 function sameOrigin(request: Request) {
@@ -49,14 +66,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user) return result({ error: 'Unauthorized' }, 401);
+  if (!session?.user?.id) return result({ error: 'Unauthorized' }, 401);
   if (!sameOrigin(request)) return result({ error: 'invalid_origin' }, 403);
   try {
     const { supplierId } = z
       .object({ supplierId: z.string().min(1).max(100) })
       .strict()
       .parse(await request.json());
-    return result({ run: await scanOpportunities(supplierId) });
+    return result({
+      run: await scanOpportunities(supplierId, session.user.id)
+    });
   } catch (error) {
     return failure(error);
   }
