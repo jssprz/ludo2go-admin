@@ -168,6 +168,7 @@ async function MobileNav() {
       items: [
         { href: '/stores', label: t('stores'), icon: <Store className="h-4 w-4" /> },
         { href: '/pickup-locations', label: t('pickupLocations'), icon: <MapPin className="h-4 w-4" /> },
+        { href: '/couriers', label: t('couriers'), icon: <Truck className="h-4 w-4" /> },
         { href: '/timelines', label: t('timelines'), icon: <Clock className="h-4 w-4" /> },
         { href: '/admin-users', label: t('adminUsers'), icon: <UserCog className="h-4 w-4" /> },
         { href: '#', label: t('settings'), icon: <Settings className="h-4 w-4" /> },

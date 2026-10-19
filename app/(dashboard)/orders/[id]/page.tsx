@@ -36,6 +36,10 @@ export default async function OrderDetailPage({ params }: PageProps) {
   const cookieStore = await cookies();
   const timeZone = normalizeTimeZone(cookieStore.get(ADMIN_TIME_ZONE_COOKIE)?.value);
   const locale = await getLocale();
+  const couriers = await prisma.courier.findMany({
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, trackingUrlTemplate: true }
+  });
 
   if (!id) {
     notFound();
@@ -46,6 +50,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     select: {
       id: true,
       status: true,
+      courierId: true,
       courierTrackingNumber: true,
       createdAt: true,
       updatedAt: true,
@@ -274,7 +279,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <CardTitle>Order Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <OrderStatusControl orderId={order.id} status={order.status} courierTrackingNumber={order.courierTrackingNumber} />
+            <OrderStatusControl orderId={order.id} status={order.status} courierTrackingNumber={order.courierTrackingNumber} courierId={order.courierId} couriers={couriers} />
             <p className="text-sm text-muted-foreground mt-2">
               Last updated: {formatDateTime(order.updatedAt)}
             </p>

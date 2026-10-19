@@ -7,8 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
+import { ExternalLink, Loader2, Save } from 'lucide-react';
 import { canEditOrderTracking } from '@/lib/order-update';
+import { courierTrackingUrl } from '@/lib/courier';
+import Link from 'next/link';
 import {
   Select,
   SelectContent,
@@ -37,23 +39,33 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   cancelled: 'bg-red-100 text-red-800',
 };
 
-export function OrderStatusControl({ orderId, status, courierTrackingNumber = null }: { orderId: string; status: OrderStatus; courierTrackingNumber?: string | null }) {
+type CourierOption = { id: string; name: string; trackingUrlTemplate: string | null };
+
+export function OrderStatusControl({ orderId, status, courierTrackingNumber = null, courierId = null, couriers = [] }: { orderId: string; status: OrderStatus; courierTrackingNumber?: string | null; courierId?: string | null; couriers?: CourierOption[] }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState(status);
   const [tracking, setTracking] = useState(courierTrackingNumber ?? '');
   const [savedTracking, setSavedTracking] = useState(courierTrackingNumber ?? '');
+  const [selectedCourier, setSelectedCourier] = useState(courierId ?? '');
+  const [savedCourier, setSavedCourier] = useState(courierId ?? '');
+  const courier = couriers.find((option) => option.id === savedCourier);
+  const trackingUrl = courierTrackingUrl(courier?.trackingUrlTemplate, savedTracking);
   const [message, setMessage] = useState('');
   const savingRef = useRef(false);
 
   useEffect(() => { setCurrentStatus(status); }, [status]);
   useEffect(() => {
+    setSelectedCourier(courierId ?? '');
+    setSavedCourier(courierId ?? '');
+  }, [courierId]);
+  useEffect(() => {
     setTracking(courierTrackingNumber ?? '');
     setSavedTracking(courierTrackingNumber ?? '');
   }, [courierTrackingNumber]);
 
-  async function saveUpdate(payload: { status?: OrderStatus; courierTrackingNumber?: string | null }) {
+  async function saveUpdate(payload: { status?: OrderStatus; courierTrackingNumber?: string | null; courierId?: string | null }) {
     if (savingRef.current) return;
     savingRef.current = true;
     setIsSaving(true);
@@ -69,6 +81,11 @@ export function OrderStatusControl({ orderId, status, courierTrackingNumber = nu
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.message ?? 'Could not update order status.');
       setCurrentStatus(result?.status ?? payload.status ?? currentStatus);
+      if (payload.courierId !== undefined) {
+        const saved = result?.courierId ?? payload.courierId ?? '';
+        setSelectedCourier(saved);
+        setSavedCourier(saved);
+      }
       if (payload.courierTrackingNumber !== undefined) {
         const saved = result?.courierTrackingNumber ?? '';
         setTracking(saved);
@@ -101,19 +118,32 @@ export function OrderStatusControl({ orderId, status, courierTrackingNumber = nu
       {canEditOrderTracking(currentStatus) ? (
         <form className="max-w-md space-y-2" onSubmit={(event) => {
           event.preventDefault();
-          void saveUpdate({ courierTrackingNumber: tracking.trim() || null });
+          void saveUpdate({ courierTrackingNumber: tracking.trim() || null, ...(selectedCourier !== savedCourier ? { courierId: selectedCourier || null } : {}) });
         }}>
+          <Label htmlFor={`courier-${orderId}`}>Courier</Label>
+          <Select value={selectedCourier || 'none'} onValueChange={(value) => { setSelectedCourier(value === 'none' ? '' : value); setMessage(''); }} disabled={isSaving}>
+            <SelectTrigger id={`courier-${orderId}`}><SelectValue placeholder="Select courier" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No courier</SelectItem>
+              {couriers.map((option) => <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Link href="/couriers" className="inline-block text-xs text-muted-foreground underline">Manage couriers</Link>
           <Label htmlFor={`tracking-${orderId}`}>Courier tracking number</Label>
           <div className="flex flex-wrap gap-2">
             <Input id={`tracking-${orderId}`} className="min-w-0 flex-1" value={tracking} disabled={isSaving}
               onChange={(event) => { setTracking(event.target.value); setMessage(''); }} />
-            <Button type="submit" disabled={isSaving || tracking.trim() === savedTracking}>
+            <Button type="submit" disabled={isSaving || (tracking.trim() === savedTracking && selectedCourier === savedCourier)}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save tracking
             </Button>
           </div>
         </form>
       ) : courierTrackingNumber ? <p className="text-sm">Courier tracking number: {courierTrackingNumber}</p> : null}
+      {trackingUrl && <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="flex max-w-md items-start gap-2 text-sm text-primary underline">
+        <ExternalLink className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 break-all">{trackingUrl}</span>
+      </a>}
       <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{isSaving ? 'Saving order...' : message}</p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>

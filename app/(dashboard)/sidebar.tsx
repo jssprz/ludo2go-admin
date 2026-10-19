@@ -157,6 +157,7 @@ function useNavGroups(t: ReturnType<typeof useTranslations<'nav'>>): NavGroup[] 
       items: [
         { href: '/stores', labelKey: 'stores', icon: <Store className="h-4 w-4" /> },
         { href: '/pickup-locations', labelKey: 'pickupLocations', icon: <MapPin className="h-4 w-4" /> },
+        { href: '/couriers', labelKey: 'couriers', icon: <Truck className="h-4 w-4" /> },
         { href: '/timelines', labelKey: 'timelines', icon: <Clock className="h-4 w-4" /> },
         { href: '/admin-users', labelKey: 'adminUsers', icon: <UserCog className="h-4 w-4" /> },
         { href: '#', labelKey: 'settings', icon: <Settings className="h-4 w-4" /> },

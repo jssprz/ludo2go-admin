@@ -24,6 +24,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       where: { id },
       include: {
         customer: true,
+        courier: true,
         items: {
           include: {
             variant: {
@@ -72,7 +73,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         { status: 400 }
       );
     }
-    const { status, courierTrackingNumber } = parsed.data;
+    const { status, courierTrackingNumber, courierId } = parsed.data;
 
     const { id } = await params;
     const previousOrder = await prisma.order.findUnique({
@@ -84,8 +85,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
     const nextStatus = status ?? previousOrder.status;
-    if (courierTrackingNumber !== undefined && !canEditOrderTracking(nextStatus)) {
+    if ((courierTrackingNumber !== undefined || courierId !== undefined) && !canEditOrderTracking(nextStatus)) {
       return NextResponse.json({ message: 'Courier tracking can only be edited for ready_to_ship, shipped, delivered or cancelled orders.' }, { status: 400 });
+    }
+
+    if (courierId && !await prisma.courier.findUnique({ where: { id: courierId }, select: { id: true } })) {
+      return NextResponse.json({ message: 'Courier not found.' }, { status: 400 });
     }
 
     const changedAt = new Date();
@@ -94,6 +99,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         where: { id, status: previousOrder.status, updatedAt: previousOrder.updatedAt },
         data: {
           status: nextStatus,
+          ...(courierId === undefined ? {} : { courierId }),
           ...(courierTrackingNumber === undefined ? {} : { courierTrackingNumber: courierTrackingNumber || null }),
           updatedAt: changedAt
         },
@@ -104,6 +110,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       const order = await tx.order.findUniqueOrThrow({
         where: { id },
         include: {
+          courier: true,
           customer: { select: { id: true, email: true, firstName: true, lastName: true } },
           items: { include: { variant: { include: { product: true } } } },
         },
