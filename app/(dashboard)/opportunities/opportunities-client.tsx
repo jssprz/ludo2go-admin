@@ -421,6 +421,11 @@ export default function OpportunitiesClient() {
                   <Badge variant="outline">{t('notConfigured')}</Badge>
                 )}
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/suppliers?integration=${encodeURIComponent(supplier.id)}`} className="text-primary underline" title={t('setupRequired')}>
+              {t('manageSuppliers')}
+              <span className="sr-only">: {supplier.name}</span>
+            </Link>
             <Button
               size="sm"
               variant="outline"
@@ -438,6 +443,7 @@ export default function OpportunitiesClient() {
               {t(pending === supplier.id ? 'scanning' : 'scan')}
               <span className="sr-only">: {supplier.name}</span>
             </Button>
+            </div>
           </div>
         ))}
       </section>

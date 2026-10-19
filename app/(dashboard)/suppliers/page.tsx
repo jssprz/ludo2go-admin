@@ -6,7 +6,8 @@ export const metadata = {
   description: 'Manage suppliers and cost tracking',
 };
 
-export default async function SuppliersPage() {
+export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ integration?: string | string[] }> }) {
+  const query = await searchParams;
   const suppliers = await prisma.supplier.findMany({
     orderBy: { name: 'asc' },
     include: {
@@ -27,7 +28,7 @@ export default async function SuppliersPage() {
         </div>
       </div>
 
-      <SuppliersTable initialSuppliers={suppliers as any} />
+      <SuppliersTable initialSuppliers={suppliers as any} initialIntegrationId={typeof query.integration === 'string' ? query.integration : undefined} />
     </div>
   );
 }

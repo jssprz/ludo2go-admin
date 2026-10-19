@@ -14,7 +14,7 @@ export const integrationSchema = z.object({
     password: envReference.optional(),
     session: envReference.optional(),
     browser: envReference.optional()
-  }),
+  }).strict(),
   auth: z.enum(['form', 'asmodee_api', 'browser_session']),
   browserRendering: z.boolean().default(false),
   verification: z.object({
@@ -26,7 +26,7 @@ export const integrationSchema = z.object({
         expectedIdentity: z.string().min(1),
         identityPath: z.string().optional(),
         identitySelector: z.string().optional()
-      })
+      }).strict()
       .refine(
         (value) =>
           Boolean(value.identityPath) !== Boolean(value.identitySelector)
@@ -35,7 +35,7 @@ export const integrationSchema = z.object({
     priceEvidence: z.literal('account_purchase_price'),
     verifiedAt: z.string().datetime(),
     structuredPricePath: z.string().optional()
-  }),
+  }).strict(),
   catalog: z.object({
     paths: z.array(z.string()).min(1).max(50),
     productSelector: z.string().default('li.product'),
@@ -66,11 +66,11 @@ export const integrationSchema = z.object({
         language: z.string(),
         expansion: z.string(),
         paginationVerifiedAt: z.string().datetime()
-      })
+      }).strict()
       .optional()
-  }),
+  }).strict(),
   taxVerifiedAt: z.string().datetime().optional()
-});
+}).strict();
 export type SupplierIntegration = z.infer<typeof integrationSchema>;
 export function readIntegration(
   integration: IntegrationRow | null

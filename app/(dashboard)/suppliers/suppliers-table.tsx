@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { SupplierIntegrationDialog } from './supplier-integration-dialog';
 import {
   Table,
   TableBody,
@@ -45,6 +47,7 @@ import {
   Loader2,
   Check,
   XCircle,
+  Settings2,
 } from 'lucide-react';
 
 type Supplier = {
@@ -71,10 +74,13 @@ type Supplier = {
 
 type Props = {
   initialSuppliers: Supplier[];
+  initialIntegrationId?: string;
 };
 
-export function SuppliersTable({ initialSuppliers }: Props) {
+export function SuppliersTable({ initialSuppliers, initialIntegrationId }: Props) {
   const router = useRouter();
+  const integrationText = useTranslations('supplierIntegration');
+  const [integrationSupplier, setIntegrationSupplier] = useState<Supplier | null>(() => initialSuppliers.find(supplier => supplier.id === initialIntegrationId) ?? null);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -408,6 +414,9 @@ export function SuppliersTable({ initialSuppliers }: Props) {
                         <DropdownMenuItem onClick={() => openEdit(supplier)}>
                           <Pencil className="h-4 w-4 mr-2" /> Edit
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIntegrationSupplier(supplier)}>
+                          <Settings2 className="h-4 w-4 mr-2" /> {integrationText('configure')}
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(supplier)}
                           className="text-red-600"
@@ -452,6 +461,9 @@ export function SuppliersTable({ initialSuppliers }: Props) {
           </DialogHeader>
           {formFields}
           <DialogFooter>
+            <Button variant="outline" onClick={() => setIntegrationSupplier(editingSupplier)} disabled={isLoading}>
+              <Settings2 className="h-4 w-4 mr-2" />{integrationText('title')}
+            </Button>
             <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={isLoading}>
               Cancel
             </Button>
@@ -461,6 +473,7 @@ export function SuppliersTable({ initialSuppliers }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {integrationSupplier && <SupplierIntegrationDialog key={integrationSupplier.id} supplier={integrationSupplier} onClose={() => setIntegrationSupplier(null)} />}
     </Card>
   );
 }

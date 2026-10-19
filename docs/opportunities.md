@@ -21,7 +21,13 @@ Deploy with a Vercel plan supporting the API route's 300-second maximum. Request
 
 ## Integration Configuration
 
-Provision the row using the database package's controlled tooling, not supplier Notes. There is no integration-settings editor in this dashboard. Set these columns:
+Open **Suppliers → supplier actions → Configure integration**, or **Edit → Integration**. Each Opportunities supplier also links directly to `/suppliers?integration=<supplierId>`. The integration editor is separate from the supplier business form and never changes contact details, notes, or payment terms.
+
+Save a disabled draft while gathering configuration. Empty base URLs, missing references, and omitted verification/catalog sections are allowed in disabled drafts; any supplied section must satisfy the parser schema. Enabling requires the complete runtime configuration, supported origins/authentication combinations, the appropriate environment reference names, and structured catalog pagination for Asmodee. Advanced JSON accepts only the current `verification` and `catalog` schema, including strict nested keys. Never paste passwords, cookies, tokens, or secret values into JSON or reference fields. Secrets are provisioned separately in the server environment; the editor only reads and writes their `SUPPLIER_...` reference names.
+
+Saving performs no supplier login or network verification. Verification timestamps are explicit operator metadata and are never assigned automatically. The editor increments `configVersion` for behavioral changes, uses the scan's supplier-scoped transaction lock, rejects stale edits with 409, and blocks saves during a live scan lease. After a conflict, reload and reapply your changes. Missing integration tables return 503 and require the separate database package migration.
+
+The editor manages these columns:
 
 | Column | Devir example / rule |
 |---|---|
@@ -32,7 +38,7 @@ Provision the row using the database package's controlled tooling, not supplier 
 | `usernameSecretRef` / `passwordSecretRef` | `SUPPLIER_DEVIR_USERNAME` / `SUPPLIER_DEVIR_PASSWORD` |
 | `sessionSecretRef` / `browserSecretRef` | Environment variable names only, when applicable |
 | `browserRendering` | `false`, unless a verified remote rendering workflow is needed |
-| `configVersion` | Positive integer; increment whenever behavior/configuration changes |
+| `configVersion` | Automatically incremented for behavior/configuration changes |
 | `taxTreatment` | Explicit `unconfirmed`, `vat_included`, or `excluding_vat` |
 | `taxVerifiedAt` | Set only after checking actual account tax evidence |
 | `integrationVerifiedAt` | Operator verification metadata, not proof that this app has authenticated |
