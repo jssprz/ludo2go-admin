@@ -23,68 +23,68 @@ Deploy with a Vercel plan supporting the API route's 300-second maximum. Request
 
 Open **Suppliers → supplier actions → Configure integration**, or **Edit → Integration**. Each Opportunities supplier also links directly to `/suppliers?integration=<supplierId>`. The integration editor is separate from the supplier business form and never changes contact details, notes, or payment terms.
 
-Save a disabled draft while gathering configuration. Empty base URLs, missing references, and omitted verification/catalog sections are allowed in disabled drafts; any supplied section must satisfy the parser schema. Enabling requires the complete runtime configuration, supported origins/authentication combinations, the appropriate environment reference names, and structured catalog pagination for Asmodee. Advanced JSON accepts only the current `verification` and `catalog` schema, including strict nested keys. Never paste passwords, cookies, tokens, or secret values into JSON or reference fields. Secrets are provisioned separately in the server environment; the editor only reads and writes their `SUPPLIER_...` reference names.
+New integrations are prefilled with the observed Devir configuration. Selecting Asmodee replaces the form with that adapter's observed endpoints, field paths, pagination and secret-reference names. Existing empty integrations can use **Advanced configuration → Load observed defaults**; custom secret-reference names are preserved. Generated configurations remain disabled; review them and confirm the Vercel variable names before explicitly enabling. Lanae still needs a browser session and account-specific catalog configuration.
+
+Disabled drafts can be incomplete. Enabling requires the complete runtime configuration, supported origins/authentication combinations, the appropriate environment reference names, and structured catalog pagination for Asmodee. Advanced JSON accepts only the current `verification` and `catalog` schema, including strict nested keys. Never paste passwords, cookies, tokens, or secret values into JSON or reference fields. Secrets are provisioned separately in the server environment; the editor only reads and writes their `SUPPLIER_...` reference names.
 
 Saving performs no supplier login or network verification. Verification timestamps are explicit operator metadata and are never assigned automatically. The editor increments `configVersion` for behavioral changes, uses the scan's supplier-scoped transaction lock, rejects stale edits with 409, and blocks saves during a live scan lease. After a conflict, reload and reapply your changes. Missing integration tables return 503 and require the separate database package migration.
 
 The editor manages these columns:
 
-| Column | Devir example / rule |
-|---|---|
-| `supplierId` | Existing active supplier ID |
-| `adapterKey` | `devir`; app accepts only `asmodee`, `devir`, `lanae` |
-| `baseUrl` | `https://btb.devir.cl` |
-| `authMethod` | `form`; alternatives are `asmodee_api`, `browser_session` |
-| `usernameSecretRef` / `passwordSecretRef` | `SUPPLIER_DEVIR_USERNAME` / `SUPPLIER_DEVIR_PASSWORD` |
-| `sessionSecretRef` / `browserSecretRef` | Environment variable names only, when applicable |
-| `browserRendering` | `false`, unless a verified remote rendering workflow is needed |
-| `configVersion` | Automatically incremented for behavior/configuration changes |
-| `taxTreatment` | Explicit `unconfirmed`, `vat_included`, or `excluding_vat` |
-| `taxVerifiedAt` | Set only after checking actual account tax evidence |
-| `integrationVerifiedAt` | Operator verification metadata, not proof that this app has authenticated |
-| `isEnabled` | Keep `false` until account-specific configuration has been verified |
+| Column                                    | Devir example / rule                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `supplierId`                              | Existing active supplier ID                                               |
+| `adapterKey`                              | `devir`; app accepts only `asmodee`, `devir`, `lanae`                     |
+| `baseUrl`                                 | `https://btb.devir.cl`                                                    |
+| `authMethod`                              | `form`; alternatives are `asmodee_api`, `browser_session`                 |
+| `usernameSecretRef` / `passwordSecretRef` | `SUPPLIER_DEVIR_USERNAME` / `SUPPLIER_DEVIR_PASSWORD`                     |
+| `sessionSecretRef` / `browserSecretRef`   | Environment variable names only, when applicable                          |
+| `browserRendering`                        | `false`, unless a verified remote rendering workflow is needed            |
+| `configVersion`                           | Automatically incremented for behavior/configuration changes              |
+| `taxTreatment`                            | Explicit `unconfirmed`, `vat_included`, or `excluding_vat`                |
+| `taxVerifiedAt`                           | Set only after checking actual account tax evidence                       |
+| `integrationVerifiedAt`                   | Operator verification metadata, not proof that this app has authenticated |
+| `isEnabled`                               | Keep `false` until account-specific configuration has been verified       |
 
-This illustrative `config` JSON **must not be enabled without replacing and verifying its selectors, identity, catalog paths, terminal-page evidence, and expected count in the real account**:
+The integration editor generates the JSON below from the authenticated provider pages inspected on 2026-10-23. Review it against the current account before enabling; the Devir product count is a conservative floor, not a promise that the catalog will remain unchanged:
 
 ```json
 {
   "verification": {
-    "path": "/REPLACE_WITH_ACCOUNT_PRICED_PRODUCT/",
-    "accountSelector": ".REPLACE_WITH_AUTHENTICATED_ACCOUNT_MARKER",
+    "path": "/producto/jdm-polilla-tramposa/",
+    "accountSelector": "body.logged-in",
     "account": {
-      "path": "/REPLACE_WITH_ACCOUNT_PAGE/",
-      "identitySelector": ".REPLACE_WITH_ACCOUNT_IDENTITY",
-      "expectedIdentity": "REPLACE_WITH_EXACT_ACCOUNT_IDENTITY"
+      "path": "/producto/jdm-polilla-tramposa/",
+      "identitySelector": "a[href*=\"customer-logout\"]",
+      "expectedIdentity": "Log out"
     },
-    "priceSelector": ".REPLACE_WITH_ACCOUNT_PURCHASE_PRICE",
+    "priceSelector": ".summary .price ins .woocommerce-Price-amount bdi",
     "priceEvidence": "account_purchase_price",
-    "verifiedAt": "2026-10-18T00:00:00Z"
+    "verifiedAt": "2026-10-23T07:00:00Z"
   },
   "catalog": {
-    "paths": ["/REPLACE_WITH_CATEGORY/"],
+    "paths": ["/categoria-producto/devir/"],
     "productSelector": "li.product",
     "nextSelector": "a.next.page-numbers",
-    "terminalSelector": ".REPLACE_WITH_EXPLICIT_LAST_PAGE_MARKER",
-    "priceSelector": ".REPLACE_WITH_ACCOUNT_PURCHASE_PRICE",
+    "terminalSelector": ".woocommerce-pagination .page-numbers > li:last-child > .page-numbers.current",
+    "priceSelector": ".price ins .woocommerce-Price-amount bdi",
     "inStockSelector": ".instock",
     "outOfStockSelector": ".outofstock",
-    "expectedMinimum": 1,
-    "maxPages": 50
+    "expectedMinimum": 426,
+    "maxPages": 60
   }
 }
 ```
 
-Use an actual known catalog minimum, not `1`. `verifiedAt` records when the account-price evidence was manually checked, not the time the configuration was written. An absent next link is accepted only when the configured terminal marker is present. Site changes that remove either marker reject the run. Supplier HTML IDs come from `data-product-id` or `data-product_id`; SKUs from `data-product-sku`, `data-product_sku`, or `.sku`. Missing stable IDs reject a run; do not substitute product names for IDs. Category names are merged when identical products recur across configured category pages.
+`verifiedAt` records the authenticated account-price observation. An absent next link is accepted only when the configured terminal marker is present. Site changes that remove either marker reject the run. Devir archive product IDs come from WordPress `post-{id}` classes; card categories come from `product_cat-*`; SKU/barcode are not present on the inspected cards and stay `null`. Missing stable IDs reject a run; product names are only mapping proposals. Category names are merged when identical products recur across configured category pages.
 
-For JSON account endpoints, use `verification.account.identityPath` instead of `identitySelector`, with the exact expected account ID. For JSON purchase-price evidence set `verification.structuredPricePath` to a numeric account price field. Account identity is checked independently of the price; a public numeric price does not establish authentication.
+For JSON account endpoints, use `verification.account.identityPath` instead of `identitySelector`. Asmodee uses `expectedIdentity: "$authenticated"`, which requires a non-empty identity from its protected `/api/auth` response without storing a customer ID. For JSON purchase-price evidence set `verification.structuredPricePath` to a numeric account price field. Account identity is checked independently of the price; a public numeric price does not establish authentication.
 
 ## Supplier Behavior And Verification Status
 
-**Asmodee:** previous public JavaScript inspection identified `POST https://b2b-back.asmodee.cl/api/login` with `{email,password,is_employee:0}`, a `plain_text_token` response, and bearer authorization with `X-Logged-As-Employee: 0`. Use `adapterKey: "asmodee"`, `baseUrl: "https://b2b.asmodee.cl"`, and `authMethod: "asmodee_api"`. Only those two exact origins are permitted. Credentials and tokens remain in memory. Account identity and an account-specific purchase price must both verify. Public catalog prices are never used as a substitute. This DB migration did not verify a live authenticated integration.
+**Asmodee:** authenticated inspection confirmed `POST https://b2b-back.asmodee.cl/api/login` with `{email,password,is_employee:0}`, a `plain_text_token` response, and bearer authorization with `X-Logged-As-Employee: 0`. The catalog endpoint is `/api/catalog-products` with `include=family,mainImage,publisher,family.restrictedCustomers`, `per_page=50`, `page`, and `sort=name`. The live response exposed `data`, `links.next`, `meta.total` (2,555 items, 52 pages), `id`, `sku`, `ean`, `name`, `status`, `units_per_box`, `family.name`, and `customerPrice.total`. The account purchase price is `customerPrice.total`, not `recommendedPrice.total`; this response also includes `amount_taxes`, but the integration deliberately leaves Asmodee tax treatment `unconfirmed`. URLs are derived from `/catalog/{id}`. The editor fills this structured mapping. Its `expectedIdentity: "$authenticated"` setting requires a non-empty account ID from the protected `/api/auth` endpoint without placing the account ID in the integration row. Authentication and these endpoint fields were observed in the user's live session; deployment Vercel credentials and database integration rows remain the operator's setup.
 
-Authenticated catalog requests have **not** been inspected with this account. Asmodee scans remain disabled until `catalog.structured` is configured from actual authenticated requests. It requires dot-path keys `itemsPath`, `nextPath`, `totalPath`, `id`, `name`, `sku`, `barcode`, `url`, `categories`, `availability`, `purchasePrice`, `packQuantity`, `edition`, `language`, `expansion`; exact scalar `inStockValue` and `outOfStockValue`; and `paginationVerifiedAt`. `catalog.paths` must contain the verified structured request URLs. The next field must contain a next URL or explicit `null`/`false`, and the authoritative integer total must reconcile with collected unique IDs. Inspect the real response before configuring field names; they are deliberately not guessed. An API requiring non-URL pagination needs a verified adapter extension rather than fabricated completion.
-
-**Devir:** previous public inspection identified WordPress/WooCommerce and the form at `/wp-login.php` with `log` and `pwd`. The adapter fetches the form, carries hidden fields/CSRF values forward, submits runtime credentials, and retains cookies. Configure authenticated category pages and account-price selectors after logging in. Cheerio parses their HTML and follows pagination, merging category duplicates only when identity, stock, and price agree. CAPTCHA or interactive account verification requires `authMethod: "browser_session"` and a captured session instead of credential-only login. Authenticated catalog behavior remains unverified here.
+**Devir:** authenticated inspection confirmed WordPress/WooCommerce login at `/wp-login.php` with `log` and `pwd`. `/categoria-producto/devir/` returned 60 cards on each of seven pages and six on page eight (426 observed). The final-page marker is the current page span as the final pagination list item. Cards use `li.product`, `post-{id}`, `instock`/`outofstock`, `.price ins .woocommerce-Price-amount bdi`, and `product_cat-*` classes; the inspected category contains the B2B price and displays `IVA Incluido`. A product detail page confirmed SKU markup and JSON-LD, but the archive cards do not expose SKU/barcode; the list adapter retains those as `null` rather than making 426 detail requests. The integration editor fills this observed configuration. A CAPTCHA or new interactive challenge still requires `authMethod: "browser_session"`.
 
 **LANAE:** previous public inspection identified Shopify customer authentication via `/customer_authentication/redirect` and redirection to its account service. An email code or other interactive challenge cannot be automated from secrets alone. Use `adapterKey: "lanae"`, `baseUrl: "https://lanae.cl"`, `authMethod: "browser_session"`, and `sessionSecretRef`. First verify whether authenticated HTML has the wholesale discount. If it does not, configure the actual authenticated structured pricing request, or enable `browserRendering: true` with `browserSecretRef`. The rendering fallback connects to remote Chromium, creates an isolated context with only that supplier's cookies, renders the page, waits for its account price, and passes rendered HTML to Cheerio. A missing wholesale price fails explicitly; public Shopify prices are not a fallback. Rendered cards must expose stable supplier IDs. Browser fallback requires a trusted CDP provider and has not been tested against a live account here.
 

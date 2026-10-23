@@ -90,6 +90,7 @@ export function extractHtmlProducts(
     product.supplierProductId =
       card.attr('data-product-id') ||
       card.find('[data-product_id]').first().attr('data-product_id') ||
+      card.attr('class')?.match(/(?:^|\s)post-(\d+)(?:\s|$)/)?.[1] ||
       '';
     product.name = card
       .find('.woocommerce-loop-product__title, .card__heading, h2, h3')
@@ -106,6 +107,11 @@ export function extractHtmlProducts(
       .find('.posted_in a, .product-category a')
       .map((_, category) => $(category).text().trim())
       .get();
+    if (!product.categories.length) {
+      product.categories = Array.from(
+        card.attr('class')?.matchAll(/(?:^|\s)product_cat-([a-z0-9_-]+)/g) ?? []
+      ).map((match) => match[1].replace(/-/g, ' '));
+    }
     const price = card.find(config.catalog.priceSelector).first();
     product.purchasePrice = parseClp(price.attr('content') ?? price.text());
     const inStock =
@@ -164,14 +170,23 @@ export function extractStructuredProducts(
     product.sku = text(field(item, shape.sku));
     product.barcode = text(field(item, shape.barcode));
     const url = text(field(item, shape.url));
-    if (!url) throw new SupplierError('product_url_missing');
-    product.url = session.url(url).href;
+    if (url) {
+      product.url = session.url(url).href;
+    } else if (session.config.kind === 'asmodee' && product.supplierProductId) {
+      product.url = session.url(
+        `/catalog/${encodeURIComponent(product.supplierProductId)}`
+      ).href;
+    } else {
+      throw new SupplierError('product_url_missing');
+    }
     const categories = field(item, shape.categories);
     product.categories = Array.isArray(categories)
       ? categories.filter(
           (category): category is string => typeof category === 'string'
         )
-      : [];
+      : text(categories)
+        ? [text(categories)!]
+        : [];
     const stock = field(item, shape.availability);
     product.availability =
       stock === shape.inStockValue

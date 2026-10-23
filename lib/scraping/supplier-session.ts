@@ -6,71 +6,81 @@ import type { SupplierKind } from './supplier-catalog';
 import { parseClp } from './supplier-catalog';
 
 const envReference = z.string().regex(/^SUPPLIER_[A-Z0-9_]+$/);
-export const integrationSchema = z.object({
-  kind: z.enum(['asmodee', 'devir', 'lanae']),
-  baseUrl: z.string().url(),
-  secrets: z.object({
-    username: envReference.optional(),
-    password: envReference.optional(),
-    session: envReference.optional(),
-    browser: envReference.optional()
-  }).strict(),
-  auth: z.enum(['form', 'asmodee_api', 'browser_session']),
-  browserRendering: z.boolean().default(false),
-  verification: z.object({
-    path: z.string(),
-    accountSelector: z.string().min(1),
-    account: z
+export const integrationSchema = z
+  .object({
+    kind: z.enum(['asmodee', 'devir', 'lanae']),
+    baseUrl: z.string().url(),
+    secrets: z
+      .object({
+        username: envReference.optional(),
+        password: envReference.optional(),
+        session: envReference.optional(),
+        browser: envReference.optional()
+      })
+      .strict(),
+    auth: z.enum(['form', 'asmodee_api', 'browser_session']),
+    browserRendering: z.boolean().default(false),
+    verification: z
       .object({
         path: z.string(),
-        expectedIdentity: z.string().min(1),
-        identityPath: z.string().optional(),
-        identitySelector: z.string().optional()
-      }).strict()
-      .refine(
-        (value) =>
-          Boolean(value.identityPath) !== Boolean(value.identitySelector)
-      ),
-    priceSelector: z.string().min(1),
-    priceEvidence: z.literal('account_purchase_price'),
-    verifiedAt: z.string().datetime(),
-    structuredPricePath: z.string().optional()
-  }).strict(),
-  catalog: z.object({
-    paths: z.array(z.string()).min(1).max(50),
-    productSelector: z.string().default('li.product'),
-    nextSelector: z.string().default('a.next.page-numbers, a[rel="next"]'),
-    terminalSelector: z.string().min(1),
-    priceSelector: z.string().min(1),
-    inStockSelector: z.string().min(1),
-    outOfStockSelector: z.string().min(1),
-    expectedMinimum: z.number().int().positive(),
-    maxPages: z.number().int().min(1).max(150).default(50),
-    structured: z
+        accountSelector: z.string().min(1),
+        account: z
+          .object({
+            path: z.string(),
+            expectedIdentity: z.string().min(1),
+            identityPath: z.string().optional(),
+            identitySelector: z.string().optional()
+          })
+          .strict()
+          .refine(
+            (value) =>
+              Boolean(value.identityPath) !== Boolean(value.identitySelector)
+          ),
+        priceSelector: z.string().min(1),
+        priceEvidence: z.literal('account_purchase_price'),
+        verifiedAt: z.string().datetime(),
+        structuredPricePath: z.string().optional()
+      })
+      .strict(),
+    catalog: z
       .object({
-        itemsPath: z.string(),
-        nextPath: z.string(),
-        totalPath: z.string(),
-        id: z.string(),
-        name: z.string(),
-        sku: z.string(),
-        barcode: z.string(),
-        url: z.string(),
-        categories: z.string(),
-        availability: z.string(),
-        inStockValue: z.union([z.string(), z.boolean(), z.number()]),
-        outOfStockValue: z.union([z.string(), z.boolean(), z.number()]),
-        purchasePrice: z.string(),
-        packQuantity: z.string(),
-        edition: z.string(),
-        language: z.string(),
-        expansion: z.string(),
-        paginationVerifiedAt: z.string().datetime()
-      }).strict()
-      .optional()
-  }).strict(),
-  taxVerifiedAt: z.string().datetime().optional()
-}).strict();
+        paths: z.array(z.string()).min(1).max(50),
+        productSelector: z.string().default('li.product'),
+        nextSelector: z.string().default('a.next.page-numbers, a[rel="next"]'),
+        terminalSelector: z.string().min(1),
+        priceSelector: z.string().min(1),
+        inStockSelector: z.string().min(1),
+        outOfStockSelector: z.string().min(1),
+        expectedMinimum: z.number().int().positive(),
+        maxPages: z.number().int().min(1).max(150).default(50),
+        structured: z
+          .object({
+            itemsPath: z.string(),
+            nextPath: z.string(),
+            totalPath: z.string(),
+            id: z.string(),
+            name: z.string(),
+            sku: z.string(),
+            barcode: z.string(),
+            url: z.string(),
+            categories: z.string(),
+            availability: z.string(),
+            inStockValue: z.union([z.string(), z.boolean(), z.number()]),
+            outOfStockValue: z.union([z.string(), z.boolean(), z.number()]),
+            purchasePrice: z.string(),
+            packQuantity: z.string(),
+            edition: z.string(),
+            language: z.string(),
+            expansion: z.string(),
+            paginationVerifiedAt: z.string().datetime()
+          })
+          .strict()
+          .optional()
+      })
+      .strict(),
+    taxVerifiedAt: z.string().datetime().optional()
+  })
+  .strict();
 export type SupplierIntegration = z.infer<typeof integrationSchema>;
 export function readIntegration(
   integration: IntegrationRow | null
@@ -346,7 +356,9 @@ export class SupplierSession {
     }
     if (
       (typeof identity !== 'string' && typeof identity !== 'number') ||
-      String(identity) !== account.expectedIdentity
+      !String(identity).trim() ||
+      (account.expectedIdentity !== '$authenticated' &&
+        String(identity) !== account.expectedIdentity)
     ) {
       throw new SupplierError('session_expired');
     }

@@ -168,6 +168,44 @@ test('missing next link without terminal-page evidence rejects the page', () => 
   );
 });
 
+test('Devir archive cards use WordPress post IDs, stock classes, sale price, and last-page marker', () => {
+  const archiveConfig = integrationSchema.parse({
+    ...config,
+    verification: {
+      ...config.verification,
+      accountSelector: 'body.logged-in',
+      account: {
+        path: '/',
+        expectedIdentity: 'Log out',
+        identitySelector: 'a[href*="customer-logout"]'
+      }
+    },
+    catalog: {
+      ...config.catalog,
+      productSelector: 'li.product',
+      nextSelector: 'a.next.page-numbers',
+      terminalSelector:
+        '.woocommerce-pagination .page-numbers > li:last-child > .page-numbers.current',
+      priceSelector: '.price ins .woocommerce-Price-amount bdi',
+      inStockSelector: '.instock',
+      outOfStockSelector: '.outofstock'
+    }
+  });
+  const fixture =
+    '<body class="logged-in"><ul class="products"><li class="product post-40461 instock product_cat-devir product_cat-juegos-de-mesa"><a href="/producto/saber-ancestral/"><h3 class="woocommerce-loop-product__title">Saber Ancestral</h3></a><span class="price"><del>$2.990</del><ins><span class="woocommerce-Price-amount"><bdi>$2.243</bdi></span></ins><small>IVA Incluido</small></span></li></ul><nav class="woocommerce-pagination"><ul class="page-numbers"><li><span aria-current="page" class="page-numbers current">8</span></li></ul></nav></body>';
+  const result = extractHtmlProducts(
+    fixture,
+    'supplier',
+    new SupplierSession(archiveConfig)
+  );
+  assert.equal(result.products[0].supplierProductId, '40461');
+  assert.equal(result.products[0].sku, null);
+  assert.equal(result.products[0].availability, 'in_stock');
+  assert.equal(result.products[0].purchasePrice, 2243);
+  assert.deepEqual(result.products[0].categories, ['devir', 'juegos de mesa']);
+  assert.equal(result.next, null);
+});
+
 test('public prices with wrong account identity never verify authentication', async () => {
   const session = new SupplierSession(
     config,
@@ -198,25 +236,27 @@ const asmodeeConfig = integrationSchema.parse({
   },
   catalog: {
     ...config.catalog,
-    paths: ['https://b2b-back.asmodee.cl/api/fixture-catalog'],
+    paths: [
+      'https://b2b-back.asmodee.cl/api/catalog-products?include=family%2CmainImage%2Cpublisher%2Cfamily.restrictedCustomers&per_page=50&page=1&sort=name'
+    ],
     structured: {
-      itemsPath: 'items',
-      nextPath: 'next',
-      totalPath: 'total',
+      itemsPath: 'data',
+      nextPath: 'links.next',
+      totalPath: 'meta.total',
       id: 'id',
       name: 'name',
       sku: 'sku',
-      barcode: 'barcode',
-      url: 'url',
-      categories: 'categories',
-      availability: 'stock',
-      inStockValue: true,
-      outOfStockValue: false,
-      purchasePrice: 'purchasePrice',
-      packQuantity: 'pack',
-      edition: 'edition',
-      language: 'language',
-      expansion: 'expansion',
+      barcode: 'ean',
+      url: '',
+      categories: 'family.name',
+      availability: 'status',
+      inStockValue: 'AVAILABLE',
+      outOfStockValue: 'OUT_OF_STOCK',
+      purchasePrice: 'customerPrice.total',
+      packQuantity: 'units_per_box',
+      edition: '',
+      language: '',
+      expansion: 'is_bundle',
       paginationVerifiedAt: '2026-10-18T00:00:00Z'
     }
   }
@@ -271,21 +311,51 @@ test('structured public pricing cannot verify a different account', async () => 
   await assert.rejects(session.verify(), /session_expired/);
 });
 
+test('Asmodee generated identity marker accepts a non-empty authenticated account ID', async () => {
+  const config = integrationSchema.parse({
+    ...asmodeeConfig,
+    verification: {
+      ...asmodeeConfig.verification,
+      account: {
+        ...asmodeeConfig.verification.account,
+        expectedIdentity: '$authenticated'
+      }
+    }
+  });
+  const session = new SupplierSession(config, undefined, async (url) => {
+    if (String(url).endsWith('/api/auth'))
+      return Response.json({ id: 'account-from-session' });
+    return Response.json({ purchasePrice: 18742.5 });
+  });
+  await session.verify();
+});
+
 test('structured catalogs retain stable IDs and require explicit totals and next-page state', async () => {
   const session = new SupplierSession(asmodeeConfig);
-  const result = extractStructuredProducts(
-    { items: [structuredProduct], total: 1, next: null },
-    'supplier',
-    session
-  );
-  assert.equal(result.products[0].supplierProductId, '123');
-  assert.equal(result.products[0].purchasePrice, 12000);
+  const product = {
+    id: 4095,
+    sku: '19902',
+    ean: '8710126199022',
+    name: '1000 km',
+    status: 'OUT_OF_STOCK',
+    units_per_box: 6,
+    family: { name: 'Juegos de mesa' },
+    customerPrice: { total: 18742.5 }
+  };
+  const payload = {
+    data: [product],
+    meta: { total: 1 },
+    links: { next: null }
+  };
+  const result = extractStructuredProducts(payload, 'supplier', session);
+  assert.equal(result.products[0].supplierProductId, '4095');
+  assert.equal(result.products[0].purchasePrice, 18742.5);
   assert.equal(result.products[0].taxTreatment, 'unconfirmed');
-  assert.equal(result.products[0].packQuantity, null);
+  assert.equal(result.products[0].packQuantity, 6);
   assert.throws(
     () =>
       extractStructuredProducts(
-        { items: [structuredProduct], next: null },
+        { data: [product], links: { next: null } },
         'supplier',
         session
       ),
@@ -294,7 +364,7 @@ test('structured catalogs retain stable IDs and require explicit totals and next
   assert.throws(
     () =>
       extractStructuredProducts(
-        { items: [structuredProduct], total: 1 },
+        { data: [product], meta: { total: 1 } },
         'supplier',
         session
       ),
@@ -315,9 +385,9 @@ test('structured catalogs retain stable IDs and require explicit totals and next
       if (String(url).endsWith('/api/fixture-price'))
         return Response.json({ purchasePrice: 12000 });
       return Response.json({
-        items: [structuredProduct],
-        total: 2,
-        next: null
+        data: [product],
+        meta: { total: 2 },
+        links: { next: null }
       });
     }
   );
@@ -325,4 +395,51 @@ test('structured catalogs retain stable IDs and require explicit totals and next
     collectSupplierCatalog('supplier', incomplete),
     /incomplete_catalog/
   );
+});
+
+test('Asmodee API rows use customer total, family name, box quantity, and canonical product URLs', () => {
+  const result = extractStructuredProducts(
+    {
+      data: [
+        {
+          id: 4095,
+          sku: '19902',
+          ean: '8710126199022',
+          name: '1000 km',
+          status: 'OUT_OF_STOCK',
+          units_per_box: 6,
+          family: { name: 'Juegos de mesa' },
+          customerPrice: {
+            amount: 15750,
+            amount_taxes: 2992.5,
+            total: 18742.5
+          },
+          recommendedPrice: { total: '24990.0000' }
+        }
+      ],
+      links: { next: null },
+      meta: { total: 2555 }
+    },
+    'supplier',
+    new SupplierSession(asmodeeConfig)
+  );
+  assert.deepEqual(result.products[0], {
+    supplierId: 'supplier',
+    supplierProductId: '4095',
+    name: '1000 km',
+    url: 'https://b2b.asmodee.cl/catalog/4095',
+    sku: '19902',
+    barcode: '8710126199022',
+    categories: ['Juegos de mesa'],
+    availability: 'out_of_stock',
+    purchasePrice: 18742.5,
+    currency: 'CLP',
+    taxTreatment: 'unconfirmed',
+    taxVerified: false,
+    packQuantity: 6,
+    edition: null,
+    language: null,
+    expansion: null,
+    collectedAt: result.products[0].collectedAt
+  });
 });
