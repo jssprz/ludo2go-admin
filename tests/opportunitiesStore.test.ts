@@ -209,6 +209,10 @@ test('active scans conflict under a transaction-scoped supplier lock', async () 
     startSupplierRun('supplier', 'integration', 1, 'admin')
   ).rejects.toThrow('scan_already_running');
   expect(db.$queryRaw).toHaveBeenCalledOnce();
+  expect(db.$queryRaw.mock.calls[0][0].join(' ')).toContain(
+    'SELECT 1 AS locked FROM advisory_lock'
+  );
+  expect(db.$queryRaw.mock.calls[0][0].join(' ')).not.toContain('::text');
   expect(db.supplierCatalogRun.create).not.toHaveBeenCalled();
 });
 

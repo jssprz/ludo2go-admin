@@ -109,3 +109,23 @@ test('scan requests record the authenticated admin and missing schema returns a 
     error: 'database_migration_required'
   });
 });
+
+test('Prisma initialization and raw-query failures return a safe database status', async () => {
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const initialization = new Error('do not expose connection details');
+  initialization.name = 'PrismaClientInitializationError';
+  mocks.scan.mockRejectedValueOnce(initialization);
+  const initializationResponse = await POST(request({ supplierId: 'asmodee' }));
+  expect(initializationResponse.status).toBe(503);
+  expect(await initializationResponse.json()).toEqual({ error: 'database_unavailable' });
+  expect(log).toHaveBeenCalledWith('[api/opportunities] request failed', {
+    operation: 'POST', name: 'PrismaClientInitializationError', code: null
+  });
+
+  mocks.scan.mockRejectedValueOnce({ code: 'P2010', message: 'private SQL and connection data' });
+  const queryResponse = await POST(request({ supplierId: 'devir' }));
+  expect(queryResponse.status).toBe(503);
+  expect(await queryResponse.json()).toEqual({ error: 'database_unavailable' });
+  expect(JSON.stringify(log.mock.calls)).not.toContain('connection data');
+  log.mockRestore();
+});

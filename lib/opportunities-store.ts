@@ -182,7 +182,7 @@ export function supplierTransaction<Result>(
 ) {
   return prisma.$transaction(
     async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${supplierId}, 0))::text AS locked`;
+      await tx.$queryRaw`WITH advisory_lock AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtextextended(${supplierId}, 0))) SELECT 1 AS locked FROM advisory_lock`;
       return operation(tx);
     },
     { timeout: 20000 }
