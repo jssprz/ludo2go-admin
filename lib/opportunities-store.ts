@@ -41,6 +41,14 @@ export type SupplierStage = {
   baseline: SupplierProduct[];
 };
 
+function chunks<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
+}
+
 const runInclude = {
   observations: { include: { supplierCatalogProduct: true } },
   externalStockObservations: { include: { store: { select: { name: true } } } }
@@ -178,14 +186,15 @@ export async function readSupplierStage(
 
 export function supplierTransaction<Result>(
   supplierId: string,
-  operation: (tx: Prisma.TransactionClient) => Promise<Result>
+  operation: (tx: Prisma.TransactionClient) => Promise<Result>,
+  timeout = 20000
 ) {
   return prisma.$transaction(
     async (tx) => {
       await tx.$queryRaw`WITH advisory_lock AS MATERIALIZED (SELECT pg_advisory_xact_lock(hashtextextended(${supplierId}, 0))) SELECT 1 AS locked FROM advisory_lock`;
       return operation(tx);
     },
-    { timeout: 20000 }
+    { timeout }
   );
 }
 
@@ -271,65 +280,101 @@ export async function finishSupplierRun(
       return;
     }
     if (run.status === 'staged') {
-      for (const product of run.products) {
-        const identityFingerprint = supplierProductIdentity(product);
-        const catalogProduct = await tx.supplierCatalogProduct.upsert({
-          where: {
-            integrationId_supplierProductId: {
-              integrationId,
-              supplierProductId: product.supplierProductId
-            }
-          },
-          create: {
-            integrationId,
-            supplierProductId: product.supplierProductId,
-            firstSeenAt: new Date(product.collectedAt),
-            lastSeenAt: new Date(product.collectedAt)
-          },
-          update: { lastSeenAt: new Date(product.collectedAt) }
+      const productIds = run.products.map((product) => product.supplierProductId);
+      const previousProducts = await tx.supplierCatalogProduct.findMany({
+        where: {
+          integrationId,
+          supplierProductId: { in: productIds }
+        }
+      });
+      const previousBySupplierId = new Map(
+        previousProducts.map((product) => [product.supplierProductId, product])
+      );
+      const collectedDates = run.products.map((product) => new Date(product.collectedAt));
+      await tx.supplierCatalogProduct.createMany({
+        data: run.products.map((product) => ({
+          integrationId,
+          supplierProductId: product.supplierProductId,
+          firstSeenAt: new Date(product.collectedAt),
+          lastSeenAt: new Date(product.collectedAt)
+        })),
+        skipDuplicates: true
+      });
+      await tx.supplierCatalogProduct.updateMany({
+        where: { integrationId, supplierProductId: { in: productIds } },
+        data: { lastSeenAt: new Date(Math.max(...collectedDates.map((date) => date.getTime()))) }
+      });
+      const catalogProducts = await tx.supplierCatalogProduct.findMany({
+        where: { integrationId, supplierProductId: { in: productIds } }
+      });
+      const catalogProductBySupplierId = new Map(
+        catalogProducts.map((product) => [product.supplierProductId, product])
+      );
+      const observationIds = new Map<string, { id: string; identityFingerprint: string }>();
+      for (const batch of chunks(run.products, 400)) {
+        const observations = await tx.supplierProductObservation.createManyAndReturn({
+          data: batch.map((product) => {
+            const catalogProduct = catalogProductBySupplierId.get(product.supplierProductId);
+            if (!catalogProduct) throw new SupplierError('catalog_product_persistence_failed');
+            return {
+              runId: run.id,
+              supplierCatalogProductId: catalogProduct.id,
+              name: product.name,
+              url: product.url,
+              sku: product.sku,
+              barcode: product.barcode,
+              categories: product.categories,
+              availability: product.availability,
+              purchasePrice: product.purchasePrice,
+              currency: product.currency,
+              taxTreatment: integration.taxTreatment,
+              taxVerifiedAt:
+                integration.taxTreatment !== 'unconfirmed'
+                  ? integration.taxVerifiedAt
+                  : null,
+              packQuantity: product.packQuantity,
+              edition: product.edition,
+              language: product.language,
+              expansion: product.expansion,
+              identityFingerprint: supplierProductIdentity(product),
+              collectedAt: new Date(product.collectedAt)
+            };
+          }),
+          select: { id: true, supplierCatalogProductId: true, identityFingerprint: true }
         });
-        const observation = await tx.supplierProductObservation.create({
-          data: {
-            runId: run.id,
-            supplierCatalogProductId: catalogProduct.id,
-            name: product.name,
-            url: product.url,
-            sku: product.sku,
-            barcode: product.barcode,
-            categories: product.categories,
-            availability: product.availability,
-            purchasePrice: product.purchasePrice,
-            currency: product.currency,
-            taxTreatment: integration.taxTreatment,
-            taxVerifiedAt:
-              integration.taxTreatment !== 'unconfirmed'
-                ? integration.taxVerifiedAt
-                : null,
-            packQuantity: product.packQuantity,
-            edition: product.edition,
-            language: product.language,
-            expansion: product.expansion,
-            identityFingerprint,
-            collectedAt: new Date(product.collectedAt)
-          }
-        });
-        if (
-          catalogProduct.mappingStatus === 'confirmed' &&
-          catalogProduct.reviewedIdentityFingerprint !== identityFingerprint
-        ) {
-          await tx.supplierCatalogProduct.update({
-            where: { id: catalogProduct.id },
-            data: { mappingStatus: 'needs_review' }
+        for (const observation of observations) {
+          observationIds.set(observation.supplierCatalogProductId, {
+            id: observation.id,
+            identityFingerprint: observation.identityFingerprint
           });
-          await tx.supplierProductMappingReview.create({
-            data: {
+        }
+      }
+      const invalidatedMappings = run.products.flatMap((product) => {
+        const catalogProduct = catalogProductBySupplierId.get(product.supplierProductId);
+        const observation = catalogProduct && observationIds.get(catalogProduct.id);
+        const previous = previousBySupplierId.get(product.supplierProductId);
+        if (
+          !catalogProduct || !observation ||
+          previous?.mappingStatus !== 'confirmed' ||
+          previous.reviewedIdentityFingerprint === observation.identityFingerprint
+        ) return [];
+        return [{ catalogProduct, observation }];
+      });
+      if (invalidatedMappings.length) {
+        await tx.supplierCatalogProduct.updateMany({
+          where: { id: { in: invalidatedMappings.map(({ catalogProduct }) => catalogProduct.id) } },
+          data: { mappingStatus: 'needs_review' }
+        });
+        for (const batch of chunks(invalidatedMappings, 400)) {
+          await tx.supplierProductMappingReview.createMany({
+            data: batch.map(({ catalogProduct, observation }) => ({
               supplierCatalogProductId: catalogProduct.id,
               observationId: observation.id,
               previousVariantId: catalogProduct.variantId,
               variantId: catalogProduct.variantId,
-              action: 'invalidated',
-              identityFingerprint
-            }
+              action: 'invalidated' as const,
+              identityFingerprint: observation.identityFingerprint
+            }))
           });
         }
       }
@@ -338,20 +383,20 @@ export async function finishSupplierRun(
           .flatMap((product) => product.external)
           .map((item) => [`${item.variantId}:${item.storeId}`, item])
       );
-      for (const item of Array.from(external.values()))
-        await tx.externalStockObservation.create({
-          data: {
+      const externalRows = Array.from(external.values()).map((item) => ({
             runId: run.id,
             variantId: item.variantId,
             storeId: item.storeId,
             requestedUrl: item.url,
-            status: item.availability === 'unknown' ? 'failed' : 'checked',
+            status: item.availability === 'unknown' ? ('failed' as const) : ('checked' as const),
             availability: item.availability,
             identityVerified: item.availability !== 'unknown',
             checkedAt: new Date(item.checkedAt),
             expiresAt: new Date(Date.parse(item.checkedAt) + 60 * 60 * 1000)
-          }
-        });
+          }));
+      for (const batch of chunks(externalRows, 400)) {
+        await tx.externalStockObservation.createMany({ data: batch });
+      }
     }
     await tx.supplierCatalogRun.update({
       where: { id: run.id },
@@ -365,7 +410,7 @@ export async function finishSupplierRun(
         authenticatedAt: run.status === 'failed' ? null : new Date()
       }
     });
-  });
+  }, 60000);
 }
 
 async function reviewTarget(tx: Prisma.TransactionClient, supplierId: string) {

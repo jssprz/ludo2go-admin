@@ -9,7 +9,10 @@ const db = vi.hoisted(() => {
   const delegate = () => ({
     findUnique: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     create: vi.fn(),
+    createMany: vi.fn(),
+    createManyAndReturn: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
     upsert: vi.fn()
@@ -169,6 +172,16 @@ beforeEach(() => {
   });
   db.supplierCatalogProduct.findUnique.mockResolvedValue(catalogProduct);
   db.supplierCatalogProduct.upsert.mockResolvedValue(catalogProduct);
+  db.supplierCatalogProduct.findMany
+    .mockResolvedValueOnce([catalogProduct])
+    .mockResolvedValue([catalogProduct]);
+  db.supplierProductObservation.createManyAndReturn.mockImplementation(async ({ data }) =>
+    data.map((row: { supplierCatalogProductId: string; identityFingerprint: string }, index: number) => ({
+      id: `observation-${index}`,
+      supplierCatalogProductId: row.supplierCatalogProductId,
+      identityFingerprint: row.identityFingerprint
+    }))
+  );
   db.supplierProductObservation.findUnique.mockResolvedValue(observation);
   db.supplierProductObservation.create.mockResolvedValue(observation);
   db.productVariant.findUnique.mockResolvedValue({ id: 'variant' });
@@ -260,30 +273,76 @@ test('config races cannot reserve or finalize a scan', async () => {
 });
 
 test('completion appends immutable observations and invalidation audit without editing history', async () => {
-  db.supplierCatalogProduct.upsert.mockResolvedValueOnce({
+  db.supplierCatalogProduct.findMany.mockReset();
+  db.supplierCatalogProduct.findMany
+    .mockResolvedValueOnce([{
+      ...catalogProduct,
+      reviewedIdentityFingerprint: 'old-identity'
+    }])
+    .mockResolvedValueOnce([{
     ...catalogProduct,
     reviewedIdentityFingerprint: 'old-identity'
-  });
+    }]);
   await finishSupplierRun(run, 'integration', 1);
-  expect(db.supplierProductObservation.create).toHaveBeenCalledWith({
-    data: expect.objectContaining({
-      runId: 'run',
-      identityFingerprint: supplierProductIdentity(product),
-      purchasePrice: 12990
-    })
+  expect(db.supplierProductObservation.createManyAndReturn).toHaveBeenCalledWith({
+    data: [expect.objectContaining({
+        runId: 'run',
+        identityFingerprint: supplierProductIdentity(product),
+        purchasePrice: 12990
+      })],
+    select: { id: true, supplierCatalogProductId: true, identityFingerprint: true }
   });
   expect(db.supplierProductObservation.update).not.toHaveBeenCalled();
-  expect(db.supplierProductMappingReview.create).toHaveBeenCalledWith({
-    data: expect.objectContaining({
-      action: 'invalidated',
-      observationId: 'observation',
-      previousVariantId: 'variant'
-    })
+  expect(db.supplierProductMappingReview.createMany).toHaveBeenCalledWith({
+    data: [expect.objectContaining({
+        action: 'invalidated',
+        observationId: 'observation-0',
+        previousVariantId: 'variant'
+      })]
   });
-  expect(db.supplierCatalogProduct.update).toHaveBeenCalledWith({
-    where: { id: catalogProduct.id },
+  expect(db.supplierCatalogProduct.updateMany).toHaveBeenCalledWith({
+    where: { id: { in: [catalogProduct.id] } },
     data: { mappingStatus: 'needs_review' }
   });
+});
+
+test('large catalog completion inserts observations in bounded batches', async () => {
+  const products = Array.from({ length: 401 }, (_, index) => ({
+    ...product,
+    supplierProductId: `remote-${index}`,
+    collectedAt: now.toISOString()
+  }));
+  const catalogRows = products.map((item, index) => ({
+    ...catalogProduct,
+    id: `catalog-${index}`,
+    supplierProductId: item.supplierProductId,
+    mappingStatus: 'unmatched',
+    reviewedIdentityFingerprint: null
+  }));
+  db.supplierCatalogProduct.findMany
+    .mockReset()
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce(catalogRows);
+  db.supplierProductObservation.createManyAndReturn.mockImplementation(
+    async ({ data }) => data.map((row: { supplierCatalogProductId: string; identityFingerprint: string }) => ({
+      id: `observation-${row.supplierCatalogProductId}`,
+      supplierCatalogProductId: row.supplierCatalogProductId,
+      identityFingerprint: row.identityFingerprint
+    }))
+  );
+
+  await finishSupplierRun({ ...run, products: products.map((item) => ({
+    ...item,
+    match: { variantId: null, method: 'none', requiresReview: true },
+    external: [],
+    opportunity: false
+  })) }, 'integration', 1);
+
+  const batches = db.supplierProductObservation.createManyAndReturn.mock.calls.map(
+    ([args]) => args.data.length
+  );
+  expect(batches).toEqual([400, 1]);
+  expect(db.supplierCatalogProduct.upsert).not.toHaveBeenCalled();
 });
 
 test('failed and rejected scans retain outcomes and cannot finalize twice', async () => {
@@ -302,7 +361,7 @@ test('failed and rejected scans retain outcomes and cannot finalize twice', asyn
       data: expect.objectContaining({ status: 'failed', authenticatedAt: null })
     })
   );
-  expect(db.supplierProductObservation.create).not.toHaveBeenCalled();
+  expect(db.supplierProductObservation.createManyAndReturn).not.toHaveBeenCalled();
   db.supplierCatalogRun.findUnique.mockResolvedValueOnce(storedRun);
   await expect(finishSupplierRun(run, 'integration', 1)).rejects.toThrow(
     'scan_superseded'
