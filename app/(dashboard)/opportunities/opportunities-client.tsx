@@ -6,6 +6,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   AlertCircle,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Loader2,
   RefreshCw,
@@ -89,7 +91,7 @@ type Run = {
 };
 type Snapshot = { suppliers: Supplier[]; variants: Variant[]; runs: Run[] };
 type Row = { run: Run; product: Product };
-type View = 'opportunities' | 'all' | 'review';
+type View = 'opportunities' | 'all' | 'linked' | 'review';
 const reviewFields = [
   'edition',
   'language',
@@ -166,6 +168,8 @@ export default function OpportunitiesClient() {
   const [supplierId, setSupplierId] = useState('all');
   const [view, setView] = useState<View>('opportunities');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [review, setReview] = useState<Row | null>(null);
   const [approval, setApproval] = useState<Run | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
@@ -314,6 +318,7 @@ export default function OpportunitiesClient() {
     product.match.requiresReview || !product.match.variantId;
   const filtered = rows.filter(({ run, product }) => {
     if (view === 'opportunities' && !product.opportunity) return false;
+    if (view === 'linked' && needsReview(product)) return false;
     if (view === 'review' && !needsReview(product)) return false;
     return [
       product.name,
@@ -327,6 +332,12 @@ export default function OpportunitiesClient() {
       .toLocaleLowerCase(locale)
       .includes(query.trim().toLocaleLowerCase(locale));
   });
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
   const variants = new Map(
     data.variants.map((variant) => [variant.id, variant])
   );
@@ -374,7 +385,13 @@ export default function OpportunitiesClient() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={supplierId} onValueChange={setSupplierId}>
+        <Select
+          value={supplierId}
+          onValueChange={(value) => {
+            setSupplierId(value);
+            setPage(1);
+          }}
+        >
           <SelectTrigger aria-label={t('supplier')} className="w-full sm:w-64">
             <SelectValue />
           </SelectTrigger>
@@ -396,7 +413,10 @@ export default function OpportunitiesClient() {
             aria-label={t('search')}
             placeholder={t('search')}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
             className="pl-9"
           />
         </div>
@@ -520,13 +540,16 @@ export default function OpportunitiesClient() {
           aria-label={t('view')}
           className="flex max-w-full flex-wrap gap-1"
         >
-          {(['opportunities', 'all', 'review'] as const).map((mode) => (
+          {(['opportunities', 'all', 'linked', 'review'] as const).map((mode) => (
             <Button
               key={mode}
               size="sm"
               variant={view === mode ? 'secondary' : 'ghost'}
               aria-pressed={view === mode}
-              onClick={() => setView(mode)}
+              onClick={() => {
+                setView(mode);
+                setPage(1);
+              }}
             >
               {t(mode)}
             </Button>
@@ -584,7 +607,7 @@ export default function OpportunitiesClient() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map(({ run, product }) => {
+              pageRows.map(({ run, product }) => {
                 const variant = product.match.variantId
                   ? variants.get(product.match.variantId)
                   : undefined;
@@ -745,6 +768,55 @@ export default function OpportunitiesClient() {
           </TableBody>
         </Table>
       </div>
+
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{t('rowsPerPage')}</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger aria-label={t('rowsPerPage')} className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 25, 50, 100].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span aria-live="polite" className="text-xs text-muted-foreground">
+              {t('pageOf', { page: currentPage, pages: pageCount })}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label={t('previousPage')}
+              disabled={currentPage <= 1}
+              onClick={() => setPage(currentPage - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label={t('nextPage')}
+              disabled={currentPage >= pageCount}
+              onClick={() => setPage(currentPage + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog
         open={!!approval}

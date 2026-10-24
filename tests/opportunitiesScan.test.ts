@@ -189,7 +189,7 @@ test('missing DB config never falls back to legacy Notes', async () => {
   expect(mocks.collect).not.toHaveBeenCalled();
 });
 
-test('identity changes prevent external checks even when an old mapping is confirmed', async () => {
+test('identity changes no longer require re-review of an existing mapping', async () => {
   mocks.read.mockResolvedValue({
     stage: {
       supplierId: 'supplier',
@@ -209,14 +209,12 @@ test('identity changes prevent external checks even when an old mapping is confi
     }
   });
   await scanOpportunities('supplier', 'admin');
-  expect(mocks.links).not.toHaveBeenCalled();
+  expect(mocks.links).toHaveBeenCalled();
   expect(mocks.finish).toHaveBeenCalledWith(
     expect.objectContaining({
       products: [
         expect.objectContaining({
-          match: expect.objectContaining({ requiresReview: true }),
-          external: [],
-          opportunity: false
+          match: expect.objectContaining({ requiresReview: false }),
         })
       ]
     }),

@@ -131,7 +131,9 @@ export function ProductMediaEditor({ productId }: Props) {
       });
       if (mediaSearch) params.set('search', mediaSearch);
 
-      const res = await fetch(`/api/media?${params}`);
+      const res = await fetch(`/api/media?${params}`, {
+        cache: 'no-store',
+      });
       if (!res.ok) throw new Error('Failed to fetch media');
       const data = await res.json();
 
@@ -342,8 +344,14 @@ export function ProductMediaEditor({ productId }: Props) {
         });
       }
 
-      // Refresh available media
-      fetchAvailableMedia();
+      // Media records are created by Vercel Blob's async upload callback,
+      // so re-poll for a few seconds until they show up.
+      setUploadProgress('Processing...');
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await fetchAvailableMedia();
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      await fetchAvailableMedia();
       router.refresh();
     } catch (error: any) {
       alert(error.message || 'Upload failed');

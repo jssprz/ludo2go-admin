@@ -66,6 +66,16 @@ function nameKey(value: string) {
     .trim();
 }
 
+// EAN-13, UPC-A and GTIN-14 encode the same code with different zero padding.
+function eanKey(value: string | null | undefined) {
+  const digits = (value ?? '').replace(/\D/g, '').replace(/^0+/, '');
+  return digits.length >= 8 ? digits : '';
+}
+
+function skuKey(value: string | null | undefined) {
+  return (value ?? '').trim().toLowerCase();
+}
+
 export function supplierProductIdentity(product: SupplierProduct) {
   return JSON.stringify([
     product.supplierProductId,
@@ -92,19 +102,23 @@ export function matchSupplierProduct(
     return {
       variantId: mapping.variantId,
       method: 'mapping',
-      requiresReview:
-        !mapping.reviewed ||
-        mapping.identityFingerprint !== supplierProductIdentity(product)
+      requiresReview: false
     };
   }
-  for (const method of ['barcode', 'sku'] as const) {
-    const identifier = product[method];
-    if (!identifier) continue;
+  const barcode = eanKey(product.barcode);
+  if (barcode) {
     const matches = variants.filter(
-      (variant) => variant[method] === identifier
+      (variant) => eanKey(variant.barcode) === barcode
     );
     if (matches.length === 1) {
-      return { variantId: matches[0].id, method, requiresReview: true };
+      return { variantId: matches[0].id, method: 'barcode', requiresReview: false };
+    }
+  }
+  const sku = skuKey(product.sku);
+  if (sku) {
+    const matches = variants.filter((variant) => skuKey(variant.sku) === sku);
+    if (matches.length === 1) {
+      return { variantId: matches[0].id, method: 'sku', requiresReview: false };
     }
   }
   const proposals = variants.filter(

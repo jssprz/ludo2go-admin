@@ -38,8 +38,16 @@ function refreshRun(stage: SupplierStage, variants: CatalogVariant[]) {
     run.status !== 'staged' ||
     run.flags.includes('integration_changed') ||
     (run.flags.some((flag) => blockingFlags.includes(flag)) && !run.approvedAt);
-  const products = run.products.map((product) => {
+  const products = run.products.map((original) => {
+    let product = original;
     const match = matchSupplierProduct(product, variants, stage.mappings);
+    if (match.variantId && !match.requiresReview)
+      product = {
+        ...product,
+        external: stage.externalPool.filter(
+          (item) => item.variantId === match.variantId
+        )
+      };
     const fresh =
       Date.now() - Date.parse(product.collectedAt) < freshForMs &&
       product.external.every(

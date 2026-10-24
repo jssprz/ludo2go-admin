@@ -488,25 +488,11 @@ test('read path retains unknown external evidence and hides checks predating map
     ]
   });
   const { stage } = await readSupplierStage('supplier');
-  expect(
-    stage.run?.products[0].external.map((item) => item.availability)
-  ).toEqual(['out_of_stock', 'unknown']);
-  db.supplierCatalogRun.findFirst.mockResolvedValue({
-    ...storedRun,
-    observations: [
-      {
-        ...observation,
-        supplierCatalogProduct: {
-          ...catalogProduct,
-          reviewedAt: new Date(now.getTime() + 1000)
-        }
-      }
-    ],
-    externalStockObservations: [external]
-  });
-  expect(
-    (await readSupplierStage('supplier')).stage.run?.products[0].external
-  ).toEqual([]);
+  expect(stage.externalPool.map((item) => item.availability)).toEqual([
+    'out_of_stock',
+    'unknown'
+  ]);
+  expect(stage.run?.products[0].external).toEqual([]);
 });
 
 test('changed identity and config never reuse qualifying external evidence', async () => {

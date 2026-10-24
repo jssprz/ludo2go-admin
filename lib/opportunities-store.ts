@@ -39,6 +39,7 @@ export type SupplierStage = {
   mappings: SupplierMapping[];
   run: OpportunityRun | null;
   baseline: SupplierProduct[];
+  externalPool: ExternalObservation[];
 };
 
 function chunks<T>(items: T[], size: number): T[][] {
@@ -97,7 +98,8 @@ export async function readSupplierStage(
       supplierId,
       mappings: [],
       run: null,
-      baseline: []
+      baseline: [],
+      externalPool: []
     };
     if (!integration) return { stage };
     const [run, baseline] = await Promise.all([
@@ -147,39 +149,28 @@ export async function readSupplierStage(
         approvedAt: run.approvedAt?.toISOString(),
         approvedBy: run.approvedByAdminUserId ?? undefined,
         products: run.observations.map((row) => {
-          const mapping = row.supplierCatalogProduct;
-          const reviewed =
-            mapping.mappingStatus === 'confirmed' &&
-            mapping.reviewedIdentityFingerprint === row.identityFingerprint;
           return {
             ...productFromRow(row, supplierId),
             match: { variantId: null, method: 'none', requiresReview: true },
             opportunity: false,
-            external: reviewed
-              ? run.externalStockObservations
-                  .filter(
-                    (external) =>
-                      external.variantId === mapping.variantId &&
-                      mapping.reviewedAt &&
-                      external.checkedAt >= mapping.reviewedAt
-                  )
-                  .map((external) => ({
-                    storeId: external.storeId,
-                    variantId: external.variantId,
-                    storeName: external.store.name,
-                    url: external.requestedUrl,
-                    availability:
-                      external.expiresAt > new Date() &&
-                      external.status === 'checked' &&
-                      external.identityVerified
-                        ? external.availability
-                        : 'unknown',
-                    checkedAt: external.checkedAt.toISOString()
-                  }))
-              : []
+            external: []
           };
         })
       };
+    if (run)
+      stage.externalPool = run.externalStockObservations.map((external) => ({
+        storeId: external.storeId,
+        variantId: external.variantId,
+        storeName: external.store.name,
+        url: external.requestedUrl,
+        availability:
+          external.expiresAt > new Date() &&
+          external.status === 'checked' &&
+          external.identityVerified
+            ? external.availability
+            : 'unknown',
+        checkedAt: external.checkedAt.toISOString()
+      }));
     return { stage };
   });
 }
