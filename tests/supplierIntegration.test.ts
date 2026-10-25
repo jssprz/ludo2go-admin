@@ -207,3 +207,11 @@ test('lanae is public: enabling needs no credentials, session or account check',
     supplierIntegrationInput.safeParse({ ...lanae, adapterKey: 'devir', baseUrl: 'https://btb.devir.cl', authMethod: 'browser_session' }).success
   ).toBe(false);
 });
+
+test('lanae defaults can be enabled without any secrets', () => {
+  const defaults = createSupplierIntegrationDefaults('lanae');
+  expect(defaults.config.catalog?.paths).toEqual(['/collections/all']);
+  expect(
+    supplierIntegrationInput.safeParse({ ...defaults, isEnabled: true }).success
+  ).toBe(true);
+});

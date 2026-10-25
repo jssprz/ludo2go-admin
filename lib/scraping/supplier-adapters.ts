@@ -96,6 +96,10 @@ export function extractHtmlProducts(
       card.attr('data-product-id') ||
       card.find('[data-product_id]').first().attr('data-product_id') ||
       card.attr('class')?.match(/(?:^|\s)post-(\d+)(?:\s|$)/)?.[1] ||
+      // Shopify cards expose no id; the product handle is stable.
+      (config.kind === 'lanae'
+        ? new URL(product.url).pathname.split('/products/')[1]?.split('/')[0]
+        : '') ||
       '';
     product.name = card
       .find('.woocommerce-loop-product__title, .card__heading, h2, h3')

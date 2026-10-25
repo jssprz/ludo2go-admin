@@ -6,6 +6,8 @@ const origins: Record<SupplierIntegrationInput['adapterKey'], string> = {
   lanae: 'https://lanae.cl'
 };
 
+const lanaeCatalogPath = '/collections/all';
+
 export function createSupplierIntegrationDefaults(
   adapterKey: SupplierIntegrationInput['adapterKey'],
   verifiedAt = new Date().toISOString()
@@ -52,7 +54,14 @@ export function createSupplierIntegrationDefaults(
             verifiedAt,
             structuredPricePath: 'data.0.customerPrice.total'
           }
-        : devir
+        : adapterKey === 'lanae'
+          ? {
+              path: lanaeCatalogPath,
+              priceSelector: '.price-item',
+              priceEvidence: 'public_price',
+              verifiedAt
+            }
+          : devir
           ? {
               path: '/producto/jdm-polilla-tramposa/',
               accountSelector: 'body.logged-in',
@@ -68,7 +77,20 @@ export function createSupplierIntegrationDefaults(
             }
           : undefined,
       catalog:
-        asmodee || devir
+        adapterKey === 'lanae'
+          ? {
+              paths: [lanaeCatalogPath],
+              productSelector: 'li.grid__item',
+              nextSelector:
+                'a[rel="next"], a.pagination__item-arrow[aria-label*="ext"]',
+              terminalSelector: 'main',
+              priceSelector: '.price-item--regular, .price-item',
+              inStockSelector: '.price:not(.price--sold-out)',
+              outOfStockSelector: '.price--sold-out',
+              expectedMinimum: 1,
+              maxPages: 60
+            }
+          : asmodee || devir
           ? {
               paths: [catalogPath],
               productSelector: devir ? 'li.product' : 'body',
