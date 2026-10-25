@@ -91,7 +91,12 @@ type Run = {
 };
 type Snapshot = { suppliers: Supplier[]; variants: Variant[]; runs: Run[] };
 type Row = { run: Run; product: Product };
-type View = 'opportunities' | 'all' | 'linked' | 'review';
+type View = 'opportunities' | 'all' | 'linked' | 'new' | 'review';
+type CompetitorCheck = {
+  checkedAt: string;
+  opportunity: boolean;
+  stores: { storeId: string; storeName: string; url: string; availability: string }[];
+};
 const reviewFields = [
   'edition',
   'language',
@@ -168,6 +173,8 @@ export default function OpportunitiesClient() {
   const [supplierId, setSupplierId] = useState('all');
   const [view, setView] = useState<View>('opportunities');
   const [query, setQuery] = useState('');
+  const [competitors, setCompetitors] = useState<Record<string, CompetitorCheck>>({});
+  const [checking, setChecking] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [review, setReview] = useState<Row | null>(null);
@@ -244,6 +251,72 @@ export default function OpportunitiesClient() {
     }
   }
 
+  const rowKey = (run: Run, product: Product) =>
+    `${run.id}:${product.supplierProductId}`;
+  const isNewProduct = (product: Product) =>
+    product.availability === 'in_stock' && !product.match.variantId;
+
+  async function checkCompetitors(targets: Row[]) {
+    const pendingRows = targets.filter(
+      ({ run, product }) =>
+        isNewProduct(product) && !checking.has(rowKey(run, product))
+    );
+    if (!pendingRows.length) return;
+    setActionError(null);
+    setChecking((current) => {
+      const next = new Set(current);
+      pendingRows.forEach(({ run, product }) => next.add(rowKey(run, product)));
+      return next;
+    });
+    const bySupplier = new Map<string, Row[]>();
+    for (const row of pendingRows)
+      bySupplier.set(row.run.supplierId, [
+        ...(bySupplier.get(row.run.supplierId) ?? []),
+        row
+      ]);
+    for (const [supplier, group] of Array.from(bySupplier.entries())) {
+      for (let index = 0; index < group.length; index += 10) {
+        const batch = group.slice(index, index + 10);
+        try {
+          const response = await fetch('/api/opportunities/competitors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              supplierId: supplier,
+              supplierProductIds: batch.map(
+                ({ product }) => product.supplierProductId
+              )
+            })
+          });
+          if (!response.ok) throw new Error('check');
+          const { checks } = (await response.json()) as {
+            checks: (CompetitorCheck & { supplierProductId: string })[];
+          };
+          setCompetitors((current) => {
+            const next = { ...current };
+            for (const check of checks) {
+              const row = batch.find(
+                ({ product }) =>
+                  product.supplierProductId === check.supplierProductId
+              );
+              if (row) next[rowKey(row.run, row.product)] = check;
+            }
+            return next;
+          });
+        } catch {
+          setActionError(t('competitorCheckError'));
+        }
+        setChecking((current) => {
+          const next = new Set(current);
+          batch.forEach(({ run, product }) =>
+            next.delete(rowKey(run, product))
+          );
+          return next;
+        });
+      }
+    }
+  }
+
   function timestamp(value: string) {
     const date = new Date(value);
     return Number.isNaN(date.getTime())
@@ -317,7 +390,13 @@ export default function OpportunitiesClient() {
   const needsReview = (product: Product) =>
     product.match.requiresReview || !product.match.variantId;
   const filtered = rows.filter(({ run, product }) => {
-    if (view === 'opportunities' && !product.opportunity) return false;
+    if (
+      view === 'opportunities' &&
+      !product.opportunity &&
+      !competitors[rowKey(run, product)]?.opportunity
+    )
+      return false;
+    if (view === 'new' && !isNewProduct(product)) return false;
     if (view === 'linked' && needsReview(product)) return false;
     if (view === 'review' && !needsReview(product)) return false;
     return [
@@ -540,7 +619,7 @@ export default function OpportunitiesClient() {
           aria-label={t('view')}
           className="flex max-w-full flex-wrap gap-1"
         >
-          {(['opportunities', 'all', 'linked', 'review'] as const).map((mode) => (
+          {(['opportunities', 'all', 'linked', 'new', 'review'] as const).map((mode) => (
             <Button
               key={mode}
               size="sm"
@@ -558,6 +637,21 @@ export default function OpportunitiesClient() {
         <p aria-live="polite" className="text-xs text-muted-foreground">
           {t('resultCount', { count: filtered.length })}
         </p>
+        {view === 'new' && pageRows.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={blocked || checking.size > 0}
+            onClick={() => checkCompetitors(pageRows)}
+          >
+            {checking.size > 0 ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="mr-2 h-4 w-4" />
+            )}
+            {t('checkPage')}
+          </Button>
+        )}
       </div>
 
       <div className="min-w-0 border-y bg-background" aria-busy={loading}>
@@ -679,7 +773,55 @@ export default function OpportunitiesClient() {
                       </p>
                     </TableCell>
                     <TableCell className="max-w-56 align-top whitespace-normal">
-                      {product.external.length === 0 ? (
+                      {isNewProduct(product) ? (
+                        <div className="space-y-2 text-xs">
+                          {competitors[rowKey(run, product)] ? (
+                            <>
+                              {competitors[rowKey(run, product)].opportunity && (
+                                <Badge>{t('newOpportunity')}</Badge>
+                              )}
+                              {competitors[rowKey(run, product)].stores.length ===
+                              0 ? (
+                                <p className="text-muted-foreground">
+                                  {t('notFoundInCompetitors')}
+                                </p>
+                              ) : (
+                                <ul className="space-y-2">
+                                  {competitors[rowKey(run, product)].stores.map(
+                                    (store) => (
+                                      <li key={store.storeId}>
+                                        <SourceLink url={store.url}>
+                                          {store.storeName}
+                                        </SourceLink>
+                                        <p>{store.availability}</p>
+                                      </li>
+                                    )
+                                  )}
+                                </ul>
+                              )}
+                              <p className="text-muted-foreground">
+                                {t('checkedAt')}:{' '}
+                                {timestamp(
+                                  competitors[rowKey(run, product)].checkedAt
+                                )}
+                              </p>
+                            </>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={checking.has(rowKey(run, product))}
+                            onClick={() => checkCompetitors([{ run, product }])}
+                          >
+                            {checking.has(rowKey(run, product)) ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Search className="mr-2 h-4 w-4" />
+                            )}
+                            {t('checkCompetitors')}
+                          </Button>
+                        </div>
+                      ) : product.external.length === 0 ? (
                         <span className="text-xs text-muted-foreground">
                           {t(
                             product.match.variantId &&

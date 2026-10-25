@@ -7,6 +7,7 @@ import {
   type TaxTreatment
 } from './supplier-catalog';
 import {
+  isAnonymousSupplier,
   SupplierError,
   SupplierSession,
   type SupplierIntegration
@@ -73,7 +74,11 @@ export function extractHtmlProducts(
 ) {
   const { config } = session;
   const $ = cheerio.load(html);
-  if (!$(config.verification.accountSelector).length)
+  if (
+    config.verification.accountSelector &&
+    !isAnonymousSupplier(config) &&
+    !$(config.verification.accountSelector).length
+  )
     throw new SupplierError('session_expired');
   const products: SupplierProduct[] = [];
   $(config.catalog.productSelector).each((_, node) => {

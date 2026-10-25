@@ -17,12 +17,18 @@ import {
   type CatalogVariant
 } from './scraping/supplier-catalog';
 import {
+  isAnonymousSupplier,
   readIntegration,
   SupplierError,
   SupplierSession
 } from './scraping/supplier-session';
 import { collectSupplierCatalog } from './scraping/supplier-adapters';
 import { checkExternalStock } from './scraping/external-stock';
+import {
+  findInStores,
+  isNewProductOpportunity,
+  type CompetitorResult
+} from './scraping/competitor-search';
 
 const freshForMs = 60 * 60 * 1000;
 const blockingFlags = [
@@ -109,8 +115,9 @@ export async function getOpportunities() {
         status = config ? 'ready' : 'integration_not_configured';
         configured = Boolean(config);
         if (config) {
-          const refs =
-            config.auth === 'browser_session'
+          const refs = isAnonymousSupplier(config)
+            ? []
+            : config.auth === 'browser_session'
               ? [config.secrets.session]
               : [config.secrets.username, config.secrets.password];
           if (refs.some((ref) => !ref || !process.env[ref])) {
@@ -343,4 +350,53 @@ export async function approveSupplierRun(
   adminId: string
 ) {
   await persistSupplierApproval(supplierId, runId, adminId);
+}
+
+export type NewProductCheck = {
+  supplierProductId: string;
+  checkedAt: string;
+  stores: CompetitorResult[];
+  opportunity: boolean;
+};
+
+// Live, unpersisted lookup of competitor stock for supplier products that are not in our catalog.
+export async function checkNewProductCompetitors(
+  supplierId: string,
+  supplierProductIds: string[]
+): Promise<NewProductCheck[]> {
+  const [{ stage }, variants, stores] = await Promise.all([
+    readSupplierStage(supplierId),
+    catalogVariants(),
+    prisma.store.findMany({
+      where: { prices: { some: {} } },
+      select: { id: true, name: true, url: true }
+    })
+  ]);
+  const run = refreshRun(stage, variants);
+  if (!run) throw new SupplierError('run_not_found');
+  const wanted = new Set(supplierProductIds);
+  const targets = run.products.filter(
+    (product) =>
+      wanted.has(product.supplierProductId) &&
+      product.availability === 'in_stock' &&
+      !product.match.variantId
+  );
+  const checks: NewProductCheck[] = [];
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(3, targets.length) }, async () => {
+      while (cursor < targets.length) {
+        const product = targets[cursor++];
+        const found = await findInStores(stores, product);
+        checks.push({
+          supplierProductId: product.supplierProductId,
+          checkedAt: new Date().toISOString(),
+          stores: found,
+          opportunity:
+            run.status === 'staged' && isNewProductOpportunity(found)
+        });
+      }
+    })
+  );
+  return checks;
 }

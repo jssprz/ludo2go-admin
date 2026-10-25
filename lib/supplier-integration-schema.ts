@@ -36,7 +36,7 @@ export const supplierIntegrationInput = z.object({
   }
   if ((input.authMethod === 'form' && input.adapterKey !== 'devir') ||
       (input.authMethod === 'asmodee_api' && input.adapterKey !== 'asmodee')) invalid('authMethod');
-  const paths = [input.config.verification?.path, input.config.verification?.account.path, ...(input.config.catalog?.paths ?? [])];
+  const paths = [input.config.verification?.path, input.config.verification?.account?.path, ...(input.config.catalog?.paths ?? [])];
   for (const path of paths) {
     if (path === undefined) continue;
     try {
@@ -54,7 +54,9 @@ export const supplierIntegrationInput = z.object({
   if (!input.config.verification) invalid('config');
   if (!input.config.catalog) invalid('config');
   if (input.adapterKey === 'asmodee' && !input.config.catalog?.structured) invalid('config');
-  if (input.authMethod === 'browser_session') {
+  if (input.adapterKey === 'lanae') {
+    // public catalog: no credentials or session required
+  } else if (input.authMethod === 'browser_session') {
     if (!input.sessionSecretRef) invalid('sessionSecretRef');
   } else {
     if (!input.usernameSecretRef) invalid('usernameSecretRef');

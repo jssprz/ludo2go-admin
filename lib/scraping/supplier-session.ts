@@ -23,7 +23,7 @@ export const integrationSchema = z
     verification: z
       .object({
         path: z.string(),
-        accountSelector: z.string().min(1),
+        accountSelector: z.string().min(1).optional(),
         account: z
           .object({
             path: z.string(),
@@ -35,9 +35,10 @@ export const integrationSchema = z
           .refine(
             (value) =>
               Boolean(value.identityPath) !== Boolean(value.identitySelector)
-          ),
+          )
+          .optional(),
         priceSelector: z.string().min(1),
-        priceEvidence: z.literal('account_purchase_price'),
+        priceEvidence: z.enum(['account_purchase_price', 'public_price']),
         verifiedAt: z.string().datetime(),
         structuredPricePath: z.string().optional()
       })
@@ -131,6 +132,10 @@ export function readIntegration(
     throw new SupplierError('integration_config_invalid');
   }
 }
+
+// Lanae's catalog and prices are public, so no login or session is used.
+export const isAnonymousSupplier = (config: { kind: SupplierKind }) =>
+  config.kind === 'lanae';
 
 export class SupplierError extends Error {
   constructor(public readonly code: string) {
@@ -244,6 +249,10 @@ export class SupplierSession {
   async authenticate() {
     this.jar = new CookieJar();
     this.bearer = null;
+    if (isAnonymousSupplier(this.config)) {
+      await this.verify();
+      return;
+    }
     if (this.config.auth === 'asmodee_api') {
       if (!this.config.secrets.username || !this.config.secrets.password)
         throw new SupplierError('secret_not_configured');
@@ -333,10 +342,18 @@ export class SupplierSession {
   }
 
   async verify() {
-    const account = this.config.verification.account;
-    const accountResponse = await this.request(account.path);
+    const account = isAnonymousSupplier(this.config)
+      ? undefined
+      : this.config.verification.account;
+    if (!account && !isAnonymousSupplier(this.config))
+      throw new SupplierError('integration_config_invalid');
+    const accountResponse = account
+      ? await this.request(account.path)
+      : undefined;
     let identity: unknown;
-    if (account.identityPath) {
+    if (!account || !accountResponse) {
+      identity = undefined;
+    } else if (account.identityPath) {
       const payload: unknown = await accountResponse.json();
       identity = account.identityPath
         .split('.')
@@ -355,10 +372,11 @@ export class SupplierSession {
         .trim();
     }
     if (
-      (typeof identity !== 'string' && typeof identity !== 'number') ||
+      account &&
+      ((typeof identity !== 'string' && typeof identity !== 'number') ||
       !String(identity).trim() ||
       (account.expectedIdentity !== '$authenticated' &&
-        String(identity) !== account.expectedIdentity)
+        String(identity) !== account.expectedIdentity))
     ) {
       throw new SupplierError('session_expired');
     }
@@ -399,7 +417,9 @@ export class SupplierSession {
     }
     const $ = cheerio.load(html);
     if (
-      !$(this.config.verification.accountSelector).length ||
+      (this.config.verification.accountSelector &&
+        !isAnonymousSupplier(this.config) &&
+        !$(this.config.verification.accountSelector).length) ||
       !$(this.config.verification.priceSelector).text().match(/\d/)
     ) {
       throw new SupplierError('account_prices_not_verified');

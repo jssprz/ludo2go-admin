@@ -30,7 +30,7 @@ export function createSupplierIntegrationDefaults(
       : devir
         ? 'SUPPLIER_DEVIR_PASSWORD'
         : null,
-    sessionSecretRef: adapterKey === 'lanae' ? 'SUPPLIER_LANAE_SESSION' : null,
+    sessionSecretRef: null,
     browserSecretRef: null,
     browserRendering: false,
     taxTreatment: devir ? 'vat_included' : 'unconfirmed',

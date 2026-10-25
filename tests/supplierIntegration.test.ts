@@ -167,11 +167,43 @@ test('observed Devir and Asmodee defaults are complete disabled drafts that vali
   expect(asmodee.config.catalog?.structured?.purchasePrice).toBe(
     'customerPrice.total'
   );
-  expect(asmodee.config.verification?.account.expectedIdentity).toBe(
+  expect(asmodee.config.verification?.account?.expectedIdentity).toBe(
     '$authenticated'
   );
   expect(asmodee.taxTreatment).toBe('unconfirmed');
   expect(
     supplierIntegrationInput.safeParse({ ...asmodee, isEnabled: true }).success
   ).toBe(true);
+});
+
+test('lanae is public: enabling needs no credentials, session or account check', () => {
+  const lanae = {
+    ...draft,
+    adapterKey: 'lanae',
+    baseUrl: 'https://lanae.cl',
+    authMethod: 'browser_session',
+    taxTreatment: 'excluding_vat',
+    taxVerifiedAt: '2026-01-01T00:00:00.000Z',
+    isEnabled: true,
+    config: {
+      verification: {
+        path: '/collections/all',
+        priceSelector: '.price',
+        priceEvidence: 'public_price',
+        verifiedAt: '2026-01-01T00:00:00.000Z'
+      },
+      catalog: {
+        paths: ['/collections/all'],
+        terminalSelector: 'body',
+        priceSelector: '.price',
+        inStockSelector: '.in-stock',
+        outOfStockSelector: '.sold-out',
+        expectedMinimum: 1
+      }
+    }
+  };
+  expect(supplierIntegrationInput.safeParse(lanae).success).toBe(true);
+  expect(
+    supplierIntegrationInput.safeParse({ ...lanae, adapterKey: 'devir', baseUrl: 'https://btb.devir.cl', authMethod: 'browser_session' }).success
+  ).toBe(false);
 });

@@ -10,6 +10,14 @@ export function extractExternalAvailability(
   html: string,
   expected?: ExpectedProduct
 ): Availability {
+  const page = inspectExternalPage(html, expected);
+  return page.identityVerified ? page.availability : 'unknown';
+}
+
+export function inspectExternalPage(
+  html: string,
+  expected?: ExpectedProduct
+): { identityVerified: boolean; availability: Availability } {
   const $ = cheerio.load(html);
   const evidence: Availability[] = [];
   const availability = (value: unknown) => {
@@ -63,7 +71,7 @@ export function extractExternalAvailability(
         ? !barcodes.includes(expected.barcode)
         : !sku || sku !== expected.sku
     )
-      return 'unknown';
+      return { identityVerified: false, availability: 'unknown' };
   }
   if (products.length === 1) {
     const offers = products[0].offers;
@@ -86,7 +94,10 @@ export function extractExternalAvailability(
     if (stock.hasClass('in-stock')) evidence.push('in_stock');
   });
   const unique = Array.from(new Set(evidence));
-  return unique.length === 1 ? unique[0] : 'unknown';
+  return {
+    identityVerified: true,
+    availability: unique.length === 1 ? unique[0] : 'unknown'
+  };
 }
 
 const blocked = new BlockList();
@@ -139,10 +150,7 @@ async function publicUrl(url: URL) {
   return addresses;
 }
 
-export async function checkExternalStock(
-  url: string,
-  expected?: ExpectedProduct
-): Promise<Availability> {
+export async function fetchPublicHtml(url: string): Promise<string | null> {
   try {
     let current = new URL(url);
     const origin = current.origin;
@@ -169,9 +177,9 @@ export async function checkExternalStock(
         if ([301, 302, 303, 307, 308].includes(response.status)) {
           const location = response.headers.get('location');
           await response.body?.cancel();
-          if (!location) return 'unknown';
+          if (!location) return null;
           current = new URL(location, current);
-          if (current.origin !== origin) return 'unknown';
+          if (current.origin !== origin) return null;
           continue;
         }
         if (
@@ -179,10 +187,10 @@ export async function checkExternalStock(
           !response.headers.get('content-type')?.includes('text/html')
         ) {
           await response.body?.cancel();
-          return 'unknown';
+          return null;
         }
         const reader = response.body?.getReader();
-        if (!reader) return 'unknown';
+        if (!reader) return null;
         const chunks: Uint8Array[] = [];
         let size = 0;
         while (true) {
@@ -191,18 +199,23 @@ export async function checkExternalStock(
           size += value.length;
           if (size > 3_000_000) {
             await reader.cancel();
-            return 'unknown';
+            return null;
           }
           chunks.push(value);
         }
-        return extractExternalAvailability(
-          Buffer.concat(chunks).toString('utf8'),
-          expected
-        );
+        return Buffer.concat(chunks).toString('utf8');
       } finally {
         await dispatcher.close();
       }
     }
   } catch {}
-  return 'unknown';
+  return null;
+}
+
+export async function checkExternalStock(
+  url: string,
+  expected?: ExpectedProduct
+): Promise<Availability> {
+  const html = await fetchPublicHtml(url);
+  return html === null ? 'unknown' : extractExternalAvailability(html, expected);
 }
