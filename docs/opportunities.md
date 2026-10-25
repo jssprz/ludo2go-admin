@@ -135,4 +135,12 @@ Automated checks use fixture adapters and mocked Prisma/service/API dependencies
 
 The **New products** tab lists supplier products that are in stock and not linked to a catalog variant. Competitor stock is checked live, on demand, per product or for the current page (**Check competitors**); results are not persisted because `ExternalStockObservation` requires a catalog `variantId`, and they are lost on reload.
 
-Only stores that already have at least one `ItemPriceInStore` link are searched, by EAN (falling back to an exact normalized name match when the supplier has no EAN) through `/search?q=` and `/?s=&post_type=product`. A store counts as carrying the product only when a result page's JSON-LD GTIN matches the EAN. A product is a new-product opportunity when at least one store carries it and every store that does reports it out of stock; any `in_stock` or unreadable (`unknown`) result disqualifies it. Stores where the product isn't found are ignored. Qualifying products also appear under **Opportunities** until the page is reloaded.
+Only stores that already have at least one `ItemPriceInStore` link are searched. For each store the strategies run cheapest first and stop at the first verified hit:
+
+1. **EAN search** (when the supplier gives a barcode): `/search?q=` and `/?s=&post_type=product`; the result page's JSON-LD GTIN must match.
+2. **Direct slug guess**: `/product/<slug>/`, `/producto/<slug>/` and `/products/<slug>` built from the cleaned supplier name.
+3. **Fuzzy name search**: several queries (full cleaned name, first 4 words, first 2 words); result links are ranked by title/slug similarity and the best few are fetched.
+
+Name matches are verified against the candidate page's own title (JSON-LD name, `og:title` or `h1`). Names are cleaned first: accents, parentheticals, publisher prefixes (`JDM`, `Devir`, `Asmodee`, `Lanae`), expansion markers (`Exp4`) and filler words (`y`, `de`, `the`…) are dropped, so `JDM Carcassonne Torres y Ladrones (Exp4)` matches `Carcassonne: Torres y Ladrones`. Similarity is symmetric (Jaccard ≥ 0.75), so a base game does not match its expansion, and differing numbers (`Catan 2` vs `Catan`) never match. To treat another publisher prefix as noise, add it to `publisherPrefixes` in `lib/scraping/competitor-search.ts`.
+
+A store counts as carrying the product only when one of these verifies. A product is a new-product opportunity when at least one store carries it and every store that does reports it out of stock; any `in_stock` or unreadable (`unknown`) result disqualifies it. Stores where the product isn't found are ignored. Qualifying products also appear under **Opportunities** until the page is reloaded.

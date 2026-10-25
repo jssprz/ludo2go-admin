@@ -4,7 +4,12 @@ import {
   eanDigits,
   extractCandidates,
   isNewProductOpportunity,
-  searchUrls
+  nameMatchThreshold,
+  nameScore,
+  pageTitles,
+  searchQueries,
+  searchUrls,
+  slugGuesses
 } from '../lib/scraping/competitor-search';
 import { inspectExternalPage } from '../lib/scraping/external-stock';
 
@@ -55,4 +60,32 @@ test('new-product opportunity needs a store and all out of stock', () => {
     ]),
     false
   );
+});
+
+test('supplier names match competitor titles despite publisher prefix and expansion marker', () => {
+  const supplier = 'JDM Carcassonne Torres y Ladrones (Exp4)';
+  assert.ok(nameScore(supplier, 'Carcassonne: Torres y Ladrones') >= nameMatchThreshold);
+  assert.ok(nameScore(supplier, 'carcassonne torres y ladrones') >= nameMatchThreshold);
+  assert.deepEqual(slugGuesses(supplier), [
+    'carcassonne-torres-y-ladrones',
+    'carcassonne-torres-ladrones'
+  ]);
+  assert.equal(searchQueries(supplier)[0], 'carcassonne torres ladrones');
+});
+
+test('base games, expansions and numbered editions are not confused', () => {
+  assert.ok(nameScore('Carcassonne', 'Carcassonne Torres y Ladrones') < nameMatchThreshold);
+  assert.equal(nameScore('Catan 2', 'Catan'), 0);
+  assert.ok(nameScore('Catan', 'Catan') >= nameMatchThreshold);
+  assert.ok(nameScore('Wingspan', 'Carcassonne') < nameMatchThreshold);
+});
+
+test('reads product titles from JSON-LD, og:title and h1', () => {
+  const html = `<title>Carcassonne Torres | Gato</title>
+    <meta property="og:title" content="Carcassonne: Torres y Ladrones">
+    <h1>Carcassonne Torres y Ladrones</h1>
+    <script type="application/ld+json">${JSON.stringify({ '@type': 'Product', name: 'Carcassonne Torres y Ladrones' })}</script>`;
+  const titles = pageTitles(html);
+  assert.ok(titles.includes('Carcassonne Torres y Ladrones'));
+  assert.ok(titles.includes('Carcassonne: Torres y Ladrones'));
 });
