@@ -89,3 +89,10 @@ test('reads product titles from JSON-LD, og:title and h1', () => {
   assert.ok(titles.includes('Carcassonne Torres y Ladrones'));
   assert.ok(titles.includes('Carcassonne: Torres y Ladrones'));
 });
+
+test('expansion markers with spaced numbers are ignored', () => {
+  assert.ok(
+    nameScore('Carcassonne Torres y Ladrones Exp. 4', 'Carcassonne: Torres y Ladrones') >=
+      nameMatchThreshold
+  );
+});

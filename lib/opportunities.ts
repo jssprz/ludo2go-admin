@@ -27,7 +27,8 @@ import { checkExternalStock } from './scraping/external-stock';
 import {
   findInStores,
   isNewProductOpportunity,
-  type CompetitorResult
+  type CompetitorResult,
+  type StoreTrace
 } from './scraping/competitor-search';
 
 const freshForMs = 60 * 60 * 1000;
@@ -356,6 +357,8 @@ export type NewProductCheck = {
   supplierProductId: string;
   checkedAt: string;
   stores: CompetitorResult[];
+  diagnostics: StoreTrace[];
+  searchedStores: number;
   opportunity: boolean;
 };
 
@@ -387,11 +390,13 @@ export async function checkNewProductCompetitors(
     Array.from({ length: Math.min(3, targets.length) }, async () => {
       while (cursor < targets.length) {
         const product = targets[cursor++];
-        const found = await findInStores(stores, product);
+        const { results: found, traces } = await findInStores(stores, product);
         checks.push({
           supplierProductId: product.supplierProductId,
           checkedAt: new Date().toISOString(),
           stores: found,
+          diagnostics: traces,
+          searchedStores: stores.length,
           opportunity:
             run.status === 'staged' && isNewProductOpportunity(found)
         });

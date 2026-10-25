@@ -150,7 +150,11 @@ async function publicUrl(url: URL) {
   return addresses;
 }
 
-export async function fetchPublicHtml(url: string): Promise<string | null> {
+export async function fetchPublicHtml(
+  url: string,
+  trace?: string[]
+): Promise<string | null> {
+  const note = (reason: string | number) => trace?.push(`${reason} ${url}`);
   try {
     let current = new URL(url);
     const origin = current.origin;
@@ -174,6 +178,7 @@ export async function fetchPublicHtml(url: string): Promise<string | null> {
             Accept: 'text/html'
           }
         });
+        if (response.status >= 400) note(response.status);
         if ([301, 302, 303, 307, 308].includes(response.status)) {
           const location = response.headers.get('location');
           await response.body?.cancel();
@@ -187,6 +192,7 @@ export async function fetchPublicHtml(url: string): Promise<string | null> {
           !response.headers.get('content-type')?.includes('text/html')
         ) {
           await response.body?.cancel();
+          if (response.status < 400) note('not_html');
           return null;
         }
         const reader = response.body?.getReader();
@@ -208,7 +214,9 @@ export async function fetchPublicHtml(url: string): Promise<string | null> {
         await dispatcher.close();
       }
     }
-  } catch {}
+  } catch {
+    note('unreachable');
+  }
   return null;
 }
 

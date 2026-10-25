@@ -6,6 +6,7 @@ import {
 import type { Availability } from './supplier-catalog';
 
 export type CompetitorStore = { id: string; name: string; url: string };
+export type StoreTrace = { storeName: string; notes: string[] };
 export type CompetitorResult = {
   storeId: string;
   storeName: string;
@@ -35,6 +36,7 @@ function fold(value: string) {
 function coreWords(value: string) {
   const words = fold(value)
     .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+    .replace(/\bexp(?:ansion|ansiones)?\.?\s*\d+\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .split(' ')
@@ -176,14 +178,17 @@ function resultFor(
 // Strategies, cheapest first: EAN search, direct slug guess, fuzzy name search.
 export async function findInStore(
   store: CompetitorStore,
-  product: Searchable
+  product: Searchable,
+  trace: string[] = []
 ): Promise<CompetitorResult | null> {
   let origin: string;
   try {
     origin = new URL(store.url).origin;
   } catch {
+    trace.push('invalid_store_url');
     return null;
   }
+  const fetchHtml = (url: string) => fetchPublicHtml(url, trace);
   const ean = eanDigits(product.barcode);
   const titleMatches = (html: string) =>
     pageTitles(html).some(
@@ -192,13 +197,13 @@ export async function findInStore(
 
   if (ean) {
     for (const searchUrl of searchUrls(store.url, ean)) {
-      const html = await fetchPublicHtml(searchUrl);
+      const html = await fetchHtml(searchUrl);
       if (!html) continue;
       for (const candidate of extractCandidates(html, origin).slice(
         0,
         maxCandidates
       )) {
-        const page = await fetchPublicHtml(candidate.url);
+        const page = await fetchHtml(candidate.url);
         if (!page) continue;
         if (inspectExternalPage(page, { sku: '', barcode: ean }).identityVerified)
           return resultFor(store, candidate.url, page);
@@ -209,15 +214,17 @@ export async function findInStore(
   for (const slug of slugGuesses(product.name)) {
     for (const path of slugPaths) {
       const url = `${origin}${path}${slug}${path === '/products/' ? '' : '/'}`;
-      const page = await fetchPublicHtml(url);
-      if (page && titleMatches(page)) return resultFor(store, url, page);
+      const page = await fetchHtml(url);
+      if (!page) continue;
+      if (titleMatches(page)) return resultFor(store, url, page);
+      trace.push(`title_mismatch ${url}: ${pageTitles(page)[0] ?? ''}`);
     }
   }
 
   const tried = new Set<string>();
   for (const query of searchQueries(product.name)) {
     for (const searchUrl of searchUrls(store.url, query)) {
-      const html = await fetchPublicHtml(searchUrl);
+      const html = await fetchHtml(searchUrl);
       if (!html) continue;
       const ranked = extractCandidates(html, origin)
         .map((candidate) => ({
@@ -232,12 +239,13 @@ export async function findInStore(
         .slice(0, maxCandidates);
       for (const candidate of ranked) {
         tried.add(candidate.url);
-        const page = await fetchPublicHtml(candidate.url);
+        const page = await fetchHtml(candidate.url);
         if (page && titleMatches(page))
           return resultFor(store, candidate.url, page);
       }
     }
   }
+  trace.push('not_found');
   return null;
 }
 
@@ -245,10 +253,24 @@ export async function findInStores(
   stores: CompetitorStore[],
   product: Searchable
 ) {
+  const traces: StoreTrace[] = stores.map((store) => ({
+    storeName: store.name,
+    notes: []
+  }));
   const results = await Promise.all(
-    stores.map((store) => findInStore(store, product))
+    stores.map((store, index) =>
+      findInStore(store, product, traces[index].notes)
+    )
   );
-  return results.filter((result): result is CompetitorResult => result !== null);
+  return {
+    results: results.filter(
+      (result): result is CompetitorResult => result !== null
+    ),
+    traces: traces.map((trace) => ({
+      ...trace,
+      notes: trace.notes.slice(0, 12)
+    }))
+  };
 }
 
 // A new-product opportunity needs at least one store carrying it, all out of stock.

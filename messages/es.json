@@ -182,6 +182,8 @@
     "newOpportunity": "Oportunidad de producto nuevo",
     "notFoundInCompetitors": "No encontrado en tiendas competidoras",
     "competitorCheckError": "Falló la revisión de competidores. Intenta de nuevo.",
+    "searchDetails": "Detalle de búsqueda ({count, plural, one {# tienda} other {# tiendas}})",
+    "noSearchableStores": "No hay tiendas donde buscar: solo se buscan tiendas con al menos un producto vinculado.",
     "linked": "Vinculados al catálogo",
     "review": "Por revisar",
     "resultCount": "{count, plural, one {# producto} other {# productos}}",

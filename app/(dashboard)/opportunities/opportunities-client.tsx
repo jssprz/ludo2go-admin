@@ -95,6 +95,8 @@ type View = 'opportunities' | 'all' | 'linked' | 'new' | 'review';
 type CompetitorCheck = {
   checkedAt: string;
   opportunity: boolean;
+  searchedStores: number;
+  diagnostics: { storeName: string; notes: string[] }[];
   stores: { storeId: string; storeName: string; url: string; availability: string }[];
 };
 const reviewFields = [
@@ -805,6 +807,33 @@ export default function OpportunitiesClient() {
                                   competitors[rowKey(run, product)].checkedAt
                                 )}
                               </p>
+                              <details className="text-muted-foreground">
+                                <summary className="cursor-pointer">
+                                  {t('searchDetails', {
+                                    count:
+                                      competitors[rowKey(run, product)]
+                                        .searchedStores
+                                  })}
+                                </summary>
+                                {competitors[rowKey(run, product)]
+                                  .searchedStores === 0 && (
+                                  <p>{t('noSearchableStores')}</p>
+                                )}
+                                {competitors[rowKey(run, product)].diagnostics.map(
+                                  (entry) => (
+                                    <div key={entry.storeName} className="mt-1">
+                                      <p className="font-medium">
+                                        {entry.storeName}
+                                      </p>
+                                      <ul className="break-all">
+                                        {entry.notes.map((note, index) => (
+                                          <li key={index}>{note}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )
+                                )}
+                              </details>
                             </>
                           ) : null}
                           <Button

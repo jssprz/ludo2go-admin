@@ -182,6 +182,8 @@
     "newOpportunity": "New product opportunity",
     "notFoundInCompetitors": "Not found in competitor stores",
     "competitorCheckError": "Competitor check failed. Try again.",
+    "searchDetails": "Search details ({count, plural, one {# store} other {# stores}})",
+    "noSearchableStores": "No stores to search: only stores with at least one linked product are searched.",
     "linked": "Linked to catalog",
     "review": "Needs review",
     "resultCount": "{count, plural, one {# product} other {# products}}",
