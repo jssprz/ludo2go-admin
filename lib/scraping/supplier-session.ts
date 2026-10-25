@@ -342,6 +342,11 @@ export class SupplierSession {
   }
 
   async verify() {
+    if (isAnonymousSupplier(this.config)) {
+      // Public prices need no account proof; the catalog step rejects runs without prices.
+      await this.request(this.config.verification.path);
+      return;
+    }
     const account = isAnonymousSupplier(this.config)
       ? undefined
       : this.config.verification.account;

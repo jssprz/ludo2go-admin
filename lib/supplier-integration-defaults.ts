@@ -57,7 +57,7 @@ export function createSupplierIntegrationDefaults(
         : adapterKey === 'lanae'
           ? {
               path: lanaeCatalogPath,
-              priceSelector: '.price-item',
+              priceSelector: '.price-item, .price, [itemprop="price"]',
               priceEvidence: 'public_price',
               verifiedAt
             }
@@ -84,7 +84,8 @@ export function createSupplierIntegrationDefaults(
               nextSelector:
                 'a[rel="next"], a.pagination__item-arrow[aria-label*="ext"]',
               terminalSelector: 'main',
-              priceSelector: '.price-item--regular, .price-item',
+              priceSelector:
+                '.price-item--regular, .price-item, .price, [itemprop="price"]',
               inStockSelector: '.price:not(.price--sold-out)',
               outOfStockSelector: '.price--sold-out',
               expectedMinimum: 1,
