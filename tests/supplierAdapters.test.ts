@@ -3,7 +3,8 @@ import test from 'node:test';
 import {
   collectSupplierCatalog,
   extractHtmlProducts,
-  extractStructuredProducts
+  extractStructuredProducts,
+  extractShopifyProducts
 } from '../lib/scraping/supplier-adapters';
 import {
   integrationSchema,
@@ -442,4 +443,50 @@ test('Asmodee API rows use customer total, family name, box quantity, and canoni
     expansion: null,
     collectedAt: result.products[0].collectedAt
   });
+});
+
+test('lanae public Shopify feed maps one product per variant with price, stock and EAN', () => {
+  const lanae = new SupplierSession({
+    ...config,
+    kind: 'lanae',
+    baseUrl: 'https://lanae.cl'
+  });
+  const products = extractShopifyProducts(
+    {
+      products: [
+        {
+          handle: 'game',
+          title: 'Game',
+          product_type: 'Board games',
+          variants: [
+            { id: 1, title: 'Default Title', sku: 'G1', barcode: '8710126199022', price: '12990.00', available: true }
+          ]
+        },
+        {
+          handle: 'multi',
+          title: 'Multi',
+          variants: [
+            { id: 2, title: 'ES', sku: null, barcode: '', price: '5990.00', available: false },
+            { id: 3, title: 'EN', price: '5990.00', available: true }
+          ]
+        }
+      ]
+    },
+    'supplier',
+    lanae
+  );
+  assert.deepEqual(
+    products.map((p) => [p.supplierProductId, p.name, p.barcode, p.purchasePrice, p.availability]),
+    [
+      ['1', 'Game', '8710126199022', 12990, 'in_stock'],
+      ['2', 'Multi - ES', null, 5990, 'out_of_stock'],
+      ['3', 'Multi - EN', null, 5990, 'in_stock']
+    ]
+  );
+  assert.equal(products[0].url, 'https://lanae.cl/products/game');
+  assert.equal(products[1].url, 'https://lanae.cl/products/multi?variant=2');
+  assert.throws(
+    () => extractShopifyProducts({ nope: [] }, 'supplier', lanae),
+    /catalog_response_changed/
+  );
 });

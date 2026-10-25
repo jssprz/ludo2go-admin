@@ -221,6 +221,54 @@ export function extractStructuredProducts(
   };
 }
 
+export function extractShopifyProducts(
+  payload: unknown,
+  supplierId: string,
+  session: SupplierSession
+): SupplierProduct[] {
+  const items = field(payload, 'products');
+  if (!Array.isArray(items)) throw new SupplierError('catalog_response_changed');
+  const products: SupplierProduct[] = [];
+  for (const item of items) {
+    const handle = text(field(item, 'handle'));
+    const title = text(field(item, 'title'));
+    const variants = field(item, 'variants');
+    if (!handle || !title || !Array.isArray(variants))
+      throw new SupplierError('catalog_response_changed');
+    const productType = text(field(item, 'product_type'));
+    for (const variant of variants) {
+      const id = text(field(variant, 'id'));
+      if (!id) throw new SupplierError('catalog_response_changed');
+      const variantTitle = text(field(variant, 'title'));
+      const product = baseProduct(supplierId, session.config);
+      product.supplierProductId = id;
+      product.name =
+        variants.length > 1 && variantTitle && variantTitle !== 'Default Title'
+          ? `${title} - ${variantTitle}`
+          : title;
+      product.sku = text(field(variant, 'sku'));
+      product.barcode = text(field(variant, 'barcode'));
+      product.url = session.url(
+        `/products/${encodeURIComponent(handle)}${variants.length > 1 ? `?variant=${id}` : ''}`
+      ).href;
+      product.categories = productType ? [productType] : [];
+      const available = field(variant, 'available');
+      product.availability =
+        available === true
+          ? 'in_stock'
+          : available === false
+            ? 'out_of_stock'
+            : 'unknown';
+      const price = field(variant, 'price');
+      product.purchasePrice = parseClp(
+        typeof price === 'string' || typeof price === 'number' ? price : null
+      );
+      products.push(product);
+    }
+  }
+  return products;
+}
+
 export async function collectSupplierCatalog(
   supplierId: string,
   session: SupplierSession
@@ -238,6 +286,26 @@ export async function collectSupplierCatalog(
       const visited = new Set<string>();
       let pages = 0;
       for (const path of session.config.catalog.paths) {
+        if (session.config.kind === 'lanae') {
+          // Lanae is a Shopify store: its public JSON feed has prices and stock.
+          const base = path.replace(/\/+$/, '').replace(/\/products\.json$/, '');
+          for (let page = 1; ; page++) {
+            if (++pages > session.config.catalog.maxPages)
+              throw new SupplierError('pagination_limit_reached');
+            const response = await session.request(
+              `${base}/products.json?limit=250&page=${page}`
+            );
+            const items = extractShopifyProducts(
+              await response.json(),
+              supplierId,
+              session
+            );
+            if (!items.length) break;
+            for (const product of items)
+              products.set(product.supplierProductId, product);
+          }
+          continue;
+        }
         let next: string | null = session.url(path).href;
         const chain = new Set<string>();
         const pathProducts = new Set<string>();
@@ -260,7 +328,6 @@ export async function collectSupplierCatalog(
           } else {
             let html = await response.text();
             if (
-              session.config.kind === 'lanae' &&
               session.config.browserRendering &&
               !cheerio
                 .load(html)(session.config.catalog.priceSelector)
@@ -310,9 +377,7 @@ export async function collectSupplierCatalog(
         throw new SupplierError('catalog_below_expected_minimum');
       if (!result.some((product) => product.purchasePrice !== null)) {
         throw new SupplierError(
-          session.config.kind === 'lanae'
-            ? 'authenticated_pricing_or_browser_rendering_required'
-            : 'account_prices_not_verified'
+          'account_prices_not_verified'
         );
       }
       const validation = validateSupplierRun({
