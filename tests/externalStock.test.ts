@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   checkExternalStock,
-  extractExternalAvailability
+  extractExternalAvailability,
+  inspectExternalPage
 } from '../lib/scraping/external-stock';
 
 test('only explicit stock evidence counts; absent price and login failures are unknown', () => {
@@ -48,6 +49,50 @@ test('schema product offers support in stock and out of stock; contradictory var
   assert.equal(
     extractExternalAvailability(html({ availability: 'PreOrder' })),
     'unknown'
+  );
+});
+test('competitor checks use the matched product offer and WooCommerce product state', () => {
+  const product = (name: string, availability: string) =>
+    `<script type="application/ld+json">${JSON.stringify({
+      '@type': 'Product',
+      name,
+      offers: { availability }
+    })}</script>`;
+  const relatedProducts = `${product('Related game', 'InStock')}${product(
+    'Donde las Papas Queman',
+    'OutOfStock'
+  )}`;
+  assert.equal(
+    inspectExternalPage(
+      relatedProducts,
+      undefined,
+      'Devir Donde las Papas Queman (Español)'
+    ).availability,
+    'out_of_stock'
+  );
+  assert.equal(
+    inspectExternalPage(
+      '<body class="single-product"><main><div class="elementor-location-single product instock"></div></main></body>',
+      undefined,
+      'Donde las Papas Queman'
+    ).availability,
+    'in_stock'
+  );
+  assert.equal(
+    inspectExternalPage(
+      '<body class="single-product"><main><div class="elementor-location-single product outofstock"></div></main></body>',
+      undefined,
+      'Donde las Papas Queman'
+    ).availability,
+    'out_of_stock'
+  );
+  assert.equal(
+    inspectExternalPage(
+      '<body class="single-product"><main><div class="product instock"></div><section class="related"><div class="product outofstock"></div></section></main></body>',
+      undefined,
+      'Donde las Papas Queman'
+    ).availability,
+    'in_stock'
   );
 });
 test('private addresses and unsupported URLs never produce stock observations', async () => {

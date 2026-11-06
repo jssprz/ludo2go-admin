@@ -16,7 +16,8 @@ export function extractExternalAvailability(
 
 export function inspectExternalPage(
   html: string,
-  expected?: ExpectedProduct
+  expected?: ExpectedProduct,
+  productName?: string
 ): { identityVerified: boolean; availability: Availability } {
   const $ = cheerio.load(html);
   const evidence: Availability[] = [];
@@ -46,6 +47,35 @@ export function inspectExternalPage(
       visit(JSON.parse($(node).text()));
     } catch {}
   });
+  const normalizeName = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .split(' ')
+      .filter(
+        (word) =>
+          word &&
+          ![
+            'y', 'e', 'de', 'del', 'la', 'las', 'el', 'los', 'un', 'una',
+            'en', 'the', 'of', 'and', 'a', 'juego', 'mesa', 'edicion',
+            'espanol', 'spanish'
+          ].includes(word)
+      )
+      .filter((word, index, words) =>
+        index > 0 || !['jdm', 'devir', 'asmodee', 'lanae'].includes(word) ||
+        words.length === 1
+      )
+      .join(' ');
+  const matchedProduct = productName
+    ? products.find(
+        (product) =>
+          typeof product.name === 'string' &&
+          normalizeName(product.name) === normalizeName(productName)
+      )
+    : null;
   if (expected) {
     const product = products.length === 1 ? products[0] : null;
     const barcodes = product
@@ -73,8 +103,9 @@ export function inspectExternalPage(
     )
       return { identityVerified: false, availability: 'unknown' };
   }
-  if (products.length === 1) {
-    const offers = products[0].offers;
+  const product = matchedProduct ?? (products.length === 1 ? products[0] : null);
+  if (product) {
+    const offers = product.offers;
     const list = Array.isArray(offers) ? offers : [offers];
     for (const offer of list) {
       if (offer && typeof offer === 'object')
@@ -93,6 +124,14 @@ export function inspectExternalPage(
     if (stock.hasClass('out-of-stock')) evidence.push('out_of_stock');
     if (stock.hasClass('in-stock')) evidence.push('in_stock');
   });
+  const mainProduct = $('body.single-product .product')
+    .filter(
+      (_, node) =>
+        !$(node).closest('.related, .products, .up-sells, .cross-sells').length
+    )
+    .first();
+  if (mainProduct.hasClass('instock')) evidence.push('in_stock');
+  if (mainProduct.hasClass('outofstock')) evidence.push('out_of_stock');
   const unique = Array.from(new Set(evidence));
   return {
     identityVerified: true,

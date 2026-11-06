@@ -164,13 +164,14 @@ const slugPaths = ['/product/', '/producto/', '/products/'];
 function resultFor(
   store: CompetitorStore,
   url: string,
-  html: string
+  html: string,
+  productName: string
 ): CompetitorResult {
   return {
     storeId: store.id,
     storeName: store.name,
     url,
-    availability: inspectExternalPage(html).availability
+    availability: inspectExternalPage(html, undefined, productName).availability
   };
 }
 
@@ -206,7 +207,7 @@ export async function findInStore(
         const page = await fetchHtml(candidate.url);
         if (!page) continue;
         if (inspectExternalPage(page, { sku: '', barcode: ean }).identityVerified)
-          return resultFor(store, candidate.url, page);
+          return resultFor(store, candidate.url, page, product.name);
       }
     }
   }
@@ -216,7 +217,7 @@ export async function findInStore(
       const url = `${origin}${path}${slug}${path === '/products/' ? '' : '/'}`;
       const page = await fetchHtml(url);
       if (!page) continue;
-      if (titleMatches(page)) return resultFor(store, url, page);
+      if (titleMatches(page)) return resultFor(store, url, page, product.name);
       trace.push(`title_mismatch ${url}: ${pageTitles(page)[0] ?? ''}`);
     }
   }
@@ -241,7 +242,7 @@ export async function findInStore(
         tried.add(candidate.url);
         const page = await fetchHtml(candidate.url);
         if (page && titleMatches(page))
-          return resultFor(store, candidate.url, page);
+          return resultFor(store, candidate.url, page, product.name);
       }
     }
   }
