@@ -3,6 +3,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
 import { google } from 'googleapis';
 import type { merchantapi_products_v1 } from 'googleapis';
+import { getGoogleMerchantDataSourceName } from '@/lib/google-merchant-data-source';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -27,14 +28,6 @@ function getMerchantAccountName(): string {
   const id = process.env.GOOGLE_MERCHANT_ID;
   if (!id) throw new Error('GOOGLE_MERCHANT_ID env var is not set');
   return `accounts/${id}`;
-}
-
-// A primary API data source must be created once in Merchant Center
-// (Data sources → Add data source → API) before products can be inserted.
-function getDataSourceName(accountName: string): string {
-  const id = process.env.GOOGLE_MERCHANT_DATASOURCE_ID;
-  if (!id) throw new Error('GOOGLE_MERCHANT_DATASOURCE_ID env var is not set');
-  return `${accountName}/dataSources/${id}`;
 }
 
 function getStorefrontBaseUrl(): string {
@@ -116,7 +109,6 @@ export async function POST() {
     }
 
     const accountName = getMerchantAccountName();
-    const dataSource = getDataSourceName(accountName);
     const authClient = getAuthClient();
     const baseUrl = getStorefrontBaseUrl();
 
@@ -164,6 +156,7 @@ export async function POST() {
     // and insert them individually (see runWithConcurrency below).
     type PendingInsert = {
       offerId: string;
+      dataSource: string;
       productInput: merchantapi_products_v1.Schema$ProductInput;
     };
     const pendingInserts: PendingInsert[] = [];
@@ -306,6 +299,7 @@ export async function POST() {
 
         pendingInserts.push({
           offerId,
+          dataSource: getGoogleMerchantDataSourceName(accountName, lang),
           productInput: {
             offerId,
             contentLanguage: lang,
@@ -331,7 +325,7 @@ export async function POST() {
     }
 
     // insert() acts as an upsert — creates or updates the product input.
-    await runWithConcurrency(pendingInserts, 10, async ({ offerId, productInput }) => {
+    await runWithConcurrency(pendingInserts, 10, async ({ offerId, dataSource, productInput }) => {
       try {
         await merchantapi.accounts.productInputs.insert({
           parent: accountName,

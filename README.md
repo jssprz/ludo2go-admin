@@ -106,6 +106,22 @@ Configured sources:
 - **Updown** — https://www.updown.cl/categoria-producto/juegos-de-mesa/?orderby=popularity&paged=1
 - **Antartica** — https://www.antartica.cl/juegos-y-accesorios/entretencion/juegos.html?product_list_order=bestseller&product_list_dir=desc
 
+## Google Merchant Sync
+
+The product sync uses `GOOGLE_MERCHANT_ID` and
+`GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON` for the Merchant API account and credentials.
+Each variant is inserted into a data source selected by its mapped content language:
+
+- English (`en`): `GOOGLE_MERCHANT_DATASOURCE_EN_ID`, defaulting to `10791684150`
+	(`jobys-catalog-en` in account `5745887023`). Override this ID for other accounts.
+- Other languages: the existing `GOOGLE_MERCHANT_DATASOURCE_ID`.
+
+All inputs retain `feedLabel: CL`. Each API data source must accept the input's
+`contentLanguage` and `feedLabel` combination. Content language currently comes
+from the variant language; it should reflect the submitted title, description,
+and landing-page language, not just the physical game's language.
+Deploy the changes and run the product sync to send English variants to the new source.
+
 ## Deployment
 
 The project is deployed on Vercel. The build command runs Prisma client generation before the Next.js build:
