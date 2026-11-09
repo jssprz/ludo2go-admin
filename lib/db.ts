@@ -2,6 +2,7 @@ import 'server-only';
 
 import { prisma } from '@jssprz/ludo2go-database';
 import { ProductStatus, ProductKind, VariantStatus, EventType } from '@prisma/client';
+import { activeCartWhere } from './cart-activity';
 
 export type SortableProductColumn =
   | 'name'
@@ -176,7 +177,7 @@ async function enrichProductsWithVariantRelevance<T extends {
       },
     }),
     prisma.cart.findMany({
-      where: { status: 'active' as any },
+      where: activeCartWhere(),
       select: {
         items: {
           select: {

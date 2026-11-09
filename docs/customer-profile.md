@@ -62,6 +62,10 @@ Reusable exports live in `lib/customer-profile-metrics.ts`: `netCompletedRevenue
 Completed means current Order status `delivered` only. Pending, confirmed, processing, shipped and cancelled orders contribute zero. Net LTV is delivered Order.total less positive same-currency Payment.amount values whose current status is `refunded`, clamped to zero per order. Totals already include recorded discounts, tax and shipping. This is an operational net delivered-order value, not an accounting profit or captured-cash measure. Partial/off-platform refunds not accurately recorded in Payment cannot be inferred. Full-refunded delivered orders still count in frequency and the AOV denominator; their net monetary value is zero. All orders, including cancellations, remain visible in the history.
 
 Currencies are calculated separately with no exchange conversion. Monetary amounts use existing stored order/payment numeric units; no new currency-unit conversion rule is invented. The active cart shows item count only because CartItem has no explicit currency and optional captured prices cannot establish a reliable monetary total.
+Active carts are determined at query time: stored active or abandoned carts
+qualify when the cart or any remaining item has been updated within the last
+30 days. Exactly 30 days of inactivity is abandoned; ordered carts are excluded.
+The query does not modify stored cart statuses.
 
 Recency uses whole elapsed days since the latest delivered order's **creation** time, not a fabricated delivery date. Frequency is delivered count. Purchase cycle is the unrounded mean interval between creation dates. Churn requires at least three delivered orders and a positive cycle; otherwise it is `insufficient`. High is recency >150 days; medium is >90 days or >2x cycle; otherwise low. It is a heuristic, not a statistical probability.
 

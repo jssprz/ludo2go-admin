@@ -5,6 +5,7 @@ import type {
   CustomerCartOwnerType
 } from '../customer-cart';
 import { parseCustomerCartQuery } from '../customer-cart';
+import { cartActivityStatusSql } from '../cart-activity';
 
 type ReadDatabase = {
   $queryRaw<Result = unknown>(query: Prisma.Sql): Promise<Result>;
@@ -32,7 +33,7 @@ export function buildCustomerCartDetailsSql(
     SELECT 'CLP' FROM "Visitor" v LEFT JOIN visitor_identity i ON i."visitorId" = v."id"
     WHERE ${type} = 'visitor' AND v."id" = ${id} AND COALESCE(i.identified_count, 0) = 0
   ), cart_candidates AS (
-    SELECT cart."id", cart.status::text AS status, cart."updatedAt", target.currency
+    SELECT cart."id", ${cartActivityStatusSql} AS status, cart."updatedAt", target.currency
     FROM "Cart" cart CROSS JOIN target
     LEFT JOIN visitor_identity i ON i."visitorId" = cart."visitorId"
     WHERE cart.status::text IN ('active', 'abandoned')

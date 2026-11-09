@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/weekly-analytics",
       "schedule": "0 12 * * 1"
+    },
+    {
+      "path": "/api/cron/abandon-carts",
+      "schedule": "0 11 * * 1"
     }
   ]
 }

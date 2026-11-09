@@ -6,6 +6,7 @@ import { InventoryWorkspace } from './inventory-workspace';
 import { Button } from '@/components/ui/button';
 import { StockTrendChart } from './stock-trend-chart';
 import { PurchaseOrderStatus } from '@prisma/client';
+import { activeCartWhere, getCartActivityCutoff } from '@/lib/cart-activity';
 
 export const metadata = { title: 'Inventario' };
 
@@ -145,7 +146,7 @@ export default async function InventoryPage() {
       by: ['variantId'],
       where: {
         type: 'purchase',
-        cart: { status: 'active' },
+        cart: activeCartWhere(getCartActivityCutoff(now)),
       },
       _sum: { quantity: true },
     }),

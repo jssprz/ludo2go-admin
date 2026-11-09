@@ -2,6 +2,7 @@ import { prisma } from '@jssprz/ludo2go-database';
 import { notFound, redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { auth } from '@/lib/auth';
+import { activeCartWhere } from '@/lib/cart-activity';
 import { computeCustomerProfileMetrics } from '@/lib/customer-profile-metrics';
 import { profileEventReference } from '@/lib/customer-profile-events';
 import { Customer360 } from './customer-360';
@@ -94,7 +95,7 @@ export default async function Customer360Page({ params }: Context) {
         }
       },
       carts: {
-        where: { status: 'active' },
+        where: activeCartWhere(),
         orderBy: { updatedAt: 'desc' },
         take: 1,
         include: { items: { select: { quantity: true } } }

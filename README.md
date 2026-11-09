@@ -131,3 +131,30 @@ prisma generate && next build
 ```
 
 The weekly analytics report is sent to every admin user's email each Monday at 12:00 UTC (09:00 in Santiago during Chilean daylight time). It compares the most recent completed Monday-to-Monday week with the week before it.
+
+The read-only cart activity report (`/api/cron/abandon-carts`, retained for schedule
+compatibility) runs each Monday at 11:00 UTC. It never changes cart status fields.
+Queries classify carts with stored `active` or `abandoned` status as active when
+the cart or any remaining item was updated within the last 30 days; otherwise,
+they are classified as abandoned. Exactly 30 days of inactivity counts as
+abandoned. Ordered carts are excluded, and empty non-ordered carts are included
+in report counts. Customer cart views, customer list filters, product relevance,
+and inventory cart demand use the same query-time rule, independent of the cron.
+Browsing alone does not count as cart activity; the storefront must update these
+timestamps when cart contents change.
+The job uses the same `CRON_SECRET` authentication as the other scheduled jobs
+and takes effect after deployment to Vercel.
+After each authenticated run, it sends a Spanish report to all admin users with
+non-empty email addresses, including zero-count runs or a database failure.
+The report includes run timestamps, the 30-day cutoff, and active, abandoned,
+and total non-ordered cart counts (or an explicit failure when counts are unknown).
+Active and abandoned counts are each broken down into customer and anonymous
+visitor carts. Customer ownership uses the explicit cart customer first, otherwise
+a visitor identified with exactly one customer through session events, matching
+customer-list attribution. All remaining carts, including unidentified or
+ambiguous owners, are counted in the anonymous category so breakdowns reconcile
+with the totals. The counts come from one read-only database snapshot.
+Delivery requires
+`RESEND_API_KEY`; the sender uses `RESEND_FROM_EMAIL` when configured, otherwise
+`Jobys Reports <reports@jobys.cl>`. Email failures return HTTP 500.
+Each retry produces a fresh read-only snapshot of the counts.

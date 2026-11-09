@@ -2,6 +2,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import type { CustomerListQuery, CustomerListPage, CustomerDuplicatePage, CustomerDuplicateReview } from '../customer-list';
 import { parseCustomerListQuery, parseCustomerListReviewIds } from '../customer-list';
+import { cartActivityStatusSql } from '../cart-activity';
 
 type ReadDatabase = {
   $queryRaw<Result = unknown>(query: Prisma.Sql): Promise<Result>;
@@ -77,11 +78,12 @@ const aggregateCtes = Prisma.sql`
     LEFT JOIN refunds r ON r."orderId" = o."id" AND r.currency = o.currency
     WHERE o.status::text = 'delivered' GROUP BY o."customerId"
   ), owned_carts AS (
-    SELECT cart.*, COALESCE(cart."customerId", CASE WHEN v.identified_count = 1 THEN v.customer_id END) AS owner_id
+    SELECT cart.*, ${cartActivityStatusSql} AS effective_status,
+      COALESCE(cart."customerId", CASE WHEN v.identified_count = 1 THEN v.customer_id END) AS owner_id
     FROM "Cart" cart LEFT JOIN visitor_identity v ON v."visitorId" = cart."visitorId"
     WHERE cart.status::text IN ('active', 'abandoned')
   ), cart_values AS (
-    SELECT cart."id", cart.owner_id, cart."visitorId", cart."updatedAt", cart.status::text AS status,
+    SELECT cart."id", cart.owner_id, cart."visitorId", cart."updatedAt", cart.effective_status AS status,
       sum(GREATEST(item.quantity, 0)::numeric * GREATEST(COALESCE(item."unitPriceAtAdd", price.amount, 0), 0)) AS value,
       count(item."id")::int AS items_count
     FROM owned_carts cart LEFT JOIN customer_identity c ON c."id" = cart.owner_id
@@ -94,7 +96,7 @@ const aggregateCtes = Prisma.sql`
         AND (p."endsAt" IS NULL OR p."endsAt" > CURRENT_TIMESTAMP)
       ORDER BY p."createdAt" DESC, p."id" ASC LIMIT 1
     ) price ON true
-    GROUP BY cart."id", cart.owner_id, cart."visitorId", cart."updatedAt", cart.status
+    GROUP BY cart."id", cart.owner_id, cart."visitorId", cart."updatedAt", cart.effective_status
   ), customer_carts AS (
     SELECT owner_id, count(*) FILTER (WHERE status = 'active' AND items_count > 0)::int AS cart_count,
       COALESCE(sum(value) FILTER (WHERE status = 'active'), 0) AS cart_value,

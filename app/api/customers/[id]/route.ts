@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@jssprz/ludo2go-database';
 import { auth } from '@/lib/auth';
+import { activeCartWhere } from '@/lib/cart-activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -37,7 +38,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
         select: { eventType: true, occurredAt: true, pagePath: true, properties: true },
       },
       carts: {
-        where: { status: 'active' },
+        where: activeCartWhere(),
         include: { items: { select: { quantity: true, unitPriceAtAdd: true } } },
         take: 1,
       },

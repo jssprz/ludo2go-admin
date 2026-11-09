@@ -126,7 +126,12 @@ quality filters yield zero visitors rather than silently ignoring those filters.
   count as delivered purchases. Amounts remain schema minor units.
 - Cart count: nonempty active carts. Cart value: sum of non-negative quantities
   times non-negative unit prices for active carts. Abandoned means at least one
-  nonempty explicitly abandoned cart; no inferred timeout or abandoned value.
+  nonempty cart classified as abandoned at query time. For stored active or
+  abandoned carts, activity is derived from the cart and remaining item update
+  timestamps: an update within the last 30 days makes it active; otherwise it
+  is abandoned (including exactly 30 days of inactivity). Ordered carts are
+  excluded. Stored active/abandoned status is not authoritative and is never
+  mutated by these queries or the weekly report job.
 - Price fallback: current active unscoped `retail` price matching the row currency,
   newest creation timestamp then ID. The installed enum has no `standard` value.
   Sale/member/rule prices and channel, price-book, or regional prices are excluded.
