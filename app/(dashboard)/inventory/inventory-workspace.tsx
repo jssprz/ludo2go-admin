@@ -26,6 +26,7 @@ type Recommendation = {
   sku: string;
   weeklySales: number[];
   abcGrade: 'A' | 'B' | 'C';
+  inCartsQuantity: number;
   incoming: number;
   leadTimeDays: number;
   supplierId: string | null;
@@ -64,6 +65,8 @@ const PRIORITY_CLASS: Record<InventoryPriority, string> = {
   healthy: 'bg-emerald-100 text-emerald-800',
   do_not_reorder: 'bg-muted text-muted-foreground',
 };
+
+const CART_PRESSURE_THRESHOLD = 0.8;
 
 function formatCurrency(amount: number | null, currency: string) {
   if (amount === null) return '—';
@@ -122,12 +125,15 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
     const suggestedQuantity = transfer && transfer.quantity >= destinationDeficit
       ? 0
       : recommendation.suggestedQuantity;
+    const cartPressure = row.inCartsQuantity > 0
+      && (totalAvailable === 0 || row.inCartsQuantity >= totalAvailable * CART_PRESSURE_THRESHOLD);
 
     return {
       ...row,
       ...recommendation,
       available,
       totalAvailable,
+      cartPressure,
       suggestedQuantity,
       transfer,
     };
@@ -137,10 +143,11 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
     .filter((row) => supplierId === 'all' || row.supplierId === supplierId)
     .filter((row) => abcGrade === 'all' || row.abcGrade === abcGrade)
     .filter((row) => !stockoutOnly || row.available <= 0)
-    .filter((row) => !actionOnly || row.priority === 'order_now' || row.priority === 'order_soon' || !!row.transfer)
+    .filter((row) => !actionOnly || row.priority === 'order_now' || row.priority === 'order_soon' || !!row.transfer || row.cartPressure)
     .sort((a, b) => {
       const priorityDifference = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
       if (priorityDifference) return priorityDifference;
+      if (a.cartPressure !== b.cartPressure) return a.cartPressure ? -1 : 1;
       const gradeDifference = a.abcGrade.localeCompare(b.abcGrade);
       if (gradeDifference) return gradeDifference;
       if (a.daysOfCover === null) return b.daysOfCover === null ? 0 : 1;
@@ -278,6 +285,9 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
             <Checkbox checked={actionOnly} onCheckedChange={(value) => setActionOnly(value === true)} />
             Only products requiring action
           </label>
+          <p className="text-xs text-muted-foreground">
+            Active-cart warning at 80%+ of total available stock; carts do not reserve inventory.
+          </p>
         </div>
 
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -290,6 +300,7 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
                 <TableHead>Product / SKU</TableHead>
                 <TableHead>ABC</TableHead>
                 <TableHead className="text-right">Available</TableHead>
+                <TableHead className="text-right">In active carts</TableHead>
                 <TableHead className="text-right">Incoming</TableHead>
                 <TableHead className="text-right">Sales/week</TableHead>
                 <TableHead className="text-right">Days of cover</TableHead>
@@ -311,7 +322,7 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
                 return (
                   <Fragment key={groupId}>
                     <TableRow className="bg-muted/40">
-                      <TableCell colSpan={9} className="font-semibold">
+                      <TableCell colSpan={10} className="font-semibold">
                         {groupName} <span className="ml-2 font-normal text-muted-foreground">{supplierRows.length} products</span>
                       </TableCell>
                       <TableCell colSpan={3} className="text-right text-xs text-muted-foreground">
@@ -355,6 +366,13 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
                         </TableCell>
                         <TableCell><Badge variant="outline">{row.abcGrade}</Badge></TableCell>
                         <TableCell className="text-right">{row.available}</TableCell>
+                        <TableCell className="text-right">
+                          {row.inCartsQuantity > 0 ? (
+                            row.cartPressure
+                              ? <Badge className="bg-amber-100 text-amber-800">{row.inCartsQuantity} · Watch</Badge>
+                              : row.inCartsQuantity
+                          ) : '—'}
+                        </TableCell>
                         <TableCell className="text-right">{row.incoming}</TableCell>
                         <TableCell className="text-right">{row.salesPerWeek.toFixed(1)}</TableCell>
                         <TableCell className="text-right">{row.daysOfCover === null ? '—' : `${Math.floor(row.daysOfCover)} d`}</TableCell>
@@ -380,7 +398,7 @@ export function InventoryWorkspace({ recommendations, locations, children }: Pro
                 );
               })}
               {filteredRows.length === 0 && (
-                <TableRow><TableCell colSpan={14} className="py-10 text-center text-muted-foreground">No matching inventory recommendations.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={15} className="py-10 text-center text-muted-foreground">No matching inventory recommendations.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

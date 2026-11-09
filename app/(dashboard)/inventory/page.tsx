@@ -43,7 +43,7 @@ export default async function InventoryPage() {
     },
   });
 
-  const [stockAggregate, soldItems, receivedItems, costPrices, incomingItems, lastPurchaseItems] = await Promise.all([
+  const [stockAggregate, soldItems, receivedItems, costPrices, incomingItems, lastPurchaseItems, activeCartItems] = await Promise.all([
     prisma.inventory.aggregate({
       _sum: {
         onHand: true,
@@ -141,6 +141,14 @@ export default async function InventoryPage() {
         purchaseOrder: { select: { supplierId: true, currency: true, supplier: { select: { id: true, name: true, leadTimeDays: true } } } },
       },
     }),
+    prisma.cartItem.groupBy({
+      by: ['variantId'],
+      where: {
+        type: 'purchase',
+        cart: { status: 'active' },
+      },
+      _sum: { quantity: true },
+    }),
   ]);
 
   const soldByWeek = Array.from({ length: weeksToShow }).map(() => 0);
@@ -234,6 +242,10 @@ export default async function InventoryPage() {
     incomingByVariant.set(item.variantId, (incomingByVariant.get(item.variantId) ?? 0) + Math.max(0, item.quantity - item.quantityReceived));
   }
 
+  const inCartsByVariant = new Map(
+    activeCartItems.map((item) => [item.variantId, item._sum.quantity ?? 0])
+  );
+
   const recommendations = variants.map((variant) => {
     const lastPurchase = latestPurchaseByVariant.get(variant.id);
     const costPrice = lastPurchase
@@ -248,6 +260,7 @@ export default async function InventoryPage() {
       sku: variant.sku,
       weeklySales,
       abcGrade: abcGrades.get(variant.id) ?? 'C',
+      inCartsQuantity: inCartsByVariant.get(variant.id) ?? 0,
       incoming: incomingByVariant.get(variant.id) ?? 0,
       leadTimeDays: supplier?.leadTimeDays ?? 14,
       supplierId: supplier?.id ?? null,
@@ -307,4 +320,3 @@ export default async function InventoryPage() {
     </div>
   );
 }
-
