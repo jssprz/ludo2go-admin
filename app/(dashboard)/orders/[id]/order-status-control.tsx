@@ -11,6 +11,7 @@ import { ExternalLink, Loader2, Save } from 'lucide-react';
 import { canEditOrderTracking } from '@/lib/order-update';
 import { courierTrackingUrl } from '@/lib/courier';
 import Link from 'next/link';
+import { DeliveryProofCapture, type DeliveryProofSummary } from './delivery-proof-capture';
 import {
   Select,
   SelectContent,
@@ -41,7 +42,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 
 type CourierOption = { id: string; name: string; trackingUrlTemplate: string | null };
 
-export function OrderStatusControl({ orderId, status, courierTrackingNumber = null, courierId = null, couriers = [] }: { orderId: string; status: OrderStatus; courierTrackingNumber?: string | null; courierId?: string | null; couriers?: CourierOption[] }) {
+export function OrderStatusControl({ orderId, status, courierTrackingNumber = null, courierId = null, couriers = [], deliveryProofs = [] }: { orderId: string; status: OrderStatus; courierTrackingNumber?: string | null; courierId?: string | null; couriers?: CourierOption[]; deliveryProofs?: DeliveryProofSummary[] }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +145,7 @@ export function OrderStatusControl({ orderId, status, courierTrackingNumber = nu
         <ExternalLink className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="min-w-0 break-all">{trackingUrl}</span>
       </a>}
+      {currentStatus === 'delivered' && <DeliveryProofCapture orderId={orderId} proofs={deliveryProofs} />}
       <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{isSaving ? 'Saving order...' : message}</p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>

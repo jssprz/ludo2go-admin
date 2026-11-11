@@ -6,7 +6,7 @@ export default defineConfig({
   esbuild: { jsx: 'automatic' },
   test: {
     environment: 'jsdom',
-    include: ['tests/orderTracking.test.tsx', 'tests/couriers.test.tsx'],
+    include: ['tests/orderTracking.test.tsx', 'tests/couriers.test.tsx', 'tests/deliveryProof.test.tsx', 'tests/deliveryProofApi.test.ts'],
     setupFiles: ['tests/guideEditor.setup.ts'],
     clearMocks: true
   }

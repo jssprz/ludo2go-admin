@@ -40,6 +40,7 @@ Required variables:
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app credentials |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth app credentials |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for media uploads |
+| `SENSITIVE_BLOB_STORE_ID` | Private Vercel Blob store for delivery proof photos (accessed via Vercel OIDC; locally run `vercel env pull` to get `VERCEL_OIDC_TOKEN`) |
 | `RESEND_API_KEY` | Resend API key for transactional and weekly report emails |
 | `RESEND_FROM_EMAIL` | Verified sender address used for emails (optional) |
 | `CRON_SECRET` | Bearer token used to authenticate scheduled Vercel cron requests |
