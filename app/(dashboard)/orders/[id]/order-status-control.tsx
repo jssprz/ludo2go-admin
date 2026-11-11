@@ -129,8 +129,8 @@ export function OrderStatusControl({ orderId, status, courierTrackingNumber = nu
               {couriers.map((option) => <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Link href="/couriers" className="inline-block text-xs text-muted-foreground underline">Manage couriers</Link>
-          <Label htmlFor={`tracking-${orderId}`}>Courier tracking number</Label>
+          <Link href="/couriers" className="block w-fit text-xs text-muted-foreground underline">Manage couriers</Link>
+          <Label htmlFor={`tracking-${orderId}`} className="block pt-2">Courier tracking number</Label>
           <div className="flex flex-wrap gap-2">
             <Input id={`tracking-${orderId}`} className="min-w-0 flex-1" value={tracking} disabled={isSaving}
               onChange={(event) => { setTracking(event.target.value); setMessage(''); }} />
