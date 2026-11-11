@@ -14,6 +14,7 @@ import {
 import { FulfillmentMethod } from '@prisma/client';
 import { getLocale } from 'next-intl/server';
 import { OrderStatusControl } from './order-status-control';
+import { ShippingLabelButton } from './shipping-label-button';
 
 type PageProps = {
   params: Promise<{
@@ -329,6 +330,25 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   {order.shippingAddr.postalCode && ` ${order.shippingAddr.postalCode}`}
                 </p>
                 <p>{order.shippingAddr.country}</p>
+                {!order.courierId && (
+                  <ShippingLabelButton
+                    data={{
+                      orderId: order.id,
+                      recipient: `${order.shippingAddr.firstName} ${order.shippingAddr.lastName}`.trim(),
+                      phone: order.shippingAddr.phone || null,
+                      addressLines: [
+                        order.shippingAddr.line1,
+                        order.shippingAddr.line2,
+                        [order.shippingAddr.city, order.shippingAddr.region].filter(Boolean).join(', ') +
+                          (order.shippingAddr.postalCode ? ` ${order.shippingAddr.postalCode}` : ''),
+                        order.shippingAddr.country,
+                      ].filter((l): l is string => !!l),
+                      date: formatDateTime(order.createdAt),
+                      itemCount: order.items.reduce((n, i) => n + i.quantity, 0),
+                      trackingUrl: `${(process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl').replace(/\/+$/, '')}/account/orders/${encodeURIComponent(order.id)}`,
+                    }}
+                  />
+                )}
               </div>
             )}
             {order.fulfillmentMethod == FulfillmentMethod.pickup && order.pickupLocation && (
