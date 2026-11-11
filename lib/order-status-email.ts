@@ -39,6 +39,14 @@ function formatCurrency(amount: number, currency: string): string {
   }).format(amount);
 }
 
+export const ORDER_EMAIL_SENDER_NAME = 'Jobys - Juegos de Mesa';
+
+/** Adds the store display name unless the configured sender already has one ("Name <addr>"). */
+export function orderEmailSender(configured: string | undefined): string {
+  const address = configured?.trim() || 'no-reply@jobys.cl';
+  return address.includes('<') ? address : `${ORDER_EMAIL_SENDER_NAME} <${address}>`;
+}
+
 export async function sendOrderStatusNotification({
   orderId,
   customerEmail,
@@ -68,7 +76,7 @@ export async function sendOrderStatusNotification({
 
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'no-reply@jobys.cl',
+      from: orderEmailSender(process.env.RESEND_FROM_EMAIL),
       to: [customerEmail],
       subject,
       text: [

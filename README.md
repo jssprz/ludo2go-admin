@@ -42,7 +42,7 @@ Required variables:
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for media uploads |
 | `SENSITIVE_BLOB_STORE_ID` | Private Vercel Blob store for delivery proof photos (accessed via Vercel OIDC; locally run `vercel env pull` to get `VERCEL_OIDC_TOKEN`) |
 | `RESEND_API_KEY` | Resend API key for transactional and weekly report emails |
-| `RESEND_FROM_EMAIL` | Verified sender address used for emails (optional) |
+| `RESEND_FROM_EMAIL` | Verified sender address used for emails (optional). Order status emails add the display name `Jobys - Juegos de Mesa` when it is a bare address |
 | `CRON_SECRET` | Bearer token used to authenticate scheduled Vercel cron requests |
 
 ### 3. Generate Prisma client
