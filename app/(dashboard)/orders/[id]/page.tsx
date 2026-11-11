@@ -15,6 +15,7 @@ import { FulfillmentMethod } from '@prisma/client';
 import { getLocale } from 'next-intl/server';
 import { OrderStatusControl } from './order-status-control';
 import { ShippingLabelButton } from './shipping-label-button';
+import { OrderItemsControl } from './order-items-control';
 import { readDeliveryProofs, readDeliveryRecipient } from '@/lib/delivery-proof';
 
 type PageProps = {
@@ -79,8 +80,24 @@ export default async function OrderDetailPage({ params }: PageProps) {
           quantity: true,
           unitPrice: true,
           currency: true,
+          isGift: true,
+          giftReason: true,
+          giftedAt: true,
+          giftedBy: true,
+          cancellations: {
+            select: {
+              id: true,
+              quantity: true,
+              reason: true,
+              details: true,
+              cancelledAt: true,
+              actorId: true,
+            },
+            orderBy: { cancelledAt: 'desc' },
+          },
           variant: {
             select: {
+              id: true,
               sku: true,
               edition: true,
               mediaLinks: {
@@ -268,6 +285,14 @@ export default async function OrderDetailPage({ params }: PageProps) {
     .map(({ pathname, uploadedAt }) => ({ pathname, uploadedAt }));
   const latestRecipient = readDeliveryRecipient(deliveredHistory.at(-1)?.metadata);
   const deliveryRecipient = latestRecipient ? { name: latestRecipient.name, idNumber: latestRecipient.idNumber } : null;
+  const orderItemsForControl = order.items.map((item) => ({
+    id: item.id,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    isGift: item.isGift,
+    giftReason: item.giftReason,
+    cancelledQuantity: item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0),
+  }));
 
   let logoDataUrl: string | null = null;
   try {
@@ -424,6 +449,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <CardTitle>Order Items</CardTitle>
           </CardHeader>
           <CardContent>
+            <OrderItemsControl orderId={order.id} currency={order.currency} items={orderItemsForControl} />
             <div className="space-y-4">
               {order.items.map((item) => (
                 <div
@@ -445,8 +471,25 @@ export default async function OrderDetailPage({ params }: PageProps) {
                       {item.variant?.edition && ` • ${item.variant.edition}`}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Quantity: {item.quantity}
+                      Quantity: {Math.max(0, item.quantity - item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0))}
+                      {' / Ordered: '}
+                      {item.quantity}
                     </p>
+                    {item.isGift && (
+                      <p className="text-xs text-green-700">
+                        Gift item{item.giftReason ? ` • ${item.giftReason}` : ''}
+                      </p>
+                    )}
+                    {item.cancellations.length > 0 && (
+                      <div className="mt-1 space-y-1">
+                        {item.cancellations.map((cancellation) => (
+                          <p key={cancellation.id} className="text-xs text-red-700">
+                            Cancelled {cancellation.quantity} ({cancellation.reason.replaceAll('_', ' ')})
+                            {cancellation.details ? ` • ${cancellation.details}` : ''}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     {item.customizations.length > 0 && (
                       <div className="mt-2 space-y-1">
                         <p className="text-xs font-medium text-muted-foreground">
@@ -508,7 +551,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   </div>
                   <div className="text-right">
                     <p className="font-medium">
-                      {formatCurrency(item.unitPrice * item.quantity, item.currency)}
+                      {formatCurrency(
+                        item.isGift
+                          ? 0
+                          : item.unitPrice * Math.max(0, item.quantity - item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0)),
+                        item.currency
+                      )}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {formatCurrency(item.unitPrice, item.currency)} each

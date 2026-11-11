@@ -27,6 +27,7 @@ export async function GET(request: Request, { params }: RouteContext) {
         courier: true,
         items: {
           include: {
+            cancellations: true,
             variant: {
               include: {
                 product: true,
@@ -73,12 +74,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         { status: 400 }
       );
     }
-    const { status, courierTrackingNumber, courierId } = parsed.data;
+    const { status, courierTrackingNumber, courierId, addItem, cancelItem, giftItem } = parsed.data;
 
     const { id } = await params;
     const previousOrder = await prisma.order.findUnique({
       where: { id },
-      select: { status: true, updatedAt: true },
+      select: {
+        status: true,
+        updatedAt: true,
+        tax: true,
+        shipping: true,
+        promoDiscount: true,
+        currency: true,
+      },
     });
 
     if (!previousOrder) {
@@ -93,7 +101,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ message: 'Courier not found.' }, { status: 400 });
     }
 
+    if (addItem && !await prisma.productVariant.findUnique({ where: { id: addItem.variantId }, select: { id: true } })) {
+      return NextResponse.json({ message: 'Variant not found.' }, { status: 400 });
+    }
+
     const changedAt = new Date();
+    const actorId = typeof session.user?.id === 'string' ? session.user.id : null;
+    const hasItemOperation = Boolean(addItem || cancelItem || giftItem);
     const updateResult = await prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
         where: { id, status: previousOrder.status, updatedAt: previousOrder.updatedAt },
@@ -107,12 +121,99 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
       if (updated.count !== 1) return null;
 
+      if (addItem) {
+        await tx.orderItem.create({
+          data: {
+            orderId: id,
+            variantId: addItem.variantId,
+            quantity: addItem.quantity,
+            unitPrice: addItem.unitPrice,
+            currency: previousOrder.currency,
+            isGift: addItem.isGift,
+            giftReason: addItem.giftReason,
+            giftedAt: addItem.isGift ? changedAt : null,
+            giftedBy: addItem.isGift ? actorId : null,
+          },
+        });
+      }
+
+      if (giftItem) {
+        const orderItem = await tx.orderItem.findFirst({
+          where: { id: giftItem.orderItemId, orderId: id },
+          select: { id: true },
+        });
+        if (!orderItem) throw new Error('Order item not found.');
+        await tx.orderItem.update({
+          where: { id: orderItem.id },
+          data: {
+            isGift: giftItem.isGift,
+            giftReason: giftItem.giftReason,
+            giftedAt: giftItem.isGift ? changedAt : null,
+            giftedBy: giftItem.isGift ? actorId : null,
+          },
+        });
+      }
+
+      if (cancelItem) {
+        const orderItem = await tx.orderItem.findFirst({
+          where: { id: cancelItem.orderItemId, orderId: id },
+          select: {
+            id: true,
+            quantity: true,
+            cancellations: { select: { quantity: true } },
+          },
+        });
+        if (!orderItem) throw new Error('Order item not found.');
+        const cancelled = orderItem.cancellations.reduce((sum, entry) => sum + entry.quantity, 0);
+        const remaining = orderItem.quantity - cancelled;
+        if (cancelItem.quantity > remaining) {
+          throw new Error(`Cannot cancel ${cancelItem.quantity} units; only ${remaining} remaining.`);
+        }
+        await tx.orderItemCancellation.create({
+          data: {
+            orderItemId: orderItem.id,
+            quantity: cancelItem.quantity,
+            reason: cancelItem.reason,
+            details: cancelItem.details,
+            cancelledAt: changedAt,
+            actorType: 'ADMIN',
+            actorId,
+          },
+        });
+      }
+
+      if (hasItemOperation) {
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId: id },
+          select: {
+            quantity: true,
+            unitPrice: true,
+            isGift: true,
+            cancellations: { select: { quantity: true } },
+          },
+        });
+        const subtotal = orderItems.reduce((sum, item) => {
+          const cancelled = item.cancellations.reduce((subtotalSum, entry) => subtotalSum + entry.quantity, 0);
+          const remaining = Math.max(0, item.quantity - cancelled);
+          return sum + (item.isGift ? 0 : remaining * item.unitPrice);
+        }, 0);
+        const total = Math.max(0, subtotal + previousOrder.tax + previousOrder.shipping - previousOrder.promoDiscount);
+        await tx.order.update({
+          where: { id },
+          data: {
+            subtotal,
+            total,
+            updatedAt: changedAt,
+          },
+        });
+      }
+
       const order = await tx.order.findUniqueOrThrow({
         where: { id },
         include: {
           courier: true,
           customer: { select: { id: true, email: true, firstName: true, lastName: true } },
-          items: { include: { variant: { include: { product: true } } } },
+          items: { include: { cancellations: true, variant: { include: { product: true } } } },
         },
       });
 
@@ -124,7 +225,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
             toStatus: order.status,
             changedAt,
             actorType: 'ADMIN',
-            actorId: typeof session.user?.id === 'string' ? session.user.id : null,
+            actorId,
           },
         });
       }
@@ -159,6 +260,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     return NextResponse.json(order);
   } catch (error: any) {
+    if (error instanceof Error && (
+      error.message === 'Order item not found.'
+      || error.message.startsWith('Cannot cancel ')
+    )) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
     console.error('Error updating order:', error);
     return NextResponse.json(
       { message: error.message || 'Failed to update order' },
