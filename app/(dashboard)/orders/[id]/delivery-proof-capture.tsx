@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, ImageUp, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export type DeliveryProofSummary = { pathname: string; uploadedAt: string };
@@ -29,7 +29,8 @@ async function downscale(file: File): Promise<Blob> {
 
 export function DeliveryProofCapture({ orderId, proofs }: { orderId: string; proofs: DeliveryProofSummary[] }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -51,14 +52,15 @@ export function DeliveryProofCapture({ orderId, proofs }: { orderId: string; pro
       setError(cause instanceof Error ? cause.message : 'Could not upload the photo.');
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = '';
+      if (cameraRef.current) cameraRef.current.value = '';
+      if (fileRef.current) fileRef.current.value = '';
     }
   }
 
   return (
     <div className="space-y-2 rounded-md border p-3">
       <input
-        ref={inputRef}
+        ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -69,10 +71,27 @@ export function DeliveryProofCapture({ orderId, proofs }: { orderId: string; pro
           if (file) void upload(file);
         }}
       />
-      <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => inputRef.current?.click()}>
-        {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-        {uploading ? 'Uploading…' : 'Take delivery photo'}
-      </Button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        aria-label="Delivery photo file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void upload(file);
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => cameraRef.current?.click()}>
+          {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+          {uploading ? 'Uploading…' : 'Take delivery photo'}
+        </Button>
+        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
+          <ImageUp className="mr-2 h-4 w-4" />
+          Upload from device
+        </Button>
+      </div>
       {proofs.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {proofs.map((proof) => {

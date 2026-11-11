@@ -16,6 +16,8 @@ test('camera button only appears for delivered orders', () => {
   rerender(<OrderStatusControl orderId="order-1" status="delivered" />);
   expect(screen.getByRole('button', { name: /take delivery photo/i })).toBeTruthy();
   expect(screen.getByLabelText('Delivery photo').getAttribute('capture')).toBe('environment');
+  expect(screen.getByRole('button', { name: /upload from device/i })).toBeTruthy();
+  expect(screen.getByLabelText('Delivery photo file').hasAttribute('capture')).toBe(false);
 });
 
 test('captured photo is uploaded and the page refreshed', async () => {
@@ -29,4 +31,13 @@ test('captured photo is uploaded and the page refreshed', async () => {
   expect(fetchMock).toHaveBeenCalledWith('/api/orders/order-1/delivery-proof', expect.objectContaining({ method: 'POST', body: expect.any(FormData) }));
   expect(mocks.refresh).toHaveBeenCalled();
   vi.unstubAllGlobals();
+});
+
+test('photo picked from existing device files is uploaded', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 201 }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<DeliveryProofCapture orderId="order-1" proofs={[]} />);
+  await userEvent.upload(screen.getByLabelText('Delivery photo file'), new File(['img'], 'gallery.png', { type: 'image/png' }));
+  await screen.findByText('Delivery photo saved.');
+  expect(fetchMock).toHaveBeenCalledWith('/api/orders/order-1/delivery-proof', expect.objectContaining({ method: 'POST' }));
 });
