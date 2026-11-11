@@ -11,7 +11,8 @@ export type ShippingLabelData = {
   addressLines: string[];
   date: string;
   itemCount: number;
-  trackingUrl: string;
+  siteUrl: string;
+  logoDataUrl: string | null;
 };
 
 export function ShippingLabelButton({ data }: { data: ShippingLabelData }) {
@@ -21,7 +22,9 @@ export function ShippingLabelButton({ data }: { data: ShippingLabelData }) {
     setBusy(true);
     try {
       const [{ jsPDF }, QRCode] = await Promise.all([import('jspdf'), import('qrcode')]);
-      const qr = await QRCode.toDataURL(data.trackingUrl, { margin: 1, width: 400 });
+      const orderNumber = data.orderId.slice(0, 8).toUpperCase();
+      const qr = await QRCode.toDataURL(orderNumber, { margin: 1, width: 400 });
+      const siteQr = await QRCode.toDataURL(data.siteUrl, { margin: 1, width: 300 });
 
       // 4x6in (10x15cm) thermal-style label
       const doc = new jsPDF({ unit: 'mm', format: [100, 150] });
@@ -30,13 +33,18 @@ export function ShippingLabelButton({ data }: { data: ShippingLabelData }) {
       doc.setLineWidth(0.6);
       doc.rect(3, 3, w - 6, 144);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('Jobys', m, 14);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('ENTREGA DIRECTA', w - m, 14, { align: 'right' });
-      doc.line(3, 18, w - 3, 18);
+      if (data.logoDataUrl) {
+        const props = doc.getImageProperties(data.logoDataUrl);
+        const h = 12;
+        const lw = Math.min((props.width / props.height) * h, 50);
+        doc.addImage(data.logoDataUrl, props.fileType, m, 6, lw, lw / (props.width / props.height));
+      } else {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.text('Jobys', m, 14);
+      }
+      doc.addImage(siteQr, 'PNG', w - m - 13, 5, 13, 13);
+      doc.line(3, 20, w - 3, 20);
 
       doc.setFontSize(8);
       doc.text('DESTINATARIO', m, 25);
@@ -63,15 +71,15 @@ export function ShippingLabelButton({ data }: { data: ShippingLabelData }) {
       doc.line(3, 98, w - 3, 98);
       doc.addImage(qr, 'PNG', m, 102, 38, 38);
       doc.setFontSize(8);
-      doc.text('Escanea para ver tu pedido', m + 42, 108);
+      doc.text('Nº de pedido', m + 42, 108);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
-      doc.text(`Pedido #${data.orderId.slice(0, 8).toUpperCase()}`, m + 42, 116);
+      doc.text(`Pedido #${orderNumber}`, m + 42, 116);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.text(`Fecha: ${data.date}`, m + 42, 123);
       doc.text(`Bultos/items: ${data.itemCount}`, m + 42, 129);
-      doc.text('www.jobys.cl', m + 42, 137);
+      doc.text(data.siteUrl.replace(/^https?:\/\//, ''), m + 42, 137);
 
       doc.save(`etiqueta-${data.orderId.slice(0, 8)}.pdf`);
     } finally {

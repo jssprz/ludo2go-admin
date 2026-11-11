@@ -22,6 +22,9 @@ type PageProps = {
   }>;
 };
 
+const LOGO_URL =
+  'https://u2bzwczvuriijmfq.public.blob.vercel-storage.com/assets/jobys-logo-transparent-no-shadow-cropped.png';
+
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   confirmed: 'bg-blue-100 text-blue-800',
@@ -254,6 +257,15 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
   const locationMap = Object.fromEntries(allocationLocations.map((l) => [l.id, l]));
 
+  let logoDataUrl: string | null = null;
+  try {
+    const res = await fetch(LOGO_URL);
+    const type = res.headers.get('content-type') || '';
+    if (res.ok && /image\/(png|jpeg)/.test(type)) {
+      logoDataUrl = `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
+    }
+  } catch {}
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -345,7 +357,8 @@ export default async function OrderDetailPage({ params }: PageProps) {
                       ].filter((l): l is string => !!l),
                       date: formatDateTime(order.createdAt),
                       itemCount: order.items.reduce((n, i) => n + i.quantity, 0),
-                      trackingUrl: `${(process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl').replace(/\/+$/, '')}/account/orders/${encodeURIComponent(order.id)}`,
+                      siteUrl: (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl').replace(/\/+$/, ''),
+                      logoDataUrl,
                     }}
                   />
                 )}
