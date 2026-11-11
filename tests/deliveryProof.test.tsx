@@ -41,3 +41,21 @@ test('photo picked from existing device files is uploaded', async () => {
   await screen.findByText('Delivery photo saved.');
   expect(fetchMock).toHaveBeenCalledWith('/api/orders/order-1/delivery-proof', expect.objectContaining({ method: 'POST' }));
 });
+
+test('recipient name and ID are prefilled and saved', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ name: 'Ana Pérez', idNumber: '11.111.111-1' }), { status: 200 }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<DeliveryProofCapture orderId="order-1" proofs={[]} recipient={{ name: 'Ana', idNumber: '11.111.111-1' }} />);
+  const save = screen.getByRole('button', { name: /save recipient/i }) as HTMLButtonElement;
+  expect((screen.getByLabelText('Received by (name)') as HTMLInputElement).value).toBe('Ana');
+  expect(save.disabled).toBe(true);
+
+  await userEvent.type(screen.getByLabelText('Received by (name)'), ' Pérez');
+  expect(save.disabled).toBe(false);
+  await userEvent.click(save);
+  await screen.findByText('Recipient saved.');
+  expect(fetchMock).toHaveBeenCalledWith('/api/orders/order-1/delivery-proof', expect.objectContaining({
+    method: 'PUT', body: JSON.stringify({ name: 'Ana Pérez', idNumber: '11.111.111-1' }),
+  }));
+  expect(save.disabled).toBe(true);
+});

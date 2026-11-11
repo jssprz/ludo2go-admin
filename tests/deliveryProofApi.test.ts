@@ -12,7 +12,7 @@ vi.mock('@jssprz/ludo2go-database', () => ({ prisma: {
   order: { findUnique: mocks.findOrder }, $transaction: mocks.transaction,
 } }));
 
-import { GET, POST } from '../app/api/orders/[id]/delivery-proof/route';
+import { GET, POST, PUT } from '../app/api/orders/[id]/delivery-proof/route';
 
 const params = { params: Promise.resolve({ id: 'order-1' }) };
 
@@ -99,3 +99,47 @@ test('GET only serves photos under the order prefix from the private store', asy
   expect(mocks.get).toHaveBeenCalledWith('orders/order-1/delivery-proof/1-a.jpg', expect.objectContaining({ access: 'private', storeId: 'store_private' }));
 });
 
+function recipientRequest(payload: unknown) {
+  return new Request('http://localhost/api/orders/order-1/delivery-proof', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+}
+
+test('PUT stores the recipient in the same delivered metadata record as the photos', async () => {
+  const photo = { pathname: 'orders/order-1/delivery-proof/1-a.jpg', uploadedAt: '2026-11-11T00:00:00Z' };
+  mocks.findHistory.mockResolvedValue({ id: 'history-1', metadata: { deliveryProofs: [photo] } });
+  const response = await PUT(recipientRequest({ name: '  Ana Pérez ', idNumber: ' 12.345.678-9 ' }), params);
+  expect(response.status).toBe(200);
+  expect(mocks.findHistory).toHaveBeenCalledWith(expect.objectContaining({ where: { orderId: 'order-1', toStatus: 'delivered' } }));
+  expect(mocks.updateHistory).toHaveBeenCalledWith({
+    where: { id: 'history-1' },
+    data: { metadata: {
+      deliveryProofs: [photo],
+      deliveryRecipient: { name: 'Ana Pérez', idNumber: '12.345.678-9', recordedAt: expect.any(String), recordedBy: 'admin-1' },
+    } },
+  });
+  expect(mocks.put).not.toHaveBeenCalled();
+});
+
+test('PUT replaces a previously saved recipient', async () => {
+  mocks.findHistory.mockResolvedValue({ id: 'history-1', metadata: { deliveryRecipient: { name: 'Old', idNumber: '1-9' } } });
+  await PUT(recipientRequest({ name: 'New', idNumber: '2-7' }), params);
+  expect(mocks.updateHistory.mock.calls[0][0].data.metadata.deliveryRecipient).toMatchObject({ name: 'New', idNumber: '2-7' });
+});
+
+test.each([
+  ['missing name', { name: ' ', idNumber: '1-9' }, 400],
+  ['missing id', { name: 'Ana', idNumber: '' }, 400],
+  ['overlong id', { name: 'Ana', idNumber: 'x'.repeat(31) }, 400],
+])('PUT rejects %s', async (_, payload, status) => {
+  expect((await PUT(recipientRequest(payload), params)).status).toBe(status);
+  expect(mocks.transaction).not.toHaveBeenCalled();
+});
+
+test('PUT requires auth and a delivered order', async () => {
+  mocks.findOrder.mockResolvedValue({ status: 'shipped' });
+  expect((await PUT(recipientRequest({ name: 'Ana', idNumber: '1-9' }), params)).status).toBe(400);
+  mocks.auth.mockResolvedValue(null);
+  expect((await PUT(recipientRequest({ name: 'Ana', idNumber: '1-9' }), params)).status).toBe(401);
+  expect(mocks.transaction).not.toHaveBeenCalled();
+});

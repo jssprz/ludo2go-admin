@@ -2,12 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { del, get, put } from '@vercel/blob';
 import { prisma } from '@jssprz/ludo2go-database';
-import type { Prisma } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import {
   DELIVERY_PROOF_MAX_BYTES,
   DELIVERY_PROOF_TYPES,
   appendDeliveryProof,
+  deliveryRecipientSchema,
+  setDeliveryRecipient,
+  updateDeliveredMetadata,
+  type DeliveryRecipient,
   deliveryProofPrefix,
   isDeliveryProofPathname,
   sensitiveBlobAuth,
@@ -68,36 +71,46 @@ export async function POST(request: Request, { params }: RouteContext) {
   };
 
   try {
-    await prisma.$transaction(async (tx) => {
-      const entry = await tx.orderStatusHistory.findFirst({
-        where: { orderId: id, toStatus: 'delivered' },
-        orderBy: { changedAt: 'desc' },
-        select: { id: true, metadata: true },
-      });
-      const metadata = appendDeliveryProof(entry?.metadata, proof) as Prisma.InputJsonValue;
-      if (entry) {
-        await tx.orderStatusHistory.update({ where: { id: entry.id }, data: { metadata } });
-      } else {
-        // Order reached "delivered" outside the admin (no history row yet); record the proof anyway.
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: id,
-            fromStatus: 'delivered',
-            toStatus: 'delivered',
-            actorType: 'ADMIN',
-            actorId: proof.uploadedBy,
-            reason: 'Delivery proof photo',
-            metadata,
-          },
-        });
-      }
-    });
+    await prisma.$transaction((tx) =>
+      updateDeliveredMetadata(tx, id, proof.uploadedBy, (metadata) => appendDeliveryProof(metadata, proof))
+    );
   } catch (error) {
     await del(uploaded.url, blobAuth).catch(() => undefined);
     throw error;
   }
 
   return NextResponse.json(proof, { status: 201 });
+}
+
+export async function PUT(request: Request, { params }: RouteContext) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
+  }
+  const parsed = deliveryRecipientSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ message: parsed.error.issues[0].message }, { status: 400 });
+
+  const { id } = await params;
+  const order = await prisma.order.findUnique({ where: { id }, select: { status: true } });
+  if (!order) return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+  if (order.status !== 'delivered') {
+    return NextResponse.json({ message: 'The recipient can only be recorded for delivered orders.' }, { status: 400 });
+  }
+
+  const recipient: DeliveryRecipient = {
+    ...parsed.data,
+    recordedAt: new Date().toISOString(),
+    recordedBy: typeof session.user.id === 'string' ? session.user.id : null,
+  };
+  await prisma.$transaction((tx) =>
+    updateDeliveredMetadata(tx, id, recipient.recordedBy, (metadata) => setDeliveryRecipient(metadata, recipient))
+  );
+  return NextResponse.json(recipient);
 }
 
 export async function GET(request: Request, { params }: RouteContext) {

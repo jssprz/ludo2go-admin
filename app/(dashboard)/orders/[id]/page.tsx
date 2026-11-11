@@ -15,7 +15,7 @@ import { FulfillmentMethod } from '@prisma/client';
 import { getLocale } from 'next-intl/server';
 import { OrderStatusControl } from './order-status-control';
 import { ShippingLabelButton } from './shipping-label-button';
-import { readDeliveryProofs } from '@/lib/delivery-proof';
+import { readDeliveryProofs, readDeliveryRecipient } from '@/lib/delivery-proof';
 
 type PageProps = {
   params: Promise<{
@@ -266,6 +266,8 @@ export default async function OrderDetailPage({ params }: PageProps) {
   const deliveryProofs = deliveredHistory
     .flatMap((entry) => readDeliveryProofs(entry.metadata))
     .map(({ pathname, uploadedAt }) => ({ pathname, uploadedAt }));
+  const latestRecipient = readDeliveryRecipient(deliveredHistory.at(-1)?.metadata);
+  const deliveryRecipient = latestRecipient ? { name: latestRecipient.name, idNumber: latestRecipient.idNumber } : null;
 
   let logoDataUrl: string | null = null;
   try {
@@ -302,7 +304,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             <CardTitle>Order Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <OrderStatusControl orderId={order.id} status={order.status} courierTrackingNumber={order.courierTrackingNumber} courierId={order.courierId} couriers={couriers} deliveryProofs={deliveryProofs} />
+            <OrderStatusControl orderId={order.id} status={order.status} courierTrackingNumber={order.courierTrackingNumber} courierId={order.courierId} couriers={couriers} deliveryProofs={deliveryProofs} deliveryRecipient={deliveryRecipient} />
             <p className="text-sm text-muted-foreground mt-2">
               Last updated: {formatDateTime(order.updatedAt)}
             </p>
