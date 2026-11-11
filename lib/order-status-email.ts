@@ -1,6 +1,17 @@
 import 'server-only';
 import { Resend } from 'resend';
-import type { OrderStatus } from '@prisma/client';
+import type { OrderItemCancellationReason, OrderStatus } from '@prisma/client';
+
+type OrderEmailItem = {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  isGift: boolean;
+  cancellations: {
+    quantity: number;
+    reason: OrderItemCancellationReason;
+  }[];
+};
 
 type OrderStatusEmailInput = {
   orderId: string;
@@ -10,7 +21,16 @@ type OrderStatusEmailInput = {
   status: OrderStatus;
   total: number;
   currency: string;
-  itemNames: string[];
+  items: OrderEmailItem[];
+};
+
+const CANCELLATION_LABELS: Record<OrderItemCancellationReason, string> = {
+  price_error: 'Error de precio',
+  customer_request: 'Solicitado por el cliente',
+  out_of_stock: 'Sin stock',
+  duplicate: 'Producto duplicado',
+  damaged: 'Producto dañado',
+  other: 'Otro motivo',
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -55,7 +75,7 @@ export async function sendOrderStatusNotification({
   status,
   total,
   currency,
-  itemNames,
+  items,
 }: OrderStatusEmailInput): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -68,9 +88,25 @@ export async function sendOrderStatusNotification({
   const statusLabel = STATUS_LABELS[status];
   const previousStatusLabel = STATUS_LABELS[previousStatus];
   const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl'}/account/orders/${encodeURIComponent(orderId)}`;
-  const safeItems = itemNames.map(escapeHtml);
-  const itemList = safeItems.length > 0
-    ? safeItems.map((name) => `<li>${name}</li>`).join('')
+  const itemSummaries = items.map((item) => {
+    const cancelled = item.cancellations.reduce((sum, entry) => sum + entry.quantity, 0);
+    const remaining = Math.max(0, item.quantity - cancelled);
+    const lineTotal = item.isGift ? 0 : remaining * item.unitPrice;
+    return [
+      item.name,
+      `Cantidad vigente: ${remaining} de ${item.quantity}`,
+      ...(cancelled > 0 ? [remaining === 0 ? 'Cancelado' : `Cancelación parcial: ${cancelled} unidad(es)`] : []),
+      ...(item.isGift ? ['Obsequio — Sin costo'] : []),
+      `Total del producto: ${formatCurrency(lineTotal, currency)}`,
+      ...item.cancellations.map((entry) =>
+        `Cancelación: ${entry.quantity} unidad(es) — ${CANCELLATION_LABELS[entry.reason]}`
+      ),
+    ];
+  });
+  const itemList = itemSummaries.length > 0
+    ? itemSummaries.map(([name, ...details]) =>
+      `<li><strong>${escapeHtml(name)}</strong><br>${details.map(escapeHtml).join('<br>')}</li>`
+    ).join('')
     : '<li>Productos de tu pedido</li>';
   const subject = `Actualización de tu pedido #${orderId.slice(0, 8)}: ${statusLabel}`;
 
@@ -82,6 +118,10 @@ export async function sendOrderStatusNotification({
       text: [
         `Hola ${customerName?.trim() || 'cliente'},`,
         `Tu pedido #${orderId.slice(0, 8)} cambió de ${previousStatusLabel} a ${statusLabel}.`,
+        'Resumen de productos:',
+        ...(itemSummaries.length > 0
+          ? itemSummaries.map((summary) => summary.join('\n'))
+          : ['Productos de tu pedido']),
         `Total: ${formatCurrency(total, currency)}`,
         `Ver pedido: ${orderUrl}`,
       ].join('\n'),

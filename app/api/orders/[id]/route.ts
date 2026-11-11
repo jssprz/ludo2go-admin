@@ -252,9 +252,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         status: order.status,
         total: order.total,
         currency: order.currency,
-        itemNames: order.items.map(
-          (item) => item.variant?.product?.name ?? item.variant?.sku ?? 'Producto'
-        ),
+        items: order.items.map((item) => ({
+          name: item.variant?.product?.name ?? item.variant?.sku ?? 'Producto',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          isGift: item.isGift,
+          cancellations: item.cancellations.map(({ quantity, reason }) => ({ quantity, reason })),
+        })),
       });
     }
 

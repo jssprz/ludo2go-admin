@@ -70,6 +70,26 @@ test('status and tracking can be updated atomically when transitioning into read
   expect(mocks.email).toHaveBeenCalledWith(expect.objectContaining({ previousStatus: 'processing', status: 'ready_to_ship' }));
 });
 
+test('status notification includes customer-safe item quantities, cancellations and gift flags', async () => {
+  mocks.findOrder.mockResolvedValue({ status: 'processing', updatedAt });
+  mocks.result.mockResolvedValue({
+    ...order,
+    items: [{
+      quantity: 3, unitPrice: 1000, isGift: true,
+      giftReason: 'Internal reason', giftedBy: 'admin-1',
+      variant: { product: { name: 'Game' }, sku: 'SKU' },
+      cancellations: [{
+        quantity: 1, reason: 'damaged', details: 'Internal details', actorId: 'admin-1',
+      }],
+    }],
+  });
+  expect((await PATCH(request({ status: 'ready_to_ship' }), params)).status).toBe(200);
+  expect(mocks.email.mock.calls[0][0].items).toEqual([{
+    name: 'Game', quantity: 3, unitPrice: 1000, isGift: true,
+    cancellations: [{ quantity: 1, reason: 'damaged' }],
+  }]);
+});
+
 test('status-only requests preserve tracking and blank tracking clears it', async () => {
   expect((await PATCH(request({ status: 'ready_to_ship' }), params)).status).toBe(200);
   expect(mocks.update.mock.calls[0][0].data).not.toHaveProperty('courierTrackingNumber');
