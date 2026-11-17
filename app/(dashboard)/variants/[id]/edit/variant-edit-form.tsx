@@ -417,8 +417,12 @@ export function VariantEditForm({ variant, storeLinks, locations, pendingReceipt
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (isSaving || receivingItemId !== null) return;
+
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const exitAfterSave = submitter instanceof HTMLButtonElement && submitter.value === 'save-and-exit';
     setIsSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -463,6 +467,9 @@ export function VariantEditForm({ variant, storeLinks, locations, pendingReceipt
       setSuccessMsg(t('messages.variantUpdated'));
       setHasInventoryEdits(false);
       router.refresh();
+      if (exitAfterSave) {
+        router.back();
+      }
     } catch (err: any) {
       setErrorMsg(err.message || t('errors.unexpected'));
     } finally {
@@ -1227,6 +1234,14 @@ export function VariantEditForm({ variant, storeLinks, locations, pendingReceipt
       <div className="flex gap-2">
         <Button type="submit" disabled={isSaving || receivingItemId !== null}>
           {isSaving ? tc('saving') : t('buttons.saveChanges')}
+        </Button>
+        <Button
+          type="submit"
+          value="save-and-exit"
+          variant="outline"
+          disabled={isSaving || receivingItemId !== null}
+        >
+          {t('buttons.saveAndExit')}
         </Button>
         <Button
           type="button"

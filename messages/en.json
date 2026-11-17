@@ -610,6 +610,7 @@
       "scrape": "Scrape",
       "addPrice": "Add Price",
       "saveChanges": "Save changes",
+      "saveAndExit": "Save and Exit",
       "recordReceipt": "Record receipt"
     },
     "scheduledActivationHelp": "The variant will become active automatically at this date & time.",

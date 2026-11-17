@@ -610,6 +610,7 @@
       "scrape": "Scrapear",
       "addPrice": "Agregar precio",
       "saveChanges": "Guardar cambios",
+      "saveAndExit": "Guardar y salir",
       "recordReceipt": "Registrar recepción"
     },
     "scheduledActivationHelp": "La variante se activará automáticamente en esta fecha y hora.",

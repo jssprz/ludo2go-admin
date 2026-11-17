@@ -349,8 +349,12 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (isSaving) return;
+
+    const submitter = (e.nativeEvent as SubmitEvent).submitter;
+    const exitAfterSave = submitter instanceof HTMLButtonElement && submitter.value === 'save-and-exit';
     setIsSaving(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -417,10 +421,10 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
       }
 
       setSuccessMsg('Product updated successfully.');
-      
-      // refresh data and return to the list
       router.refresh();
-      router.push('/products');
+      if (exitAfterSave) {
+        router.push('/products');
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Unexpected error');
     } finally {
@@ -1105,6 +1109,14 @@ export function ProductEditForm({ product, timelines, brands, gameCategories, ac
           disabled={isSaving}
         >
           {isSaving ? 'Saving...' : 'Save changes'}
+        </Button>
+        <Button
+          type="submit"
+          value="save-and-exit"
+          variant="outline"
+          disabled={isSaving}
+        >
+          Save and Exit
         </Button>
       </div>
     </form>
