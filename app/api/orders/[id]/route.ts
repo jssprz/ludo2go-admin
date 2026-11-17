@@ -242,9 +242,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const order = updateResult;
     if (previousOrder.status !== order.status && order.customer?.email) {
-      void sendOrderStatusNotification({
+      await sendOrderStatusNotification({
         orderId: order.id,
-        customerEmail: order.customer.email,
         customerName: [order.customer.firstName, order.customer.lastName]
           .filter(Boolean)
           .join(' '),

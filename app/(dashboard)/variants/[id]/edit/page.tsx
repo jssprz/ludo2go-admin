@@ -13,7 +13,7 @@ export default async function EditVariantPage({ params }: PageProps) {
   const t = await getTranslations('variantEditPage');
   const { id } = await params;
 
-  const [variant, stores, locations] = await Promise.all([
+  const [variant, stores, locations, purchaseOrders] = await Promise.all([
     prisma.productVariant.findUnique({
       where: { id: id },
       include: {
@@ -37,6 +37,24 @@ export default async function EditVariantPage({ params }: PageProps) {
     prisma.location.findMany({
       orderBy: { name: 'asc' },
     }),
+    prisma.purchaseOrder.findMany({
+      where: {
+        status: { in: ['submitted', 'confirmed', 'partially_received'] },
+        items: { some: { variantId: id } },
+      },
+      include: {
+        supplier: { select: { name: true } },
+        items: {
+          where: { variantId: id },
+          select: {
+            id: true,
+            quantity: true,
+            quantityReceived: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
   ]);
 
   if (!variant) {
@@ -59,6 +77,18 @@ export default async function EditVariantPage({ params }: PageProps) {
       currency: existing?.currency ?? 'CLP',
     };
   });
+  const pendingReceipts = purchaseOrders.flatMap((order) =>
+    order.items
+      .filter((item) => item.quantityReceived < item.quantity)
+      .map((item) => ({
+        purchaseOrderId: order.id,
+        orderCode: order.code,
+        supplierName: order.supplier.name,
+        itemId: item.id,
+        quantity: item.quantity,
+        quantityReceived: item.quantityReceived,
+      }))
+  );
 
   return (
     <div className="space-y-6">
@@ -84,6 +114,7 @@ export default async function EditVariantPage({ params }: PageProps) {
             variant={variant} 
             storeLinks={storeLinks} 
             locations={locations}
+            pendingReceipts={pendingReceipts}
           />
         </TabsContent>
 

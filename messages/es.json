@@ -528,6 +528,9 @@
       "totalPhysicalStock": "Stock físico total",
       "reserved": "Reservado",
       "reservedForOrders": "Reservado para pedidos",
+      "pendingQuantity": "Pendiente",
+      "receiveQuantity": "Cantidad a recibir",
+      "receiveInto": "Recibir en",
       "weight": "peso",
       "dimensions": "dimensiones",
       "packaging": "empaque"
@@ -536,7 +539,8 @@
       "selectLanguage": "Selecciona idioma",
       "selectCondition": "Selecciona condición",
       "selectStatus": "Selecciona estado",
-      "selectPackagingType": "Selecciona tipo de empaque"
+      "selectPackagingType": "Selecciona tipo de empaque",
+      "selectLocation": "Selecciona bodega"
     },
     "languageOptions": {
       "en": "Inglés",
@@ -591,7 +595,10 @@
       "inventory": {
         "title": "Stock de inventario",
         "description": "Administra niveles de stock en diferentes ubicaciones",
-        "noLocations": "No hay ubicaciones disponibles. Crea ubicaciones primero."
+        "noLocations": "No hay ubicaciones disponibles. Crea ubicaciones primero.",
+        "pendingReceipts": "Órdenes de compra pendientes",
+        "pendingReceiptsDescription": "Registra la recepción pendiente de esta variante y actualiza el stock de la bodega elegida.",
+        "noActiveLocations": "No hay bodegas activas disponibles para recibir stock."
       }
     },
     "buttons": {
@@ -602,14 +609,17 @@
       "scraping": "Scrapeando...",
       "scrape": "Scrapear",
       "addPrice": "Agregar precio",
-      "saveChanges": "Guardar cambios"
+      "saveChanges": "Guardar cambios",
+      "recordReceipt": "Registrar recepción"
     },
     "scheduledActivationHelp": "La variante se activará automáticamente en esta fecha y hora.",
     "messages": {
       "scrapedPriceForStore": "Precio scrapeado correctamente para {store}.",
       "scrapedAllStores": "Precios scrapeados para todas las tiendas con URL.",
       "fetchedFromGatoArcano": "Se obtuvieron {fields} desde GatoArcano.",
-      "variantUpdated": "Variante actualizada correctamente."
+      "variantUpdated": "Variante actualizada correctamente.",
+      "receiptRegistered": "Recepción registrada para la orden {order}.",
+      "saveStockBeforeReceiving": "Guarda los cambios de stock antes de registrar recepciones de órdenes de compra."
     },
     "errors": {
       "generateSku": "No se pudo generar el SKU",
@@ -621,6 +631,7 @@
       "fetchPhysicalAttributes": "No se pudieron extraer atributos físicos de GatoArcano",
       "noPhysicalAttributes": "No se encontraron atributos físicos en la página de GatoArcano.",
       "updateVariant": "No se pudo actualizar la variante",
+      "receivePurchaseOrder": "No se pudo registrar la recepción de la orden de compra.",
       "unexpected": "Error inesperado"
     }
   },

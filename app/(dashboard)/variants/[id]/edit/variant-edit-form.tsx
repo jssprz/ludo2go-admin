@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Link from 'next/link';
-import { Trash2, Plus, Check, Wand2, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Check, Wand2, Loader2, PackagePlus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 type Language = ProductVariant['language'];
@@ -41,10 +41,20 @@ type StoreLink = {
 
 type StoreLinkState = StoreLink & { fullUrl: string };
 
+type PendingReceipt = {
+  purchaseOrderId: string;
+  orderCode: string;
+  supplierName: string;
+  itemId: string;
+  quantity: number;
+  quantityReceived: number;
+};
+
 type Props = {
   variant: VariantWithRelations;
   storeLinks: StoreLink[];
   locations: Location[];
+  pendingReceipts: PendingReceipt[];
 };
 
 function buildFullUrl(base: string, path: string): string {
@@ -96,7 +106,7 @@ function formatPriceTypeLabel(type: PriceType): string {
     .join(' ');
 }
 
-export function VariantEditForm({ variant, storeLinks, locations }: Props) {
+export function VariantEditForm({ variant, storeLinks, locations, pendingReceipts: initialPendingReceipts }: Props) {
   const router = useRouter();
   const t = useTranslations('variantEditForm');
   const tc = useTranslations('common');
@@ -137,8 +147,23 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       return acc;
     }, {} as Record<string, { onHand: number; reserved: number }>)
   );
+  const [pendingReceipts, setPendingReceipts] = useState(initialPendingReceipts);
+  const activeLocations = locations.filter((location) => location.isActive);
+  const [receiptValues, setReceiptValues] = useState<Record<string, { quantity: number; locationId: string }>>(
+    () => Object.fromEntries(initialPendingReceipts.map((receipt) => [
+      receipt.itemId,
+      {
+        quantity: receipt.quantity - receipt.quantityReceived,
+        locationId: activeLocations[0]?.id ?? '',
+      },
+    ]))
+  );
 
   const [isSaving, setIsSaving] = useState(false);
+  const [hasInventoryEdits, setHasInventoryEdits] = useState(false);
+  const [receivingItemId, setReceivingItemId] = useState<string | null>(null);
+  const [receiptErrorMsg, setReceiptErrorMsg] = useState<string | null>(null);
+  const [receiptSuccessMsg, setReceiptSuccessMsg] = useState<string | null>(null);
   const [scrapingStoreId, setScrapingStoreId] = useState<string | null>(null);
   const [isScrapingAll, setIsScrapingAll] = useState(false);
   const [isScrapingPhysical, setIsScrapingPhysical] = useState(false);
@@ -436,11 +461,76 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       }
 
       setSuccessMsg(t('messages.variantUpdated'));
+      setHasInventoryEdits(false);
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message || t('errors.unexpected'));
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleReceivePending(receipt: PendingReceipt) {
+    const receiptValue = receiptValues[receipt.itemId];
+    if (!receiptValue?.locationId || receiptValue.quantity < 1) return;
+
+    setReceivingItemId(receipt.itemId);
+    setReceiptErrorMsg(null);
+    setReceiptSuccessMsg(null);
+
+    try {
+      const res = await fetch(`/api/purchase-orders/${receipt.purchaseOrderId}/receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: receiptValue.locationId,
+          items: [{ itemId: receipt.itemId, quantityNow: receiptValue.quantity }],
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || t('errors.receivePurchaseOrder'));
+      }
+
+      const receivedQuantity = receiptValue.quantity;
+      const newQuantityReceived = receipt.quantityReceived + receivedQuantity;
+      setInventoryData((prev) => ({
+        ...prev,
+        [receiptValue.locationId]: {
+          ...prev[receiptValue.locationId],
+          onHand: prev[receiptValue.locationId].onHand + receivedQuantity,
+        },
+      }));
+
+      if (newQuantityReceived >= receipt.quantity) {
+        setPendingReceipts((prev) => prev.filter((item) => item.itemId !== receipt.itemId));
+        setReceiptValues((prev) => {
+          const next = { ...prev };
+          delete next[receipt.itemId];
+          return next;
+        });
+      } else {
+        setPendingReceipts((prev) =>
+          prev.map((item) =>
+            item.itemId === receipt.itemId
+              ? { ...item, quantityReceived: newQuantityReceived }
+              : item
+          )
+        );
+        setReceiptValues((prev) => ({
+          ...prev,
+          [receipt.itemId]: {
+            ...prev[receipt.itemId],
+            quantity: receipt.quantity - newQuantityReceived,
+          },
+        }));
+      }
+
+      setReceiptSuccessMsg(t('messages.receiptRegistered', { order: receipt.orderCode }));
+    } catch (err) {
+      setReceiptErrorMsg(err instanceof Error ? err.message : t('errors.receivePurchaseOrder'));
+    } finally {
+      setReceivingItemId(null);
     }
   }
 
@@ -983,15 +1073,17 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                             type="number"
                             min="0"
                             value={inventoryData[location.id].onHand}
-                            onChange={(e) =>
+                            disabled={isSaving || receivingItemId !== null}
+                            onChange={(e) => {
+                              setHasInventoryEdits(true);
                               setInventoryData((prev) => ({
                                 ...prev,
                                 [location.id]: {
                                   ...prev[location.id],
                                   onHand: parseInt(e.target.value) || 0,
                                 },
-                              }))
-                            }
+                              }));
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">
                             {t('labels.totalPhysicalStock')}
@@ -1007,15 +1099,17 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                             type="number"
                             min="0"
                             value={inventoryData[location.id].reserved}
-                            onChange={(e) =>
+                            disabled={isSaving || receivingItemId !== null}
+                            onChange={(e) => {
+                              setHasInventoryEdits(true);
                               setInventoryData((prev) => ({
                                 ...prev,
                                 [location.id]: {
                                   ...prev[location.id],
                                   reserved: parseInt(e.target.value) || 0,
                                 },
-                              }))
-                            }
+                              }));
+                            }}
                           />
                           <p className="text-xs text-muted-foreground">
                             {t('labels.reservedForOrders')}
@@ -1025,6 +1119,99 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {pendingReceipts.length > 0 && (
+              <div className="space-y-3 border-t pt-4">
+                <div>
+                  <h3 className="text-sm font-medium">{t('sections.inventory.pendingReceipts')}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {t('sections.inventory.pendingReceiptsDescription')}
+                  </p>
+                </div>
+                {hasInventoryEdits && (
+                  <p className="text-sm text-amber-700">{t('messages.saveStockBeforeReceiving')}</p>
+                )}
+                {activeLocations.length === 0 && (
+                  <p className="text-sm text-muted-foreground">{t('sections.inventory.noActiveLocations')}</p>
+                )}
+                <div className="space-y-2">
+                  {pendingReceipts.map((receipt) => {
+                    const value = receiptValues[receipt.itemId];
+                    const pending = receipt.quantity - receipt.quantityReceived;
+                    return (
+                      <div key={receipt.itemId} className="grid gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_9rem_12rem_auto] sm:items-end">
+                        <div>
+                          <p className="text-sm font-medium">OC {receipt.orderCode}</p>
+                          <p className="text-xs text-muted-foreground">{receipt.supplierName}</p>
+                          <p className="mt-1 text-xs">{t('labels.pendingQuantity')}: {pending}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`receipt-quantity-${receipt.itemId}`}>{t('labels.receiveQuantity')}</Label>
+                          <Input
+                            id={`receipt-quantity-${receipt.itemId}`}
+                            type="number"
+                            min={0}
+                            max={pending}
+                            value={value?.quantity ?? 0}
+                            onChange={(e) => {
+                              const quantity = Math.min(pending, Math.max(0, parseInt(e.target.value) || 0));
+                              setReceiptValues((prev) => ({
+                                ...prev,
+                                [receipt.itemId]: { ...prev[receipt.itemId], quantity },
+                              }));
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`receipt-location-${receipt.itemId}`}>{t('labels.receiveInto')}</Label>
+                          <Select
+                            value={value?.locationId ?? ''}
+                            onValueChange={(locationId) =>
+                              setReceiptValues((prev) => ({
+                                ...prev,
+                                [receipt.itemId]: { ...prev[receipt.itemId], locationId },
+                              }))
+                            }
+                            disabled={activeLocations.length === 0}
+                          >
+                            <SelectTrigger id={`receipt-location-${receipt.itemId}`}>
+                              <SelectValue placeholder={t('placeholders.selectLocation')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {activeLocations.map((location) => (
+                                <SelectItem key={location.id} value={location.id}>
+                                  {location.code} — {location.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleReceivePending(receipt)}
+                          disabled={
+                            isSaving ||
+                            hasInventoryEdits ||
+                            receivingItemId !== null ||
+                            activeLocations.length === 0 ||
+                            !value?.locationId ||
+                            !value.quantity
+                          }
+                        >
+                          {receivingItemId === receipt.itemId
+                            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            : <PackagePlus className="mr-2 h-4 w-4" />}
+                          {t('buttons.recordReceipt')}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {receiptErrorMsg && <p className="text-sm text-red-500">{receiptErrorMsg}</p>}
+                {receiptSuccessMsg && <p className="text-sm text-emerald-600">{receiptSuccessMsg}</p>}
               </div>
             )}
           </div>
@@ -1038,7 +1225,7 @@ export function VariantEditForm({ variant, storeLinks, locations }: Props) {
       )}
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSaving}>
+        <Button type="submit" disabled={isSaving || receivingItemId !== null}>
           {isSaving ? tc('saving') : t('buttons.saveChanges')}
         </Button>
         <Button

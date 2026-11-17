@@ -528,6 +528,9 @@
       "totalPhysicalStock": "Total physical stock",
       "reserved": "Reserved",
       "reservedForOrders": "Reserved for orders",
+      "pendingQuantity": "Pending",
+      "receiveQuantity": "Quantity to receive",
+      "receiveInto": "Receive into",
       "weight": "weight",
       "dimensions": "dimensions",
       "packaging": "packaging"
@@ -536,7 +539,8 @@
       "selectLanguage": "Select language",
       "selectCondition": "Select condition",
       "selectStatus": "Select status",
-      "selectPackagingType": "Select packaging type"
+      "selectPackagingType": "Select packaging type",
+      "selectLocation": "Select storage"
     },
     "languageOptions": {
       "en": "English",
@@ -591,7 +595,10 @@
       "inventory": {
         "title": "Inventory Stock",
         "description": "Manage stock levels across different locations",
-        "noLocations": "No locations available. Please create locations first."
+        "noLocations": "No locations available. Please create locations first.",
+        "pendingReceipts": "Pending purchase orders",
+        "pendingReceiptsDescription": "Record this variant's pending receipt and update stock at the selected storage location.",
+        "noActiveLocations": "No active storage locations are available to receive stock."
       }
     },
     "buttons": {
@@ -602,14 +609,17 @@
       "scraping": "Scraping...",
       "scrape": "Scrape",
       "addPrice": "Add Price",
-      "saveChanges": "Save changes"
+      "saveChanges": "Save changes",
+      "recordReceipt": "Record receipt"
     },
     "scheduledActivationHelp": "The variant will become active automatically at this date & time.",
     "messages": {
       "scrapedPriceForStore": "Scraped price successfully for {store}.",
       "scrapedAllStores": "Scraped prices for all stores with URLs.",
       "fetchedFromGatoArcano": "Fetched {fields} from GatoArcano.",
-      "variantUpdated": "Variant updated successfully."
+      "variantUpdated": "Variant updated successfully.",
+      "receiptRegistered": "Receipt registered for order {order}.",
+      "saveStockBeforeReceiving": "Save stock changes before recording purchase order receipts."
     },
     "errors": {
       "generateSku": "Failed to generate SKU",
@@ -621,6 +631,7 @@
       "fetchPhysicalAttributes": "Failed to extract physical attributes from GatoArcano",
       "noPhysicalAttributes": "No physical attributes were found on the GatoArcano page.",
       "updateVariant": "Failed to update variant",
+      "receivePurchaseOrder": "Failed to record the purchase order receipt.",
       "unexpected": "Unexpected error"
     }
   },

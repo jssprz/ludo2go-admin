@@ -1,5 +1,7 @@
 import 'server-only';
+import { createHash, randomBytes } from 'node:crypto';
 import { Resend } from 'resend';
+import { prisma } from '@jssprz/ludo2go-database';
 import type { OrderItemCancellationReason, OrderStatus } from '@prisma/client';
 
 type OrderEmailItem = {
@@ -15,7 +17,6 @@ type OrderEmailItem = {
 
 type OrderStatusEmailInput = {
   orderId: string;
-  customerEmail: string;
   customerName?: string | null;
   previousStatus: OrderStatus;
   status: OrderStatus;
@@ -69,7 +70,6 @@ export function orderEmailSender(configured: string | undefined): string {
 
 export async function sendOrderStatusNotification({
   orderId,
-  customerEmail,
   customerName,
   previousStatus,
   status,
@@ -87,7 +87,6 @@ export async function sendOrderStatusNotification({
   const safeName = escapeHtml(customerName?.trim() || 'cliente');
   const statusLabel = STATUS_LABELS[status];
   const previousStatusLabel = STATUS_LABELS[previousStatus];
-  const orderUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.jobys.cl'}/account/orders/${encodeURIComponent(orderId)}`;
   const itemSummaries = items.map((item) => {
     const cancelled = item.cancellations.reduce((sum, entry) => sum + entry.quantity, 0);
     const remaining = Math.max(0, item.quantity - cancelled);
@@ -110,10 +109,35 @@ export async function sendOrderStatusNotification({
     : '<li>Productos de tu pedido</li>';
   const subject = `Actualización de tu pedido #${orderId.slice(0, 8)}: ${statusLabel}`;
 
+  let tokenRecordId: string | undefined;
   try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, customerId: true, customer: { select: { email: true } } },
+    });
+    if (!order?.customer?.email) {
+      console.error('Order status email not sent: stored customer email unavailable.');
+      return;
+    }
+    const token = randomBytes(32).toString('hex');
+    const hash = createHash('sha256').update(token).digest('hex');
+    const url = new URL(`/api/orders/${order.id}/access`, 'https://jobys.cl');
+    url.searchParams.set('token', token);
+    const orderUrl = url.toString();
+    const record = await prisma.emailVerificationToken.create({
+      data: {
+        token: `order_access_${order.id}_${hash}`,
+        customerId: order.customerId,
+        email: order.customer.email,
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        used: false,
+      },
+      select: { id: true },
+    });
+    tokenRecordId = record.id;
     const { error } = await resend.emails.send({
       from: orderEmailSender(process.env.RESEND_FROM_EMAIL),
-      to: [customerEmail],
+      to: [order.customer.email],
       subject,
       text: [
         `Hola ${customerName?.trim() || 'cliente'},`,
@@ -134,7 +158,7 @@ export async function sendOrderStatusNotification({
           <h2>Resumen</h2>
           <ul>${itemList}</ul>
           <p><strong>Total:</strong> ${escapeHtml(formatCurrency(total, currency))}</p>
-          <p><a href="${orderUrl}">Ver el estado de mi pedido</a></p>
+          <p><a href="${escapeHtml(orderUrl)}">Ver mi pedido</a></p>
           <p style="color: #6b7280; font-size: 13px;">Este es un mensaje automático de Jobys.</p>
         </div>
       `,
@@ -144,10 +168,19 @@ export async function sendOrderStatusNotification({
       ],
     });
 
-    if (error) {
-      console.error('Order status email failed:', error);
+    if (error) throw new Error('Email provider rejected the status email.');
+  } catch {
+    // Provider/database errors can contain the message payload or access URL.
+    console.error('Order status email failed.');
+    if (tokenRecordId) {
+      try {
+        await prisma.emailVerificationToken.update({
+          where: { id: tokenRecordId },
+          data: { used: true, usedAt: new Date() },
+        });
+      } catch {
+        console.error('Failed to revoke the new order email access token.');
+      }
     }
-  } catch (error) {
-    console.error('Order status email failed:', error);
   }
 }
