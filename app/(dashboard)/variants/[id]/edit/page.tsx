@@ -4,6 +4,8 @@ import { VariantEditForm } from './variant-edit-form';
 import { VariantMediaEditor } from './variant-media-editor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getTranslations } from 'next-intl/server';
+import Link from 'next/link';
+
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -98,7 +100,7 @@ export default async function EditVariantPage({ params }: PageProps) {
             {t('title')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {variant.product.name} · {variant.sku}
+            <Link href={`/products/${variant.product.id}/edit`}>{variant.product.name}</Link> · {variant.sku}
           </p>
         </div>
       </div>
