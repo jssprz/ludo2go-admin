@@ -34,12 +34,6 @@ import {
   FolderOpen,
 } from 'lucide-react';
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Image from 'next/image';
@@ -51,6 +45,7 @@ import { LanguageSwitcher } from '@/components/language-switcher';
 import { TimeZoneSwitcher } from '@/components/timezone-switcher';
 import { getTranslations } from 'next-intl/server';
 import { Sidebar, MainContentWrapper } from './sidebar';
+import { DashboardBreadcrumb } from './dashboard-breadcrumb';
 
 const LOGO_URL = `${process.env.NEXT_PUBLIC_BLOB_BASE_URL}/assets/jobys-logo-130x59.png`;
 
@@ -219,30 +214,5 @@ async function MobileNav() {
         </nav>
       </SheetContent>
     </Sheet>
-  );
-}
-
-
-function DashboardBreadcrumb() {
-  return (
-    <Breadcrumb className="hidden shrink-0 md:flex">
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href="/">Dashboard</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        {/* <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href="#">Products</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        <BreadcrumbSeparator />
-        <BreadcrumbItem>
-          <BreadcrumbPage>All Products</BreadcrumbPage>
-        </BreadcrumbItem> */}
-      </BreadcrumbList>
-    </Breadcrumb>
   );
 }
