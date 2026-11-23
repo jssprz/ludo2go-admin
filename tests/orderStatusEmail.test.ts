@@ -49,18 +49,25 @@ test('status emails describe partial/full cancellations, gifts and added lines i
     customerName: 'Ana',
     previousStatus: 'processing',
     status: 'ready_to_ship',
+    fulfillmentMethod: 'pickup',
     total: 13000,
     currency: 'CLP',
     items: [
-      { name: '<Game & One>', quantity: 3, unitPrice: 5000, isGift: false, cancellations: [
-        { quantity: 1, reason: 'customer_request' },
-      ] },
-      { name: 'Cancelled game', quantity: 2, unitPrice: 9000, isGift: false, cancellations: [
+      {
+        name: '<Game & One>',
+        quantity: 3,
+        unitPrice: 5000,
+        isGift: false,
+        imageUrl: 'https://images.example.com/game.jpg?size=small&fit=cover',
+        cancellations: [{ quantity: 1, reason: 'customer_request' }],
+      },
+      { name: 'Cancelled game', quantity: 2, unitPrice: 9000, isGift: false, imageUrl: 'javascript:alert(1)', cancellations: [
         { quantity: 1, reason: 'damaged' }, { quantity: 1, reason: 'out_of_stock' },
       ] },
       { name: 'Bonus game', quantity: 1, unitPrice: 8000, isGift: true, cancellations: [] },
       { name: 'Additional game', quantity: 1, unitPrice: 3000, isGift: false, cancellations: [] },
     ],
+    payments: [{ method: 'card', status: 'captured' }],
   });
   const email = mocks.send.mock.calls[0][0];
   for (const body of [email.html, email.text]) {
@@ -77,7 +84,20 @@ test('status emails describe partial/full cancellations, gifts and added lines i
   }
   expect(email.html).toContain('&lt;Game &amp; One&gt;');
   expect(email.html).not.toContain('<Game & One>');
+  expect(email.html).toContain('jobys-logo-transparent-no-shadow-cropped.png');
+  expect(email.html).toContain('src="https://images.example.com/game.jpg?size=small&amp;fit=cover"');
+  expect(email.html).not.toContain('javascript:alert(1)');
+  expect(email.html).toContain('Información de pago');
+  expect(email.html).toContain('Método de entrega:</strong> Retiro en tienda');
+  expect(email.html).toContain('Tarjeta — Pagado');
+  expect(email.html).toContain('Jobys protege tu seguridad y privacidad.');
+  expect(email.html).toContain('Este buzón no está monitoreado.');
+  expect(email.html).toContain(`© ${new Date().getFullYear()} Jobys. Todos los derechos reservados.`);
   expect(email.text).toContain('<Game & One>');
+  expect(email.text).toContain('Método de pago: Tarjeta — Pagado');
+  expect(email.text).toContain('Método de entrega: Retiro en tienda');
+  expect(email.text).toContain('Jobys protege tu seguridad y privacidad.');
+  expect(email.text).toContain('Este buzón no está monitoreado.');
   expect(email.text).toContain(new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(10000));
   expect(email.text).not.toContain('reembolso');
   expect(email.to).toEqual(['stored@example.com']);
@@ -90,13 +110,13 @@ test('status emails describe partial/full cancellations, gifts and added lines i
   expect(data).toMatchObject({ customerId: 'customer-1', email: 'stored@example.com', used: false });
   expect(data.expiresAt.getTime()).toBeGreaterThan(Date.now() + 89 * 24 * 60 * 60 * 1000);
   expect(data.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + 90 * 24 * 60 * 60 * 1000);
-  expect(email.html).toContain(`${link![0]}">Ver mi pedido`);
+  expect(email.html).toContain(`href="${link![0]}" style=`);
   expect(mocks.revokeToken).not.toHaveBeenCalled();
 });
 
 const notification = {
   orderId: 'order-123456', previousStatus: 'processing' as const, status: 'shipped' as const,
-  total: 10000, currency: 'CLP', items: [],
+  fulfillmentMethod: 'delivery' as const, total: 10000, currency: 'CLP', items: [],
 };
 
 test.each(['returned', 'thrown'])('revokes only the new token on a %s send failure without logging secrets', async (failure) => {

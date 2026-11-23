@@ -213,7 +213,30 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         include: {
           courier: true,
           customer: { select: { id: true, email: true, firstName: true, lastName: true } },
-          items: { include: { cancellations: true, variant: { include: { product: true } } } },
+          payments: { select: { method: true, status: true } },
+          items: {
+            include: {
+              cancellations: true,
+              variant: {
+                include: {
+                  mediaLinks: {
+                    where: { media: { kind: 'image' } },
+                    select: { role: true, sort: true, media: { select: { url: true, thumbUrl: true } } },
+                    orderBy: { sort: 'asc' },
+                  },
+                  product: {
+                    include: {
+                      mediaLinks: {
+                        where: { media: { kind: 'image' } },
+                        select: { role: true, sort: true, media: { select: { url: true, thumbUrl: true } } },
+                        orderBy: { sort: 'asc' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
@@ -249,15 +272,25 @@ export async function PATCH(request: Request, { params }: RouteContext) {
           .join(' '),
         previousStatus: previousOrder.status,
         status: order.status,
+        fulfillmentMethod: order.fulfillmentMethod,
         total: order.total,
         currency: order.currency,
-        items: order.items.map((item) => ({
-          name: item.variant?.product?.name ?? item.variant?.sku ?? 'Producto',
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          isGift: item.isGift,
-          cancellations: item.cancellations.map(({ quantity, reason }) => ({ quantity, reason })),
-        })),
+        items: order.items.map((item) => {
+          const variantMedia = item.variant.mediaLinks.find((link) => link.role === 'primary')
+            ?? item.variant.mediaLinks[0];
+          const productMedia = item.variant.product.mediaLinks.find((link) => link.role === 'primary')
+            ?? item.variant.product.mediaLinks[0];
+          return {
+            name: item.variant?.product?.name ?? item.variant?.sku ?? 'Producto',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            isGift: item.isGift,
+            imageUrl: variantMedia?.media.thumbUrl ?? variantMedia?.media.url
+              ?? productMedia?.media.thumbUrl ?? productMedia?.media.url ?? null,
+            cancellations: item.cancellations.map(({ quantity, reason }) => ({ quantity, reason })),
+          };
+        }),
+        payments: order.payments,
       });
     }
 

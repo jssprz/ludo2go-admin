@@ -2,13 +2,14 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { Resend } from 'resend';
 import { prisma } from '@jssprz/ludo2go-database';
-import type { OrderItemCancellationReason, OrderStatus } from '@prisma/client';
+import type { FulfillmentMethod, OrderItemCancellationReason, OrderStatus } from '@prisma/client';
 
 type OrderEmailItem = {
   name: string;
   quantity: number;
   unitPrice: number;
   isGift: boolean;
+  imageUrl?: string | null;
   cancellations: {
     quantity: number;
     reason: OrderItemCancellationReason;
@@ -20,9 +21,14 @@ type OrderStatusEmailInput = {
   customerName?: string | null;
   previousStatus: OrderStatus;
   status: OrderStatus;
+  fulfillmentMethod: FulfillmentMethod;
   total: number;
   currency: string;
   items: OrderEmailItem[];
+  payments?: {
+    method: string;
+    status: string;
+  }[];
 };
 
 const CANCELLATION_LABELS: Record<OrderItemCancellationReason, string> = {
@@ -44,6 +50,27 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: 'cancelado',
 };
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  card: 'Tarjeta',
+  cash: 'Efectivo',
+  transfer: 'Transferencia bancaria',
+  wallet: 'Billetera digital',
+  mercadopago: 'Mercado Pago',
+};
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendiente',
+  authorized: 'Autorizado',
+  captured: 'Pagado',
+  refunded: 'Reembolsado',
+  failed: 'Rechazado',
+};
+
+const FULFILLMENT_METHOD_LABELS: Record<FulfillmentMethod, string> = {
+  delivery: 'Despacho a domicilio',
+  pickup: 'Retiro en tienda',
+};
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -51,6 +78,16 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function safeImageUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 function formatCurrency(amount: number, currency: string): string {
@@ -73,9 +110,11 @@ export async function sendOrderStatusNotification({
   customerName,
   previousStatus,
   status,
+  fulfillmentMethod,
   total,
   currency,
   items,
+  payments = [],
 }: OrderStatusEmailInput): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -87,27 +126,51 @@ export async function sendOrderStatusNotification({
   const safeName = escapeHtml(customerName?.trim() || 'cliente');
   const statusLabel = STATUS_LABELS[status];
   const previousStatusLabel = STATUS_LABELS[previousStatus];
+  const fulfillmentMethodLabel = FULFILLMENT_METHOD_LABELS[fulfillmentMethod];
   const itemSummaries = items.map((item) => {
     const cancelled = item.cancellations.reduce((sum, entry) => sum + entry.quantity, 0);
     const remaining = Math.max(0, item.quantity - cancelled);
     const lineTotal = item.isGift ? 0 : remaining * item.unitPrice;
-    return [
-      item.name,
-      `Cantidad vigente: ${remaining} de ${item.quantity}`,
-      ...(cancelled > 0 ? [remaining === 0 ? 'Cancelado' : `Cancelación parcial: ${cancelled} unidad(es)`] : []),
-      ...(item.isGift ? ['Obsequio — Sin costo'] : []),
-      `Total del producto: ${formatCurrency(lineTotal, currency)}`,
-      ...item.cancellations.map((entry) =>
-        `Cancelación: ${entry.quantity} unidad(es) — ${CANCELLATION_LABELS[entry.reason]}`
-      ),
-    ];
+    return {
+      name: item.name,
+      imageUrl: safeImageUrl(item.imageUrl),
+      details: [
+        `Cantidad vigente: ${remaining} de ${item.quantity}`,
+        ...(cancelled > 0 ? [remaining === 0 ? 'Cancelado' : `Cancelación parcial: ${cancelled} unidad(es)`] : []),
+        ...(item.isGift ? ['Obsequio — Sin costo'] : []),
+        `Total del producto: ${formatCurrency(lineTotal, currency)}`,
+        ...item.cancellations.map((entry) =>
+          `Cancelación: ${entry.quantity} unidad(es) — ${CANCELLATION_LABELS[entry.reason]}`
+        ),
+      ],
+    };
   });
   const itemList = itemSummaries.length > 0
-    ? itemSummaries.map(([name, ...details]) =>
-      `<li><strong>${escapeHtml(name)}</strong><br>${details.map(escapeHtml).join('<br>')}</li>`
+    ? itemSummaries.map(({ name, imageUrl, details }) =>
+      `<tr>
+        <td style="padding: 14px 10px 14px 0; vertical-align: top; width: 76px;">
+          ${imageUrl
+            ? `<img src="${escapeHtml(imageUrl)}" alt="" width="64" height="64" style="display: block; width: 64px; height: 64px; object-fit: contain; border-radius: 6px;">`
+            : ''}
+        </td>
+        <td style="padding: 14px 0; vertical-align: top;">
+          <strong>${escapeHtml(name)}</strong><br>${details.map(escapeHtml).join('<br>')}
+        </td>
+      </tr>`
     ).join('')
-    : '<li>Productos de tu pedido</li>';
+    : '<tr><td colspan="2" style="padding: 14px 0;">Productos de tu pedido</td></tr>';
+  const paymentLines = payments.map(({ method, status: paymentStatus }) => {
+    const methodLabel = PAYMENT_METHOD_LABELS[method.toLowerCase()] ?? method;
+    const paymentStatusLabel = PAYMENT_STATUS_LABELS[paymentStatus.toLowerCase()] ?? paymentStatus;
+    return `Método de pago: ${methodLabel} — ${paymentStatusLabel}`;
+  });
   const subject = `Actualización de tu pedido #${orderId.slice(0, 8)}: ${statusLabel}`;
+  const logoUrl = 'https://u2bzwczvuriijmfq.public.blob.vercel-storage.com/assets/jobys-logo-transparent-no-shadow-cropped.png';
+  const footer = [
+    'Jobys protege tu seguridad y privacidad. Nunca te pediremos información personal, como contraseñas o números de tarjeta, por correo electrónico. Si recibes una solicitud de este tipo, no respondas.',
+    'Por favor, no respondas a este correo. Este buzón no está monitoreado.',
+    `© ${new Date().getFullYear()} Jobys. Todos los derechos reservados.`,
+  ];
 
   let tokenRecordId: string | undefined;
   try {
@@ -142,24 +205,40 @@ export async function sendOrderStatusNotification({
       text: [
         `Hola ${customerName?.trim() || 'cliente'},`,
         `Tu pedido #${orderId.slice(0, 8)} cambió de ${previousStatusLabel} a ${statusLabel}.`,
+        `Método de entrega: ${fulfillmentMethodLabel}`,
         'Resumen de productos:',
         ...(itemSummaries.length > 0
-          ? itemSummaries.map((summary) => summary.join('\n'))
+          ? itemSummaries.map(({ name, details }) => [name, ...details].join('\n'))
           : ['Productos de tu pedido']),
+        ...(paymentLines.length > 0 ? ['', 'Información de pago:', ...paymentLines] : []),
         `Total: ${formatCurrency(total, currency)}`,
         `Ver pedido: ${orderUrl}`,
+        '',
+        ...footer,
       ].join('\n'),
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto;">
-          <h1>Actualización de tu pedido</h1>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px;">
+          <div style="padding-bottom: 20px; border-bottom: 1px solid #e5e7eb;">
+            <img src="${logoUrl}" alt="Jobys" width="130" style="display: block; width: 130px; max-width: 100%; height: auto;">
+          </div>
+          <h1 style="font-size: 24px; margin: 24px 0 16px;">Actualización de tu pedido</h1>
           <p>Hola <strong>${safeName}</strong>,</p>
           <p>El estado de tu pedido <strong>#${escapeHtml(orderId.slice(0, 8))}</strong> cambió de
             <strong>${previousStatusLabel}</strong> a <strong>${statusLabel}</strong>.</p>
-          <h2>Resumen</h2>
-          <ul>${itemList}</ul>
-          <p><strong>Total:</strong> ${escapeHtml(formatCurrency(total, currency))}</p>
-          <p><a href="${escapeHtml(orderUrl)}">Ver mi pedido</a></p>
-          <p style="color: #6b7280; font-size: 13px;">Este es un mensaje automático de Jobys.</p>
+          <p><strong>Método de entrega:</strong> ${fulfillmentMethodLabel}</p>
+          <h2 style="font-size: 18px; margin: 24px 0 8px;">Resumen de productos</h2>
+          <table role="presentation" style="width: 100%; border-collapse: collapse;">${itemList}</table>
+          ${paymentLines.length > 0
+            ? `<h2 style="font-size: 18px; margin: 24px 0 8px;">Información de pago</h2>
+              <p>${paymentLines.map(escapeHtml).join('<br>')}</p>`
+            : ''}
+          <p style="font-size: 18px;"><strong>Total:</strong> ${escapeHtml(formatCurrency(total, currency))}</p>
+          <p style="margin: 24px 0;"><a href="${escapeHtml(orderUrl)}" style="display: inline-block; padding: 10px 18px; background: #111827; color: #ffffff; text-decoration: none; border-radius: 6px;">Ver mi pedido</a></p>
+          <div style="margin-top: 32px; padding-top: 18px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px;">
+            <p>${escapeHtml(footer[0])}</p>
+            <p>${escapeHtml(footer[1])}</p>
+            <p>${escapeHtml(footer[2])}</p>
+          </div>
         </div>
       `,
       tags: [
