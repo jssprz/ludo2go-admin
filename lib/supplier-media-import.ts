@@ -4,10 +4,10 @@ import crypto from 'node:crypto';
 import { put } from '@vercel/blob';
 import * as cheerio from 'cheerio';
 import sharp from 'sharp';
+import { fetchSupplierResource } from './supplier-fetch.mjs';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MIN_IMAGE_DIMENSION = 200;
-const FETCH_TIMEOUT_MS = 15_000;
 const DEvir_HOSTS = new Set([
   'devir.cl',
   'www.devir.cl',
@@ -105,23 +105,6 @@ function getJsonLdProduct($: cheerio.CheerioAPI) {
     }
   });
   return product;
-}
-
-async function fetchSupplierResource(
-  resourceUrl: string,
-  headers: Record<string, string>
-): Promise<Response> {
-  let response: Response;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    response = await fetch(resourceUrl, {
-      headers,
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      cache: 'no-store',
-    });
-    if (![403, 429, 500, 502, 503, 504].includes(response.status)) return response;
-    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-  }
-  return response!;
 }
 
 function firstString(value: unknown): string | undefined {

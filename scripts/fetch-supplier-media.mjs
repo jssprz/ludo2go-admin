@@ -5,10 +5,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as cheerio from 'cheerio';
 import sharp from 'sharp';
+import { fetchSupplierResource } from '../lib/supplier-fetch.mjs';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MIN_IMAGE_DIMENSION = 200;
-const FETCH_TIMEOUT_MS = 15_000;
 const BROWSER_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
@@ -53,16 +53,7 @@ function productSlug(url) {
 }
 
 async function fetchResource(url, headers = {}) {
-  let response;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    response = await fetch(url, {
-      headers: { ...BROWSER_HEADERS, ...headers },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (![403, 429, 500, 502, 503, 504].includes(response.status)) return response;
-    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-  }
-  return response;
+  return fetchSupplierResource(url, { ...BROWSER_HEADERS, ...headers });
 }
 
 async function getYouTubeTitle(videoId) {
