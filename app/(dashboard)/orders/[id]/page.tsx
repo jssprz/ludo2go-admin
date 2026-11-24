@@ -453,7 +453,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <span>{formatCurrency(order.total, order.currency)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Estimated as item sale prices minus the latest received purchase cost before the order (or the effective cost price if unavailable). Uses available VAT details; excludes shipping and order-level discounts. Missing or mismatched costs are shown as unavailable.
+              Estimated as item sale prices minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; excludes shipping and order-level discounts. Missing or mismatched costs are shown as unavailable.
             </p>
           </CardContent>
         </Card>

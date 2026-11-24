@@ -25,7 +25,7 @@ export type OrderProfitPurchaseItem = {
   quantity: number;
   discount: number;
   purchaseOrder: {
-    receivedAt: Date | null;
+    createdAt: Date;
     currency: string;
     subtotal: number;
     tax: number;
@@ -86,25 +86,22 @@ export function calculateOrderProfit(
       return { itemId: item.id, amount: null };
     }
 
-    const matchingPurchases = (purchasesByVariant.get(item.variantId) ?? [])
-      .filter((purchase) =>
-        purchase.purchaseOrder.receivedAt !== null
-        && purchase.purchaseOrder.receivedAt <= order.createdAt
-        && purchase.purchaseOrder.currency === item.currency
-      )
-      .sort((a, b) =>
-        (b.purchaseOrder.receivedAt?.getTime() ?? 0) - (a.purchaseOrder.receivedAt?.getTime() ?? 0)
-      );
-    const latestPurchase = matchingPurchases[0];
+    // Same source as the Inventory page: latest purchase line (any non-draft PO).
+    // Prefer purchases made on or before the order; otherwise use the latest one.
+    const purchases = (purchasesByVariant.get(item.variantId) ?? [])
+      .filter((purchase) => purchase.purchaseOrder.currency === item.currency)
+      .sort((a, b) => b.purchaseOrder.createdAt.getTime() - a.purchaseOrder.createdAt.getTime());
+    const latestPurchase = purchases.find((purchase) => purchase.purchaseOrder.createdAt <= order.createdAt)
+      ?? purchases[0];
 
-    const matchingCostPrices = (costsByVariant.get(item.variantId) ?? [])
-      .filter((costPrice) =>
-        costPrice.currency === item.currency
-        && costPrice.effectiveFrom <= order.createdAt
-        && (costPrice.effectiveTo === null || costPrice.effectiveTo > order.createdAt)
-      )
-      .sort((a, b) => a.effectiveFrom.getTime() - b.effectiveFrom.getTime());
-    const selectedCostPrice = matchingCostPrices[matchingCostPrices.length - 1];
+    const sameCurrencyCosts = (costsByVariant.get(item.variantId) ?? [])
+      .filter((costPrice) => costPrice.currency === item.currency);
+    const effectiveCosts = sameCurrencyCosts.filter((costPrice) =>
+      costPrice.effectiveFrom <= order.createdAt
+      && (costPrice.effectiveTo === null || costPrice.effectiveTo > order.createdAt)
+    );
+    const selectedCostPrice = (effectiveCosts.length ? effectiveCosts : sameCurrencyCosts)
+      .sort((a, b) => costPriceIncludingTax(a) - costPriceIncludingTax(b))[0];
 
     const unitCost = latestPurchase
       ? purchaseCostIncludingTax(latestPurchase)

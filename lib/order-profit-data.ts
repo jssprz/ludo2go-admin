@@ -24,10 +24,6 @@ export async function getOrderProfits(
   orders: OrderForProfit[]
 ): Promise<Map<string, { total: number | null; lines: Map<string, number | null> }>> {
   const variantIds = Array.from(new Set(orders.flatMap((order) => order.items.map((item) => item.variantId))));
-  const latestOrderDate = orders.reduce(
-    (latest, order) => order.createdAt > latest ? order.createdAt : latest,
-    new Date(0)
-  );
 
   if (variantIds.length === 0) {
     return new Map(orders.map((order) => [order.id, {
@@ -41,7 +37,7 @@ export async function getOrderProfits(
       where: {
         variantId: { in: variantIds },
         isActive: true,
-        effectiveFrom: { lte: latestOrderDate },
+        supplier: { isActive: true },
       },
       select: {
         variantId: true,
@@ -55,13 +51,11 @@ export async function getOrderProfits(
     prisma.purchaseOrderItem.findMany({
       where: {
         variantId: { in: variantIds },
-        quantityReceived: { gt: 0 },
         purchaseOrder: {
-          status: 'received',
-          receivedAt: { not: null, lte: latestOrderDate },
+          status: { in: ['submitted', 'confirmed', 'partially_received', 'received'] },
         },
       },
-      orderBy: { purchaseOrder: { receivedAt: 'desc' } },
+      orderBy: { purchaseOrder: { createdAt: 'desc' } },
       select: {
         variantId: true,
         quantity: true,
@@ -69,7 +63,7 @@ export async function getOrderProfits(
         discount: true,
         purchaseOrder: {
           select: {
-            receivedAt: true,
+            createdAt: true,
             currency: true,
             subtotal: true,
             tax: true,

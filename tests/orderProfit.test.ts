@@ -33,15 +33,13 @@ test('calculates gross gain for the remaining paid quantity', () => {
   });
 });
 
-test('uses cost price effective at order time and ignores expired or future costs', () => {
-  expect(calculateOrderProfit(
-    { createdAt, status: 'processing', currency: 'CLP', items: [item] },
-    [
-      { ...costPrice, amount: 500, effectiveFrom: new Date('2026-08-01T00:00:00Z') },
-      { ...costPrice, amount: 100, effectiveTo: new Date('2026-07-01T00:00:00Z') },
-    ],
-    []
-  ).total).toBeNull();
+test('prefers the cost price effective at order time, falling back to any active cost', () => {
+  const future = { ...costPrice, amount: 500, taxIncluded: true, effectiveFrom: new Date('2026-08-01T00:00:00Z') };
+  const run = (costs: OrderProfitCostPrice[]) => calculateOrderProfit(
+    { createdAt, status: 'processing', currency: 'CLP', items: [item] }, costs, []
+  ).total;
+  expect(run([future, costPrice])).toBe(2000);
+  expect(run([future])).toBe(3000);
 });
 
 test('includes the cost of gift items and returns unavailable for missing or mismatched costs', () => {
@@ -57,14 +55,14 @@ test('includes the cost of gift items and returns unavailable for missing or mis
   ).total).toBeNull();
 });
 
-test('prefers the latest received purchase cost before the order date', () => {
+test('prefers the latest purchase cost, as the Inventory page does', () => {
   const purchase = {
     variantId: 'variant-1',
     unitCost: 500,
     quantity: 1,
     discount: 0,
     purchaseOrder: {
-      receivedAt: new Date('2026-07-01T00:00:00Z'),
+      createdAt: new Date('2026-07-01T00:00:00Z'),
       currency: 'CLP',
       subtotal: 500,
       tax: 95,
