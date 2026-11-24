@@ -11,6 +11,7 @@ export default async function OrdersPage() {
       id: true,
       status: true,
       total: true,
+      shipping: true,
       currency: true,
       createdAt: true,
       items: {

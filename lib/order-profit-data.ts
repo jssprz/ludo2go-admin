@@ -9,6 +9,8 @@ type OrderForProfit = {
   status: string;
   createdAt: Date;
   currency: string;
+  total: number;
+  shipping: number;
   items: Array<{
     id: string;
     variantId: string;
@@ -90,6 +92,8 @@ export async function getOrderProfits(
         createdAt: order.createdAt,
         status: order.status,
         currency: order.currency,
+        total: order.total,
+        shipping: order.shipping,
         items,
       },
       costPrices,

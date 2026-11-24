@@ -37,6 +37,7 @@ export type OrderProfitPurchaseItem = {
 export type OrderProfitLine = {
   itemId: string;
   amount: number | null;
+  cost: number | null;
 };
 
 function costPriceIncludingTax(costPrice: OrderProfitCostPrice): number {
@@ -58,6 +59,8 @@ export function calculateOrderProfit(
     createdAt: Date;
     status: string;
     currency: string;
+    total: number;
+    shipping: number;
     items: OrderProfitItem[];
   },
   costPrices: OrderProfitCostPrice[],
@@ -80,10 +83,10 @@ export function calculateOrderProfit(
   const lines = order.items.map((item) => {
     const remainingQuantity = Math.max(0, item.quantity - item.cancelledQuantity);
     if (order.status === 'cancelled' || remainingQuantity === 0) {
-      return { itemId: item.id, amount: 0 };
+      return { itemId: item.id, amount: 0, cost: 0 };
     }
     if (item.currency !== order.currency) {
-      return { itemId: item.id, amount: null };
+      return { itemId: item.id, amount: null, cost: null };
     }
 
     // Same source as the Inventory page: latest purchase line (any non-draft PO).
@@ -108,19 +111,26 @@ export function calculateOrderProfit(
       : selectedCostPrice
         ? costPriceIncludingTax(selectedCostPrice)
         : null;
-    if (unitCost === null) return { itemId: item.id, amount: null };
+    if (unitCost === null) return { itemId: item.id, amount: null, cost: null };
 
     const soldUnitPrice = item.isGift ? 0 : item.unitPrice;
     return {
       itemId: item.id,
       amount: (soldUnitPrice - unitCost) * remainingQuantity,
+      cost: unitCost * remainingQuantity,
     };
   });
 
+  // Gain = amount charged excluding shipping (order total, so order-level discounts apply) minus item costs.
+  const totalCost = lines.every((line) => line.cost !== null)
+    ? lines.reduce((sum, line) => sum + (line.cost ?? 0), 0)
+    : null;
   return {
-    total: lines.every((line) => line.amount !== null)
-      ? lines.reduce((sum, line) => sum + (line.amount ?? 0), 0)
-      : null,
+    total: order.status === 'cancelled'
+      ? 0
+      : totalCost === null
+        ? null
+        : order.total - order.shipping - totalCost,
     lines,
   };
 }

@@ -24,19 +24,19 @@ const costPrice: OrderProfitCostPrice = {
 
 test('calculates gross gain for the remaining paid quantity', () => {
   expect(calculateOrderProfit(
-    { createdAt, status: 'delivered', currency: 'CLP', items: [item] },
+    { createdAt, status: 'delivered', currency: 'CLP', total: 4500, shipping: 500, items: [item] },
     [costPrice],
     []
   )).toEqual({
     total: 2000,
-    lines: [{ itemId: 'item-1', amount: 2000 }],
+    lines: [{ itemId: 'item-1', amount: 2000, cost: 2000 }],
   });
 });
 
 test('prefers the cost price effective at order time, falling back to any active cost', () => {
   const future = { ...costPrice, amount: 500, taxIncluded: true, effectiveFrom: new Date('2026-08-01T00:00:00Z') };
   const run = (costs: OrderProfitCostPrice[]) => calculateOrderProfit(
-    { createdAt, status: 'processing', currency: 'CLP', items: [item] }, costs, []
+    { createdAt, status: 'processing', currency: 'CLP', total: 4500, shipping: 500, items: [item] }, costs, []
   ).total;
   expect(run([future, costPrice])).toBe(2000);
   expect(run([future])).toBe(3000);
@@ -44,12 +44,12 @@ test('prefers the cost price effective at order time, falling back to any active
 
 test('includes the cost of gift items and returns unavailable for missing or mismatched costs', () => {
   const gift = { ...item, isGift: true };
-  expect(calculateOrderProfit({ createdAt, status: 'processing', currency: 'CLP', items: [gift] }, [costPrice], []).total)
+  expect(calculateOrderProfit({ createdAt, status: 'processing', currency: 'CLP', total: 0, shipping: 0, items: [gift] }, [costPrice], []).total)
     .toBe(-2000);
-  expect(calculateOrderProfit({ createdAt, status: 'processing', currency: 'CLP', items: [item] }, [], []).total)
+  expect(calculateOrderProfit({ createdAt, status: 'processing', currency: 'CLP', total: 4500, shipping: 500, items: [item] }, [], []).total)
     .toBeNull();
   expect(calculateOrderProfit(
-    { createdAt, status: 'processing', currency: 'CLP', items: [{ ...item, currency: 'USD' }] },
+    { createdAt, status: 'processing', currency: 'CLP', total: 4500, shipping: 500, items: [{ ...item, currency: 'USD' }] },
     [costPrice],
     []
   ).total).toBeNull();
@@ -71,12 +71,21 @@ test('prefers the latest purchase cost, as the Inventory page does', () => {
     },
   };
   expect(calculateOrderProfit(
-    { createdAt, status: 'processing', currency: 'CLP', items: [item] },
+    { createdAt, status: 'processing', currency: 'CLP', total: 4500, shipping: 500, items: [item] },
     [costPrice],
     [purchase]
   ).total).toBe(2810);
 });
 
 test('treats a cancelled order as no sale', () => {
-  expect(calculateOrderProfit({ createdAt, status: 'cancelled', currency: 'CLP', items: [item] }, [], []).total).toBe(0);
+  expect(calculateOrderProfit({ createdAt, status: 'cancelled', currency: 'CLP', total: 4500, shipping: 500, items: [item] }, [], []).total).toBe(0);
+});
+
+test('computes gain on total minus shipping, so order discounts and shipping are accounted for', () => {
+  const run = (total: number, shipping: number) => calculateOrderProfit(
+    { createdAt, status: 'processing', currency: 'CLP', total, shipping, items: [item] }, [costPrice], []
+  ).total;
+  expect(run(4500, 500)).toBe(2000);
+  expect(run(3500, 500)).toBe(1000);
+  expect(run(4000, 0)).toBe(2000);
 });

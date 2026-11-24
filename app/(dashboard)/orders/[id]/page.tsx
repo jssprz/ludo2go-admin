@@ -441,7 +441,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <span>{formatCurrency(order.shipping, order.currency)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Estimated gain on items:</span>
+              <span>Estimated gain (total − shipping − costs):</span>
               <span>
                 {orderProfit.total === null
                   ? 'Unavailable'
@@ -453,7 +453,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <span>{formatCurrency(order.total, order.currency)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Estimated as item sale prices minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; excludes shipping and order-level discounts. Missing or mismatched costs are shown as unavailable.
+              Estimated as the order total minus shipping minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; shipping is excluded and order-level discounts are included. Missing or mismatched costs are shown as unavailable.
             </p>
           </CardContent>
         </Card>
