@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { OrdersTable } from './orders-table';
+import { getOrderProfits } from '@/lib/order-profit-data';
 
 export default async function OrdersPage() {
   const orders = await prisma.order.findMany({
@@ -12,32 +13,22 @@ export default async function OrdersPage() {
       total: true,
       currency: true,
       createdAt: true,
-      customer: {
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
       items: {
         select: {
           id: true,
+          variantId: true,
           quantity: true,
+          unitPrice: true,
+          currency: true,
+          isGift: true,
+          cancellations: { select: { quantity: true } },
           variant: {
             select: {
               id: true,
               sku: true,
               mediaLinks: {
-                where: {
-                  role: 'primary',
-                  media: { kind: 'image' },
-                },
-                select: {
-                  media: {
-                    select: { url: true },
-                  },
-                },
+                where: { role: 'primary', media: { kind: 'image' } },
+                select: { media: { select: { url: true } } },
                 orderBy: { sort: 'asc' },
                 take: 1,
               },
@@ -46,15 +37,8 @@ export default async function OrdersPage() {
                   id: true,
                   name: true,
                   mediaLinks: {
-                    where: {
-                      role: 'primary',
-                      media: { kind: 'image' },
-                    },
-                    select: {
-                      media: {
-                        select: { url: true },
-                      },
-                    },
+                    where: { role: 'primary', media: { kind: 'image' } },
+                    select: { media: { select: { url: true } } },
                     orderBy: { sort: 'asc' },
                     take: 1,
                   },
@@ -64,11 +48,24 @@ export default async function OrdersPage() {
           },
         },
       },
+      customer: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
     },
   });
+  const orderProfits = await getOrderProfits(orders);
+  const tableOrders = orders.map((order) => ({
+    ...order,
+    profit: orderProfits.get(order.id)?.total ?? null,
+  }));
 
   return (
     <div className="space-y-4">
@@ -76,7 +73,7 @@ export default async function OrdersPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">
-            Manage customer orders and update their status
+            Manage customer orders and update their status. Estimated gain is based on item sale prices minus historical unit costs.
           </p>
         </div>
         <Button asChild>
@@ -87,7 +84,7 @@ export default async function OrdersPage() {
         </Button>
       </div>
 
-      <OrdersTable orders={orders} />
+      <OrdersTable orders={tableOrders} />
     </div>
   );
 }

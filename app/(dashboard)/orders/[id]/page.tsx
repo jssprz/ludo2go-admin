@@ -17,6 +17,7 @@ import { OrderStatusControl } from './order-status-control';
 import { ShippingLabelButton } from './shipping-label-button';
 import { OrderItemsControl } from './order-items-control';
 import { readDeliveryProofs, readDeliveryRecipient } from '@/lib/delivery-proof';
+import { getOrderProfits } from '@/lib/order-profit-data';
 
 type PageProps = {
   params: Promise<{
@@ -77,6 +78,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
       items: {
         select: {
           id: true,
+          variantId: true,
           quantity: true,
           unitPrice: true,
           currency: true,
@@ -180,6 +182,8 @@ export default async function OrderDetailPage({ params }: PageProps) {
   if (!order) {
     notFound();
   }
+
+  const orderProfit = (await getOrderProfits([order])).get(order.id)!;
 
   const historyActorIds = Array.from(new Set(order.statusHistory
     .map((entry) => entry.actorId)
@@ -436,10 +440,21 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <span>Shipping:</span>
               <span>{formatCurrency(order.shipping, order.currency)}</span>
             </div>
+            <div className="flex justify-between text-sm">
+              <span>Estimated gain on items:</span>
+              <span>
+                {orderProfit.total === null
+                  ? 'Unavailable'
+                  : formatCurrency(orderProfit.total, order.currency)}
+              </span>
+            </div>
             <div className="border-t pt-2 flex justify-between font-bold">
               <span>Total:</span>
               <span>{formatCurrency(order.total, order.currency)}</span>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Estimated as item sale prices minus the latest received purchase cost before the order (or the effective cost price if unavailable). Uses available VAT details; excludes shipping and order-level discounts. Missing or mismatched costs are shown as unavailable.
+            </p>
           </CardContent>
         </Card>
 
@@ -451,7 +466,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
           <CardContent>
             <OrderItemsControl orderId={order.id} currency={order.currency} items={orderItemsForControl} />
             <div className="space-y-4">
-              {order.items.map((item) => (
+              {order.items.map((item) => {
+                const itemProfit = orderProfit.lines.get(item.id);
+                return (
                 <div
                   key={item.id}
                   className="flex items-center justify-between border-b pb-4 last:border-0"
@@ -561,9 +578,16 @@ export default async function OrderDetailPage({ params }: PageProps) {
                     <p className="text-sm text-muted-foreground">
                       {formatCurrency(item.unitPrice, item.currency)} each
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      Gain:{' '}
+                      {itemProfit == null
+                        ? 'Unavailable'
+                        : formatCurrency(itemProfit, item.currency)}
+                    </p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

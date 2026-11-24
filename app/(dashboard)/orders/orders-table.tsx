@@ -25,6 +25,7 @@ type OrderWithDetails = {
   id: string;
   status: OrderStatus;
   total: number;
+  profit: number | null;
   currency: string;
   createdAt: Date;
   customer: {
@@ -36,6 +37,11 @@ type OrderWithDetails = {
   items: Array<{
     id: string;
     quantity: number;
+    variantId: string;
+    unitPrice: number;
+    currency: string;
+    isGift: boolean;
+    cancellations: Array<{ quantity: number }>;
     variant: {
       id: string;
       sku: string;
@@ -142,6 +148,7 @@ export function OrdersTable({ orders }: Props) {
             <TableHead>Customer</TableHead>
             <TableHead>Items</TableHead>
             <TableHead>Total</TableHead>
+            <TableHead>Estimated gain</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Date</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -190,6 +197,11 @@ export function OrdersTable({ orders }: Props) {
               </TableCell>
               <TableCell className="font-medium">
                 {formatCurrency(order.total, order.currency)}
+              </TableCell>
+              <TableCell className="font-medium">
+                {order.profit === null
+                  ? <span className="text-muted-foreground">Unavailable</span>
+                  : formatCurrency(order.profit, order.currency)}
               </TableCell>
               <TableCell>
                 <Select
