@@ -90,3 +90,29 @@ test('reports missing email configuration without attempting delivery', async ()
   expect((await POST(request(), context)).status).toBe(500);
   expect(mocks.send).not.toHaveBeenCalled();
 });
+
+const previewRequest = () => new Request('http://localhost/api/orders/order-123456/pickup-coordination?preview=true', { method: 'POST' });
+
+test('preview sends identical content exclusively to the authenticated admin', async () => {
+  await POST(request(), context);
+  const customerEmail = mocks.send.mock.calls[0][0];
+  mocks.send.mockClear();
+  mocks.auth.mockResolvedValue({ user: { id: 'admin-1', email: 'admin@example.com' } });
+  const response = await POST(previewRequest(), context);
+  expect(response.status).toBe(200);
+  expect((await response.json()).message).toContain('No se envió al cliente');
+  expect(mocks.send).toHaveBeenCalledTimes(1);
+  expect(mocks.send.mock.calls[0][0]).toEqual({ ...customerEmail, to: 'admin@example.com' });
+});
+
+test('preview works without customer email', async () => {
+  mocks.auth.mockResolvedValue({ user: { id: 'admin-1', email: 'admin@example.com' } });
+  mocks.order.mockResolvedValue({ ...order, customer: { ...order.customer, email: '' } });
+  expect((await POST(previewRequest(), context)).status).toBe(200);
+  expect(mocks.send.mock.calls[0][0].to).toBe('admin@example.com');
+});
+
+test('preview without admin email never falls back to the customer', async () => {
+  expect((await POST(previewRequest(), context)).status).toBe(400);
+  expect(mocks.send).not.toHaveBeenCalled();
+});

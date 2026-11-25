@@ -25,7 +25,21 @@ test('shows provider failure and allows retry', async () => {
   expect(screen.getByRole('button', { name: 'Enviar correo' }).hasAttribute('disabled')).toBe(false);
 });
 
-test('disables sending when email is missing', () => {
+test('allows preview but disables customer sending when email is missing', () => {
   render(<PickupCoordinationButton orderId="order-1" email={null} />);
-  expect(screen.getByRole('button').hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Coordinar retiro por correo' }));
+  expect(screen.getByRole('button', { name: 'Enviar correo' }).hasAttribute('disabled')).toBe(true);
+  expect(screen.getByRole('button', { name: 'Enviar vista previa a mi correo' }).hasAttribute('disabled')).toBe(false);
+});
+
+test('sends preview separately and leaves customer confirmation available', async () => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+  vi.stubGlobal('fetch', fetch);
+  render(<PickupCoordinationButton orderId="order-1" email="customer@example.com" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Coordinar retiro por correo' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Enviar vista previa a mi correo' }));
+  await waitFor(() => expect(screen.getByRole('status').textContent).toContain('No se envió al cliente'));
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledWith('/api/orders/order-1/pickup-coordination?preview=true', { method: 'POST' });
+  expect(screen.getByRole('button', { name: 'Enviar correo' })).toBeTruthy();
 });
