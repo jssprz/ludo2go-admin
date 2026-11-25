@@ -1,6 +1,12 @@
 import { inferPurchaseOrderTaxOptions } from './purchase-order-tax';
 import { totalPaymentCommission, type CommissionPayment } from './payment-commissions';
 
+export const MERCADO_LIBRE_SALE_FEE_PERCENT = 15;
+
+export function isMercadoLibreCustomerEmail(email?: string | null): boolean {
+  return email?.trim().toLowerCase().startsWith('ml-') ?? false;
+}
+
 export type OrderProfitItem = {
   id: string;
   variantId: string;
@@ -62,12 +68,19 @@ export function calculateOrderProfit(
     currency: string;
     total: number;
     shipping: number;
+    customerEmail?: string | null;
     payments: CommissionPayment[];
     items: OrderProfitItem[];
   },
   costPrices: OrderProfitCostPrice[],
   purchaseItems: OrderProfitPurchaseItem[]
-): { total: number | null; cost: number | null; commission: number | null; lines: OrderProfitLine[] } {
+): {
+  total: number | null;
+  cost: number | null;
+  commission: number | null;
+  mercadoLibreCommission: number | null;
+  lines: OrderProfitLine[];
+} {
   const costsByVariant = new Map<string, OrderProfitCostPrice[]>();
   for (const costPrice of costPrices) {
     const costs = costsByVariant.get(costPrice.variantId) ?? [];
@@ -123,8 +136,13 @@ export function calculateOrderProfit(
     };
   });
 
-  // Gain = amount charged excluding shipping (order total, so order-level discounts apply) minus item costs and payment commissions.
+  // Gain excludes shipping and subtracts item costs, payment commissions, and any Mercado Libre sale charge.
   const commission = order.status === 'cancelled' ? 0 : totalPaymentCommission(order.payments);
+  const mercadoLibreCommission = isMercadoLibreCustomerEmail(order.customerEmail)
+    ? order.status === 'cancelled'
+      ? 0
+      : Math.round(Math.max(0, order.total - order.shipping) * MERCADO_LIBRE_SALE_FEE_PERCENT / 100)
+    : null;
   const totalCost = lines.every((line) => line.cost !== null)
     ? lines.reduce((sum, line) => sum + (line.cost ?? 0), 0)
     : null;
@@ -133,9 +151,10 @@ export function calculateOrderProfit(
       ? 0
       : totalCost === null || commission === null
         ? null
-        : order.total - order.shipping - totalCost - commission,
+        : order.total - order.shipping - totalCost - commission - (mercadoLibreCommission ?? 0),
     cost: order.status === 'cancelled' ? 0 : totalCost,
     commission,
+    mercadoLibreCommission,
     lines,
   };
 }

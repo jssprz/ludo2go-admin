@@ -13,6 +13,7 @@ type OrderForProfit = {
   total: number;
   shipping: number;
   notes?: string | null;
+  customer?: { email: string } | null;
   payments: Array<{ method: string; amount: number; status: string }>;
   items: Array<{
     id: string;
@@ -27,7 +28,7 @@ type OrderForProfit = {
 
 export async function getOrderProfits(
   orders: OrderForProfit[]
-): Promise<Map<string, { total: number | null; cost: number | null; commission: number | null; payments: CommissionPayment[]; lines: Map<string, number | null> }>> {
+): Promise<Map<string, { total: number | null; cost: number | null; commission: number | null; mercadoLibreCommission: number | null; payments: CommissionPayment[]; lines: Map<string, number | null> }>> {
   const variantIds = Array.from(new Set(orders.flatMap((order) => order.items.map((item) => item.variantId))));
 
   if (orders.length === 0) return new Map();
@@ -93,6 +94,7 @@ export async function getOrderProfits(
         currency: order.currency,
         total: order.total,
         shipping: order.shipping,
+        customerEmail: order.customer?.email,
         payments,
         items,
       },
@@ -103,6 +105,7 @@ export async function getOrderProfits(
       total: profit.total,
       cost: profit.cost,
       commission: profit.commission,
+      mercadoLibreCommission: profit.mercadoLibreCommission,
       payments,
       lines: new Map(profit.lines.map((line) => [line.itemId, line.amount])),
     }];

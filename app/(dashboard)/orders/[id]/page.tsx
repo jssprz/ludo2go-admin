@@ -523,6 +523,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   );
                 })
               )}
+              {orderProfit.mercadoLibreCommission !== null && (
+                <div className="flex justify-between text-sm">
+                  <span>− Mercado Libre sale charge (15%, VAT included):</span>
+                  <span>{formatCurrency(orderProfit.mercadoLibreCommission, order.currency)}</span>
+                </div>
+              )}
               <div className="border-t pt-2 flex justify-between font-bold">
                 <span>= Estimated gain:</span>
                 <span>
@@ -537,6 +543,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </p>
             <p className="text-xs text-muted-foreground">
               Estimated as the order total minus shipping minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; payment commissions (gateway rate plus 19% VAT) are deducted, shipping is excluded and order-level discounts are included. Missing or mismatched costs are shown as unavailable.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Orders linked to a customer whose email starts with “ml-” include a 15% Mercado Libre sale charge (VAT included), calculated on the order total excluding shipping.
             </p>
           </CardContent>
         </Card>

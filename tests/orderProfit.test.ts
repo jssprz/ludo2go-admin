@@ -32,8 +32,49 @@ test('calculates gross gain for the remaining paid quantity', () => {
     total: 2000,
     cost: 2000,
     commission: 0,
+    mercadoLibreCommission: null,
     lines: [{ itemId: 'item-1', amount: 2000, cost: 2000 }],
   });
+});
+
+test('deducts the Mercado Libre sale charge for customers with an ml- email', () => {
+  const result = calculateOrderProfit(
+    {
+      createdAt,
+      status: 'delivered',
+      currency: 'CLP',
+      total: 4500,
+      shipping: 500,
+      customerEmail: 'ML-customer@example.com',
+      payments: [],
+      items: [item],
+    },
+    [costPrice],
+    []
+  );
+  expect(result.mercadoLibreCommission).toBe(600);
+  expect(result.total).toBe(1400);
+});
+
+test('does not apply the Mercado Libre sale charge to other or missing customer emails', () => {
+  for (const customerEmail of ['customer@example.com', null, undefined]) {
+    const result = calculateOrderProfit(
+      {
+        createdAt,
+        status: 'delivered',
+        currency: 'CLP',
+        total: 4500,
+        shipping: 500,
+        customerEmail,
+        payments: [],
+        items: [item],
+      },
+      [costPrice],
+      []
+    );
+    expect(result.mercadoLibreCommission).toBeNull();
+    expect(result.total).toBe(2000);
+  }
 });
 
 test('prefers the cost price effective at order time, falling back to any active cost', () => {
