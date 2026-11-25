@@ -19,6 +19,7 @@ import { OrderItemsControl } from './order-items-control';
 import { readDeliveryProofs, readDeliveryRecipient } from '@/lib/delivery-proof';
 import { paymentCommission } from '@/lib/payment-commissions';
 import { getOrderProfits } from '@/lib/order-profit-data';
+import { PickupCoordinationButton } from './pickup-coordination-button';
 
 type PageProps = {
   params: Promise<{
@@ -406,6 +407,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
                   />
                 )}
               </div>
+            )}
+            {order.fulfillmentMethod === FulfillmentMethod.pickup && !['cancelled', 'delivered'].includes(order.status) && (
+              <PickupCoordinationButton orderId={order.id} email={order.customer?.email?.trim() || null} />
             )}
             {order.fulfillmentMethod == FulfillmentMethod.pickup && order.pickupLocation && (
               <div className="text-sm space-y-1">
