@@ -35,7 +35,7 @@ export async function sendPickupCoordinationEmail(input: PickupEmailInput): Prom
   const location = input.pickupLocation;
   const paragraphs = [
     `Hola ${input.customerName?.trim() || 'cliente'},`,
-    `Al realizar tu pedido #${input.orderId.slice(0, 8)} en Jobys, seleccionaste retiro en tienda.`,
+    `Al realizar tu pedido #${input.orderId.slice(0, 8)} en Jobys, seleccionaste retiro.`,
     'Queremos coordinar contigo el día y horario de retiro. Escríbenos por WhatsApp indicando tu número de pedido y tu disponibilidad para que podamos confirmar los detalles. Espera nuestra confirmación antes de acudir.',
     ...(location ? [
       `Punto de retiro seleccionado: ${location.name}`,

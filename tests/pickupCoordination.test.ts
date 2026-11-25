@@ -39,7 +39,8 @@ test('sends Spanish pickup coordination with selected location and WhatsApp with
   expect(email.to).toBe('customer@example.com');
   expect(email.from).toBe('Jobys - Juegos de Mesa <pedidos@jobys.cl>');
   for (const body of [email.text, email.html]) {
-    expect(body).toContain('seleccionaste retiro en tienda');
+    expect(body).toContain('seleccionaste retiro.');
+    expect(body).not.toContain('seleccionaste retiro en tienda');
     expect(body).toContain('día y horario');
     expect(body).toContain('+56 9 9542 5099');
     expect(body).toContain('Calle 123');
