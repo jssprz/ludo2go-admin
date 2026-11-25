@@ -307,7 +307,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
     if (res.ok && /image\/(png|jpeg)/.test(type)) {
       logoDataUrl = `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString('base64')}`;
     }
-  } catch {}
+  } catch { }
 
   return (
     <div className="space-y-6">
@@ -328,7 +328,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-4">
         {/* Order Status */}
         <Card>
           <CardHeader>
@@ -395,7 +395,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
                         order.shippingAddr.line1,
                         order.shippingAddr.line2,
                         [order.shippingAddr.city, order.shippingAddr.region].filter(Boolean).join(', ') +
-                          (order.shippingAddr.postalCode ? ` ${order.shippingAddr.postalCode}` : ''),
+                        (order.shippingAddr.postalCode ? ` ${order.shippingAddr.postalCode}` : ''),
                         order.shippingAddr.country,
                       ].filter((l): l is string => !!l),
                       date: formatDateTime(order.createdAt),
@@ -424,6 +424,45 @@ export default async function OrderDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
+        {/* Status History */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Status History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {order.statusHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No status changes have been recorded for this order yet.</p>
+            ) : (
+              <ol className="space-y-4">
+                {order.statusHistory.map((entry) => (
+                  <li key={entry.id} className="flex flex-col gap-1 border-l-2 pl-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        {entry.fromStatus ? (
+                          <Badge variant="outline" className={STATUS_COLORS[entry.fromStatus]}>{entry.fromStatus}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">Initial status</span>
+                        )}
+                        <span aria-hidden="true" className="text-muted-foreground">→</span>
+                        <Badge className={STATUS_COLORS[entry.toStatus]}>{entry.toStatus}</Badge>
+                      </div>
+                      {entry.reason && <p className="text-sm text-muted-foreground">{entry.reason}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {entry.actorType === 'ADMIN'
+                          ? historyActorNames.get(entry.actorId ?? '') ?? 'Admin'
+                          : entry.actorType ?? 'System'}
+                      </p>
+                    </div>
+                    <time className="text-xs text-muted-foreground">{formatDateTime(entry.changedAt)}</time>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
         {/* Order Summary */}
         <Card>
           <CardHeader>
@@ -509,123 +548,123 @@ export default async function OrderDetailPage({ params }: PageProps) {
               {order.items.map((item) => {
                 const itemProfit = orderProfit.lines.get(item.id);
                 return (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-0"
-                >
-                  <div className="flex flex-1 items-start gap-3">
-                    {(item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url) && (
-                      <img
-                        src={item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url}
-                        alt={item.variant?.product?.name ?? item.variant?.sku ?? 'Order item'}
-                        className="h-14 w-14 rounded object-cover border"
-                      />
-                    )}
-                    <div className="flex-1">
-                    <p className="font-medium">{item.variant?.product?.name ?? 'Unknown product'}</p>
-                    <p className="text-sm text-muted-foreground">
-                      SKU: {item.variant?.sku ?? '—'}
-                      {item.variant?.edition && ` • ${item.variant.edition}`}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Quantity: {Math.max(0, item.quantity - item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0))}
-                      {' / Ordered: '}
-                      {item.quantity}
-                    </p>
-                    {item.isGift && (
-                      <p className="text-xs text-green-700">
-                        Gift item{item.giftReason ? ` • ${item.giftReason}` : ''}
-                      </p>
-                    )}
-                    {item.cancellations.length > 0 && (
-                      <div className="mt-1 space-y-1">
-                        {item.cancellations.map((cancellation) => (
-                          <p key={cancellation.id} className="text-xs text-red-700">
-                            Cancelled {cancellation.quantity} ({cancellation.reason.replaceAll('_', ' ')})
-                            {cancellation.details ? ` • ${cancellation.details}` : ''}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    {item.customizations.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Customizations:
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between border-b pb-4 last:border-0"
+                  >
+                    <div className="flex flex-1 items-start gap-3">
+                      {(item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url) && (
+                        <img
+                          src={item.variant?.mediaLinks?.[0]?.media.url ?? item.variant?.product?.mediaLinks?.[0]?.media.url}
+                          alt={item.variant?.product?.name ?? item.variant?.sku ?? 'Order item'}
+                          className="h-14 w-14 rounded object-cover border"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <p className="font-medium">{item.variant?.product?.name ?? 'Unknown product'}</p>
+                        <p className="text-sm text-muted-foreground">
+                          SKU: {item.variant?.sku ?? '—'}
+                          {item.variant?.edition && ` • ${item.variant.edition}`}
                         </p>
-                        {item.customizations.map((customization) => {
-                          const selectedValue =
-                            customization.option?.label ??
-                            (customization.selectedVariant
-                              ? `${customization.selectedVariant.product?.name ?? 'Unknown product'} (${customization.selectedVariant.sku})`
-                              : null) ??
-                            (customization.selectedAddress
-                              ? [
-                                customization.selectedAddress.line1,
-                                customization.selectedAddress.line2,
-                                customization.selectedAddress.city,
-                                customization.selectedAddress.region,
-                                customization.selectedAddress.postalCode,
-                                customization.selectedAddress.country,
-                              ]
-                                .filter(Boolean)
-                                .join(', ')
-                              : null) ??
-                            customization.valueString ??
-                            customization.valueText ??
-                            (customization.valueBoolean !== null
-                              ? customization.valueBoolean
-                                ? 'Yes'
-                                : 'No'
-                              : null) ??
-                            (customization.valueDate
-                              ? formatDate(customization.valueDate)
-                              : null) ??
-                            (customization.valueJson
-                              ? JSON.stringify(customization.valueJson)
-                              : 'Selected');
-
-                          return (
-                            <p key={customization.id} className="text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground">
-                                {customization.group.name}:
-                              </span>{' '}
-                              {selectedValue}
-                              {customization.priceDelta !== 0 && (
-                                <span className="ml-1">
-                                  ({customization.priceDelta > 0 ? '+' : '-'}
-                                  {formatCurrency(
-                                    Math.abs(customization.priceDelta),
-                                    item.currency
-                                  )})
-                                </span>
-                              )}
+                        <p className="text-sm text-muted-foreground">
+                          Quantity: {Math.max(0, item.quantity - item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0))}
+                          {' / Ordered: '}
+                          {item.quantity}
+                        </p>
+                        {item.isGift && (
+                          <p className="text-xs text-green-700">
+                            Gift item{item.giftReason ? ` • ${item.giftReason}` : ''}
+                          </p>
+                        )}
+                        {item.cancellations.length > 0 && (
+                          <div className="mt-1 space-y-1">
+                            {item.cancellations.map((cancellation) => (
+                              <p key={cancellation.id} className="text-xs text-red-700">
+                                Cancelled {cancellation.quantity} ({cancellation.reason.replaceAll('_', ' ')})
+                                {cancellation.details ? ` • ${cancellation.details}` : ''}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {item.customizations.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Customizations:
                             </p>
-                          );
-                        })}
+                            {item.customizations.map((customization) => {
+                              const selectedValue =
+                                customization.option?.label ??
+                                (customization.selectedVariant
+                                  ? `${customization.selectedVariant.product?.name ?? 'Unknown product'} (${customization.selectedVariant.sku})`
+                                  : null) ??
+                                (customization.selectedAddress
+                                  ? [
+                                    customization.selectedAddress.line1,
+                                    customization.selectedAddress.line2,
+                                    customization.selectedAddress.city,
+                                    customization.selectedAddress.region,
+                                    customization.selectedAddress.postalCode,
+                                    customization.selectedAddress.country,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(', ')
+                                  : null) ??
+                                customization.valueString ??
+                                customization.valueText ??
+                                (customization.valueBoolean !== null
+                                  ? customization.valueBoolean
+                                    ? 'Yes'
+                                    : 'No'
+                                  : null) ??
+                                (customization.valueDate
+                                  ? formatDate(customization.valueDate)
+                                  : null) ??
+                                (customization.valueJson
+                                  ? JSON.stringify(customization.valueJson)
+                                  : 'Selected');
+
+                              return (
+                                <p key={customization.id} className="text-xs text-muted-foreground">
+                                  <span className="font-medium text-foreground">
+                                    {customization.group.name}:
+                                  </span>{' '}
+                                  {selectedValue}
+                                  {customization.priceDelta !== 0 && (
+                                    <span className="ml-1">
+                                      ({customization.priceDelta > 0 ? '+' : '-'}
+                                      {formatCurrency(
+                                        Math.abs(customization.priceDelta),
+                                        item.currency
+                                      )})
+                                    </span>
+                                  )}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">
+                        {formatCurrency(
+                          item.isGift
+                            ? 0
+                            : item.unitPrice * Math.max(0, item.quantity - item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0)),
+                          item.currency
+                        )}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatCurrency(item.unitPrice, item.currency)} each
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Gain:{' '}
+                        {itemProfit == null
+                          ? 'Unavailable'
+                          : formatCurrency(itemProfit, item.currency)}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatCurrency(
-                        item.isGift
-                          ? 0
-                          : item.unitPrice * Math.max(0, item.quantity - item.cancellations.reduce((sum, cancellation) => sum + cancellation.quantity, 0)),
-                        item.currency
-                      )}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatCurrency(item.unitPrice, item.currency)} each
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Gain:{' '}
-                      {itemProfit == null
-                        ? 'Unavailable'
-                        : formatCurrency(itemProfit, item.currency)}
-                    </p>
-                  </div>
-                </div>
                 );
               })}
             </div>
@@ -720,61 +759,25 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </CardContent>
           </Card>
         )}
+
+        {/* Notes */}
+        {order.notes && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Notes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {parsedNotes ? (
+                <pre className="text-xs bg-muted rounded p-3 overflow-auto whitespace-pre-wrap break-all">
+                  {JSON.stringify(parsedNotes, null, 2)}
+                </pre>
+              ) : (
+                <p className="text-sm">{order.notes}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Status History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {order.statusHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No status changes have been recorded for this order yet.</p>
-          ) : (
-            <ol className="space-y-4">
-              {order.statusHistory.map((entry) => (
-                <li key={entry.id} className="flex flex-col gap-1 border-l-2 pl-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2 text-sm">
-                      {entry.fromStatus ? (
-                        <Badge variant="outline" className={STATUS_COLORS[entry.fromStatus]}>{entry.fromStatus}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">Initial status</span>
-                      )}
-                      <span aria-hidden="true" className="text-muted-foreground">→</span>
-                      <Badge className={STATUS_COLORS[entry.toStatus]}>{entry.toStatus}</Badge>
-                    </div>
-                    {entry.reason && <p className="text-sm text-muted-foreground">{entry.reason}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      {entry.actorType === 'ADMIN'
-                        ? historyActorNames.get(entry.actorId ?? '') ?? 'Admin'
-                        : entry.actorType ?? 'System'}
-                    </p>
-                  </div>
-                  <time className="text-xs text-muted-foreground">{formatDateTime(entry.changedAt)}</time>
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Notes */}
-      {order.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {parsedNotes ? (
-              <pre className="text-xs bg-muted rounded p-3 overflow-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(parsedNotes, null, 2)}
-              </pre>
-            ) : (
-              <p className="text-sm">{order.notes}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
