@@ -17,6 +17,7 @@ import { OrderStatusControl } from './order-status-control';
 import { ShippingLabelButton } from './shipping-label-button';
 import { OrderItemsControl } from './order-items-control';
 import { readDeliveryProofs, readDeliveryRecipient } from '@/lib/delivery-proof';
+import { paymentCommission } from '@/lib/payment-commissions';
 import { getOrderProfits } from '@/lib/order-profit-data';
 
 type PageProps = {
@@ -161,6 +162,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
           },
         },
       },
+      payments: { select: { id: true, method: true, amount: true, status: true }, orderBy: { createdAt: 'asc' } },
       fulfillmentMethod: true,
       shippingAddr: true,
       pickupLocation: true,
@@ -440,20 +442,52 @@ export default async function OrderDetailPage({ params }: PageProps) {
               <span>Shipping:</span>
               <span>{formatCurrency(order.shipping, order.currency)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span>Estimated gain (total − shipping − costs):</span>
-              <span>
-                {orderProfit.total === null
-                  ? 'Unavailable'
-                  : formatCurrency(orderProfit.total, order.currency)}
-              </span>
-            </div>
             <div className="border-t pt-2 flex justify-between font-bold">
               <span>Total:</span>
               <span>{formatCurrency(order.total, order.currency)}</span>
             </div>
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-sm font-semibold">Estimated gain breakdown</p>
+              <div className="flex justify-between text-sm">
+                <span>Total:</span>
+                <span>{formatCurrency(order.total, order.currency)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>− Shipping:</span>
+                <span>{formatCurrency(order.shipping, order.currency)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>− Item costs:</span>
+                <span>
+                  {orderProfit.cost === null
+                    ? 'Unavailable'
+                    : formatCurrency(orderProfit.cost, order.currency)}
+                </span>
+              </div>
+              {order.payments.length === 0 ? (
+                <div className="flex justify-between text-sm">
+                  <span>− Payment commission:</span>
+                  <span>{formatCurrency(0, order.currency)}</span>
+                </div>
+              ) : (
+                order.payments.map((payment) => (
+                  <div key={payment.id} className="flex justify-between text-sm">
+                    <span>− Commission ({payment.method}, {payment.status}):</span>
+                    <span>{formatCurrency(paymentCommission(payment), order.currency)}</span>
+                  </div>
+                ))
+              )}
+              <div className="border-t pt-2 flex justify-between font-bold">
+                <span>= Estimated gain:</span>
+                <span>
+                  {orderProfit.total === null
+                    ? 'Unavailable'
+                    : formatCurrency(orderProfit.total, order.currency)}
+                </span>
+              </div>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Estimated as the order total minus shipping minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; shipping is excluded and order-level discounts are included. Missing or mismatched costs are shown as unavailable.
+              Estimated as the order total minus shipping minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; payment commissions (gateway rate plus 19% VAT) are deducted, shipping is excluded and order-level discounts are included. Missing or mismatched costs are shown as unavailable.
             </p>
           </CardContent>
         </Card>

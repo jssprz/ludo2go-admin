@@ -1,4 +1,5 @@
 import { inferPurchaseOrderTaxOptions } from './purchase-order-tax';
+import { totalPaymentCommission, type CommissionPayment } from './payment-commissions';
 
 export type OrderProfitItem = {
   id: string;
@@ -61,11 +62,12 @@ export function calculateOrderProfit(
     currency: string;
     total: number;
     shipping: number;
+    payments: CommissionPayment[];
     items: OrderProfitItem[];
   },
   costPrices: OrderProfitCostPrice[],
   purchaseItems: OrderProfitPurchaseItem[]
-): { total: number | null; lines: OrderProfitLine[] } {
+): { total: number | null; cost: number | null; commission: number; lines: OrderProfitLine[] } {
   const costsByVariant = new Map<string, OrderProfitCostPrice[]>();
   for (const costPrice of costPrices) {
     const costs = costsByVariant.get(costPrice.variantId) ?? [];
@@ -121,7 +123,8 @@ export function calculateOrderProfit(
     };
   });
 
-  // Gain = amount charged excluding shipping (order total, so order-level discounts apply) minus item costs.
+  // Gain = amount charged excluding shipping (order total, so order-level discounts apply) minus item costs and payment commissions.
+  const commission = order.status === 'cancelled' ? 0 : totalPaymentCommission(order.payments);
   const totalCost = lines.every((line) => line.cost !== null)
     ? lines.reduce((sum, line) => sum + (line.cost ?? 0), 0)
     : null;
@@ -130,7 +133,9 @@ export function calculateOrderProfit(
       ? 0
       : totalCost === null
         ? null
-        : order.total - order.shipping - totalCost,
+        : order.total - order.shipping - totalCost - commission,
+    cost: order.status === 'cancelled' ? 0 : totalCost,
+    commission,
     lines,
   };
 }

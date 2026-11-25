@@ -56,6 +56,10 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   transfer: 'Transferencia bancaria',
   wallet: 'Billetera digital',
   mercadopago: 'Mercado Pago',
+  webpay_debit: 'Webpay Plus (débito/prepago)',
+  webpay_credit: 'Webpay Plus (crédito)',
+  mercadopago_instant: 'Mercado Pago',
+  mercadopago_10d: 'Mercado Pago',
 };
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
