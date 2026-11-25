@@ -21,13 +21,19 @@ const COMMISSION_STATUSES = new Set(['authorized', 'captured', 'approved']);
 
 export type CommissionPayment = { method: string; amount: number; status: string };
 
+function webpayMethod(code: unknown): string {
+  if (code === 'VD' || code === 'VP') return 'webpay_debit';
+  if (typeof code === 'string' && ['VN', 'VC', 'SI', 'S2', 'NC'].includes(code)) return 'webpay_credit';
+  return 'webpay';
+}
+
 export function resolveCommissionPayments(order: {
   payments: CommissionPayment[];
   total: number;
   notes?: string | null;
 }): CommissionPayment[] {
   // Payment records are authoritative; notes must not duplicate attempts or charges.
-  if (order.payments.length > 0 || !order.notes) return order.payments;
+  if (!order.notes) return order.payments;
   let notes: unknown;
   try {
     notes = JSON.parse(order.notes);
@@ -36,6 +42,30 @@ export function resolveCommissionPayments(order: {
     return order.payments; // Order notes may also be ordinary text.
   }
   if (!notes || typeof notes !== 'object' || !('paymentMethod' in notes)) return order.payments;
+  if (notes.paymentMethod === 'webpay' && 'webpay' in notes
+    && notes.webpay && typeof notes.webpay === 'object') {
+    const webpay = notes.webpay;
+    const result = 'result' in webpay && webpay.result && typeof webpay.result === 'object'
+      ? webpay.result
+      : null;
+    const method = webpayMethod(result && 'payment_type_code' in result ? result.payment_type_code : null);
+    if (order.payments.length > 0) {
+      return order.payments.map((payment) => payment.method === 'webpay'
+        ? { ...payment, method }
+        : payment);
+    }
+    const status = result && 'status' in result && typeof result.status === 'string'
+      ? result.status
+      : 'status' in webpay && typeof webpay.status === 'string' ? webpay.status : null;
+    if (status === null) return order.payments;
+    const amount = result && 'amount' in result
+      && typeof result.amount === 'number' && Number.isFinite(result.amount) && result.amount >= 0
+      ? result.amount
+      : order.total;
+    const rejected = result && 'response_code' in result && result.response_code !== 0;
+    return [{ method, amount, status: rejected ? 'rejected' : status }];
+  }
+  if (order.payments.length > 0) return order.payments;
   if (notes.paymentMethod !== 'mercadopago'
     || !('mercadopagoStatus' in notes)
     || typeof notes.mercadopagoStatus !== 'string') return order.payments;
@@ -44,7 +74,7 @@ export function resolveCommissionPayments(order: {
 }
 
 export function paymentCommission(payment: CommissionPayment): number | null {
-  if (!COMMISSION_STATUSES.has(payment.status)) return 0;
+  if (!COMMISSION_STATUSES.has(payment.status.toLowerCase())) return 0;
   const rate = PAYMENT_COMMISSION_RATES[payment.method];
   if (!rate) return null;
   const net = (payment.amount * rate.percent) / 100 + rate.fixed;

@@ -490,7 +490,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Generic Mercado Pago payments use the estimated instant-settlement rate (3.19% plus VAT). When payment records are absent, approved Mercado Pago details in notes are estimated on the order total, once regardless of attempt IDs. Unknown commission rates are shown as unavailable.
+              Generic Mercado Pago payments use the estimated instant-settlement rate (3.19% plus VAT). When payment records are absent, approved Mercado Pago details in notes are estimated on the order total, once regardless of attempt IDs. Webpay notes use the authorized amount and payment type: debit/prepaid 1.49% or credit 2.29%, plus VAT. Unknown commission rates are shown as unavailable.
             </p>
             <p className="text-xs text-muted-foreground">
               Estimated as the order total minus shipping minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; payment commissions (gateway rate plus 19% VAT) are deducted, shipping is excluded and order-level discounts are included. Missing or mismatched costs are shown as unavailable.

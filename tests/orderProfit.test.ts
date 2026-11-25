@@ -165,3 +165,64 @@ test('ordinary notes are ignored and unknown successful payment methods make gai
   expect(result.commission).toBeNull();
   expect(result.total).toBeNull();
 });
+
+test('Webpay notes select the debit rate and deduct the commission from gain', () => {
+  const payments = resolveCommissionPayments({
+    payments: [],
+    total: 40150,
+    notes: JSON.stringify({
+      paymentMethod: 'webpay',
+      webpay: {
+        status: 'APPROVED',
+        result: { amount: 40150, status: 'AUTHORIZED', payment_type_code: 'VD', response_code: 0 },
+      },
+    }),
+  });
+  expect(payments).toEqual([{ method: 'webpay_debit', amount: 40150, status: 'AUTHORIZED' }]);
+  const result = calculateOrderProfit(
+    { createdAt, status: 'processing', currency: 'CLP', total: 40150, shipping: 500, payments, items: [item] },
+    [costPrice], []
+  );
+  expect(result.commission).toBe(712);
+  expect(result.total).toBe(36938);
+});
+
+test('Webpay notes distinguish payment types and use the gateway amount rather than the order total', () => {
+  for (const code of ['VD', 'VP', 'VN', 'VC', 'SI', 'S2', 'NC', 'unknown']) {
+    const payments = resolveCommissionPayments({
+      payments: [], total: 100000,
+      notes: JSON.stringify({
+        paymentMethod: 'webpay',
+        webpay: { result: { amount: 40150, status: 'AUTHORIZED', payment_type_code: code, response_code: 0 } },
+      }),
+    });
+    expect(payments[0].amount).toBe(40150);
+    expect(paymentCommission(payments[0])).toBe(
+      code === 'unknown' ? null : ['VD', 'VP'].includes(code) ? 712 : 1094
+    );
+  }
+});
+
+test('Webpay records retain authoritative amounts and statuses while notes supply the payment type', () => {
+  const notes = JSON.stringify({
+    paymentMethod: 'webpay',
+    webpay: { result: { amount: 40150, status: 'AUTHORIZED', payment_type_code: 'VD', response_code: 0 } },
+  });
+  const payments = resolveCommissionPayments({
+    payments: [{ method: 'webpay', amount: 100000, status: 'failed' }],
+    total: 40150, notes,
+  });
+  expect(payments).toEqual([{ method: 'webpay_debit', amount: 100000, status: 'failed' }]);
+  expect(paymentCommission(payments[0])).toBe(0);
+});
+
+test('Webpay rejected responses incur no commission even if the status claims authorization', () => {
+  const payments = resolveCommissionPayments({
+    payments: [], total: 40150,
+    notes: JSON.stringify({
+      paymentMethod: 'webpay',
+      webpay: { result: { amount: 40150, status: 'AUTHORIZED', payment_type_code: 'VD', response_code: -1 } },
+    }),
+  });
+  expect(paymentCommission(payments[0])).toBe(0);
+});
