@@ -10,6 +10,7 @@ export default async function OrdersPage() {
     select: {
       id: true,
       status: true,
+      fulfillmentMethod: true,
       total: true,
       shipping: true,
       notes: true,
