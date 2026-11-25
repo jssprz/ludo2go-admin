@@ -1,4 +1,5 @@
 import { prisma } from '@jssprz/ludo2go-database';
+import { resolveCommissionPayments, type CommissionPayment } from './payment-commissions';
 import {
   calculateOrderProfit,
   type OrderProfitItem,
@@ -11,6 +12,7 @@ type OrderForProfit = {
   currency: string;
   total: number;
   shipping: number;
+  notes?: string | null;
   payments: Array<{ method: string; amount: number; status: string }>;
   items: Array<{
     id: string;
@@ -25,17 +27,10 @@ type OrderForProfit = {
 
 export async function getOrderProfits(
   orders: OrderForProfit[]
-): Promise<Map<string, { total: number | null; cost: number | null; commission: number; lines: Map<string, number | null> }>> {
+): Promise<Map<string, { total: number | null; cost: number | null; commission: number | null; payments: CommissionPayment[]; lines: Map<string, number | null> }>> {
   const variantIds = Array.from(new Set(orders.flatMap((order) => order.items.map((item) => item.variantId))));
 
-  if (variantIds.length === 0) {
-    return new Map(orders.map((order) => [order.id, {
-      total: 0,
-      cost: 0,
-      commission: 0,
-      lines: new Map(order.items.map((item) => [item.id, 0])),
-    }]));
-  }
+  if (orders.length === 0) return new Map();
 
   const [costPrices, purchaseItems] = await Promise.all([
     prisma.costPrice.findMany({
@@ -81,6 +76,7 @@ export async function getOrderProfits(
   ]);
 
   return new Map(orders.map((order) => {
+    const payments = resolveCommissionPayments(order);
     const items: OrderProfitItem[] = order.items.map((item) => ({
       id: item.id,
       variantId: item.variantId,
@@ -97,7 +93,7 @@ export async function getOrderProfits(
         currency: order.currency,
         total: order.total,
         shipping: order.shipping,
-        payments: order.payments,
+        payments,
         items,
       },
       costPrices,
@@ -107,6 +103,7 @@ export async function getOrderProfits(
       total: profit.total,
       cost: profit.cost,
       commission: profit.commission,
+      payments,
       lines: new Map(profit.lines.map((line) => [line.itemId, line.amount])),
     }];
   }));

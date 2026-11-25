@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { calculateOrderProfit, type OrderProfitCostPrice } from '../lib/order-profit';
+import { paymentCommission, resolveCommissionPayments } from '../lib/payment-commissions';
 
 const createdAt = new Date('2026-07-14T12:00:00Z');
 
@@ -102,4 +103,65 @@ test('deducts payment commissions (with VAT) from the gain, ignoring failed paym
   );
   expect(result.commission).toBe(123);
   expect(result.total).toBe(2000 - 123);
+});
+
+test('deducts an approved Mercado Pago payment found only in notes, once for multiple attempt IDs', () => {
+  const payments = resolveCommissionPayments({
+    payments: [],
+    total: 4500,
+    notes: JSON.stringify({
+      paymentMethod: 'mercadopago',
+      mercadopagoPaymentId: '191317140958,191317198826',
+      mercadopagoStatus: 'approved',
+      promoDiscount: 11516,
+    }),
+  });
+  expect(payments).toEqual([{ method: 'mercadopago', status: 'approved', amount: 4500 }]);
+  const result = calculateOrderProfit(
+    { createdAt, status: 'processing', currency: 'CLP', total: 4500, shipping: 500, payments, items: [item] },
+    [costPrice], []
+  );
+  expect(result.commission).toBe(171);
+  expect(result.total).toBe(1829);
+});
+
+test('payment records override notes without duplicating a charge or overriding a failed status', () => {
+  const notes = JSON.stringify({ paymentMethod: 'mercadopago', mercadopagoStatus: 'approved' });
+  for (const status of ['approved', 'captured', 'failed']) {
+    const payments = [{ method: 'mercadopago_10d', amount: 100000, status }];
+    expect(resolveCommissionPayments({ payments, total: 100000, notes })).toEqual(payments);
+    expect(paymentCommission(payments[0])).toBe(status === 'failed' ? 0 : 3439);
+  }
+});
+
+test('uses published gateway tariffs including VAT and recognizes the Mercado Pago alias', () => {
+  const rates = {
+    webpay_debit: 1773,
+    webpay_credit: 2725,
+    mercadopago_instant: 3796,
+    mercadopago_10d: 3439,
+    mercadopago: 3796,
+    transfer: 0,
+    cash: 0,
+  };
+  for (const [method, expected] of Object.entries(rates)) {
+    expect(paymentCommission({ method, amount: 100000, status: 'approved' })).toBe(expected);
+  }
+  for (const status of ['pending', 'failed', 'refunded', 'rejected']) {
+    expect(paymentCommission({ method: 'mercadopago', amount: 100000, status })).toBe(0);
+  }
+});
+
+test('ordinary notes are ignored and unknown successful payment methods make gain unavailable', () => {
+  for (const notes of ['plain text', 'null', '[]', '{}']) {
+    expect(resolveCommissionPayments({ payments: [], total: 4500, notes })).toEqual([]);
+  }
+  const payments = [{ method: 'unknown_gateway', amount: 4500, status: 'captured' }];
+  expect(paymentCommission(payments[0])).toBeNull();
+  const result = calculateOrderProfit(
+    { createdAt, status: 'processing', currency: 'CLP', total: 4500, shipping: 500, payments, items: [item] },
+    [costPrice], []
+  );
+  expect(result.commission).toBeNull();
+  expect(result.total).toBeNull();
 });

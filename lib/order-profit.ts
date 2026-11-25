@@ -67,7 +67,7 @@ export function calculateOrderProfit(
   },
   costPrices: OrderProfitCostPrice[],
   purchaseItems: OrderProfitPurchaseItem[]
-): { total: number | null; cost: number | null; commission: number; lines: OrderProfitLine[] } {
+): { total: number | null; cost: number | null; commission: number | null; lines: OrderProfitLine[] } {
   const costsByVariant = new Map<string, OrderProfitCostPrice[]>();
   for (const costPrice of costPrices) {
     const costs = costsByVariant.get(costPrice.variantId) ?? [];
@@ -131,7 +131,7 @@ export function calculateOrderProfit(
   return {
     total: order.status === 'cancelled'
       ? 0
-      : totalCost === null
+      : totalCost === null || commission === null
         ? null
         : order.total - order.shipping - totalCost - commission,
     cost: order.status === 'cancelled' ? 0 : totalCost,

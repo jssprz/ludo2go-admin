@@ -12,6 +12,7 @@ export default async function OrdersPage() {
       status: true,
       total: true,
       shipping: true,
+      notes: true,
       payments: { select: { method: true, amount: true, status: true } },
       currency: true,
       createdAt: true,

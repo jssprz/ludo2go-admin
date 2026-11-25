@@ -464,18 +464,21 @@ export default async function OrderDetailPage({ params }: PageProps) {
                     : formatCurrency(orderProfit.cost, order.currency)}
                 </span>
               </div>
-              {order.payments.length === 0 ? (
+              {orderProfit.payments.length === 0 ? (
                 <div className="flex justify-between text-sm">
                   <span>− Payment commission:</span>
                   <span>{formatCurrency(0, order.currency)}</span>
                 </div>
               ) : (
-                order.payments.map((payment) => (
-                  <div key={payment.id} className="flex justify-between text-sm">
-                    <span>− Commission ({payment.method}, {payment.status}):</span>
-                    <span>{formatCurrency(paymentCommission(payment), order.currency)}</span>
-                  </div>
-                ))
+                orderProfit.payments.map((payment, index) => {
+                  const commission = order.status === 'cancelled' ? 0 : paymentCommission(payment);
+                  return (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span>− Commission ({payment.method}, {payment.status}):</span>
+                      <span>{commission === null ? 'Unavailable' : formatCurrency(commission, order.currency)}</span>
+                    </div>
+                  );
+                })
               )}
               <div className="border-t pt-2 flex justify-between font-bold">
                 <span>= Estimated gain:</span>
@@ -486,6 +489,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
                 </span>
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Generic Mercado Pago payments use the estimated instant-settlement rate (3.19% plus VAT). When payment records are absent, approved Mercado Pago details in notes are estimated on the order total, once regardless of attempt IDs. Unknown commission rates are shown as unavailable.
+            </p>
             <p className="text-xs text-muted-foreground">
               Estimated as the order total minus shipping minus the latest purchase order cost, as in Inventory (or the active cost price if there is no purchase). Uses available VAT details; payment commissions (gateway rate plus 19% VAT) are deducted, shipping is excluded and order-level discounts are included. Missing or mismatched costs are shown as unavailable.
             </p>
