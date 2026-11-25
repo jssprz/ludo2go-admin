@@ -42,7 +42,7 @@ export function PickupCoordinationButton({ orderId, email }: { orderId: string; 
       {!email && <p className="text-sm text-muted-foreground">El cliente no tiene un correo registrado.</p>}
       {confirming && (
         <div className="space-y-2 text-sm">
-          <p>{email ? `Enviar a ${email} una solicitud para coordinar el retiro seleccionado` : 'Revisar una solicitud para coordinar el retiro seleccionado'}, con el punto de retiro y nuestro WhatsApp +56 9 9542 5099. No se enviará una confirmación de que el pedido está listo.</p>
+          <p>{email ? `Enviar a ${email} una solicitud para coordinar el retiro seleccionado` : 'Revisar una solicitud para coordinar el retiro seleccionado'}, con el punto de retiro, nuestro WhatsApp +56 9 9542 5099 y el correo jobyschile@gmail.com. No se enviará una confirmación de que el pedido está listo.</p>
           <p>La vista previa se envía solo al correo de tu cuenta de administrador, no al cliente.</p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => send(true)}>Enviar vista previa a mi correo</Button>

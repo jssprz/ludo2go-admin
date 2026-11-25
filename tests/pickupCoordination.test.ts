@@ -45,10 +45,14 @@ test('sends Spanish pickup coordination with selected location and WhatsApp with
     expect(body).toContain('+56 9 9542 5099');
     expect(body).toContain('Calle 123');
     expect(body).toContain('https://wa.me/56995425099?text=');
-    expect(body).toContain('no respondas');
+    expect(body).toContain('jobyschile@gmail.com');
+    expect(body).not.toContain('Si no tenemos tu teléfono registrado');
+    expect(body).not.toContain('no respondas');
     expect(body).toContain('Espera nuestra confirmación');
   }
   expect(email.html).toContain('&lt;Ana&gt;');
+  expect(email.replyTo).toBe('jobyschile@gmail.com');
+  expect(email.html).toContain('mailto:jobyschile@gmail.com?subject=');
   expect(email.html).toContain('Local &lt;Centro&gt;');
   expect(decodeURIComponent(email.text)).toContain('pedido #order-12');
 });
