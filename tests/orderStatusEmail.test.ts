@@ -4,10 +4,11 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 const mocks = vi.hoisted(() => ({
-  send: vi.fn(), order: vi.fn(), createToken: vi.fn(), revokeToken: vi.fn(),
+  send: vi.fn(), order: vi.fn(), createToken: vi.fn(), revokeToken: vi.fn(), template: vi.fn(),
 }));
 vi.mock('@jssprz/ludo2go-database', () => ({ prisma: {
   order: { findUnique: mocks.order },
+  emailTemplate: { findUnique: mocks.template },
   emailVerificationToken: { create: mocks.createToken, update: mocks.revokeToken },
 } }));
 vi.mock('resend', () => ({
@@ -22,6 +23,7 @@ beforeEach(() => {
   mocks.order.mockResolvedValue({
     id: 'order-123456', customerId: 'customer-1', customer: { email: 'stored@example.com' },
   });
+  mocks.template.mockResolvedValue(null);
   mocks.createToken.mockResolvedValue({ id: 'token-1' });
   mocks.revokeToken.mockResolvedValue({});
 });
@@ -157,4 +159,61 @@ test('does not send an email when token creation fails', async () => {
   } finally {
     log.mockRestore();
   }
+});
+
+const storedTemplate = {
+  subjectTemplate: 'Pedido #{{orderNumber}}: {{statusLabel}}',
+  htmlTemplate: '<p>Hola {{customerName}}</p>{{#each itemSummaries}}<b>{{name}}</b>{{#each details}}{{this}}{{#unless @last}}<br>{{/unless}}{{/each}}{{else}}vacío{{/each}}<a href="{{orderUrl}}">Ver</a>',
+  textTemplate: 'Hola {{customerName}} {{#each itemSummaries}}{{name}}{{/each}} {{orderUrl}}',
+  fromName: 'Jobys - Juegos de Mesa',
+  fromEmail: null,
+  replyToEmail: 'ayuda@jobys.cl',
+};
+
+test('renders the stored template, escaping HTML only, and keeps token, recipient, tags and configured sender', async () => {
+  vi.stubEnv('RESEND_API_KEY', 'test-key');
+  vi.stubEnv('RESEND_FROM_EMAIL', 'Jobys Pedidos <pedidos@jobys.cl>');
+  mocks.template.mockResolvedValue(storedTemplate);
+  mocks.send.mockResolvedValue({ error: null });
+  await sendOrderStatusNotification({
+    ...notification,
+    customerName: ' <Ana> ',
+    items: [{ name: '<Game & One>', quantity: 1, unitPrice: 10000, isGift: false, cancellations: [] }],
+  });
+  expect(mocks.template).toHaveBeenCalledWith({ where: { key_locale: { key: 'order_status_update', locale: 'es-CL' } } });
+  const email = mocks.send.mock.calls[0][0];
+  expect(email.subject).toBe('Pedido #order-12: enviado');
+  expect(email.html).toContain('Hola &lt;Ana&gt;');
+  expect(email.html).toContain('&lt;Game &amp; One&gt;');
+  expect(email.text).toContain('Hola <Ana> <Game & One>');
+  expect(email.from).toBe('Jobys Pedidos <pedidos@jobys.cl>');
+  expect(email.replyTo).toBe('ayuda@jobys.cl');
+  expect(email.to).toEqual(['stored@example.com']);
+  expect(email.tags).toEqual([
+    { name: 'type', value: 'order_status_update' },
+    { name: 'order_status', value: 'shipped' },
+  ]);
+  const secret = email.text.match(/token=([a-f0-9]{64})/)![1];
+  expect(email.html).toContain(`https://jobys.cl/api/orders/order-123456/access?token&#x3D;${secret}`);
+  expect(mocks.createToken).toHaveBeenCalledOnce();
+});
+
+test.each([
+  ['missing', () => mocks.template.mockResolvedValue(null)],
+  ['unreadable', () => mocks.template.mockRejectedValue(new Error('db'))],
+  ['invalid', () => mocks.template.mockResolvedValue({ ...storedTemplate, htmlTemplate: '{{{raw}}}' })],
+])('falls back to built-in content when the template is %s', async (_name, arrange) => {
+  vi.stubEnv('RESEND_API_KEY', 'test-key');
+  arrange();
+  mocks.send.mockResolvedValue({ error: null });
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    await sendOrderStatusNotification(notification);
+  } finally {
+    log.mockRestore();
+  }
+  const email = mocks.send.mock.calls[0][0];
+  expect(email.html).toContain('Actualización de tu pedido');
+  expect(email.from).toBe('Jobys - Juegos de Mesa <no-reply@jobys.cl>');
+  expect(email.replyTo).toBeUndefined();
 });

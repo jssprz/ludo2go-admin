@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { Resend } from 'resend';
 import { prisma } from '@jssprz/ludo2go-database';
+import { renderEmailTemplate } from './email-template-rendering';
 import type { FulfillmentMethod, OrderItemCancellationReason, OrderStatus } from '@prisma/client';
 
 type OrderEmailItem = {
@@ -109,6 +110,34 @@ export function orderEmailSender(configured: string | undefined): string {
   return address.includes('<') ? address : `${ORDER_EMAIL_SENDER_NAME} <${address}>`;
 }
 
+type OrderStatusTemplate = {
+  subjectTemplate: string;
+  htmlTemplate: string;
+  textTemplate: string | null;
+  fromName: string | null;
+  fromEmail: string | null;
+  replyToEmail: string | null;
+};
+
+/** Returns null when the template is absent or unreadable so the built-in email is still sent. */
+async function loadOrderStatusTemplate(): Promise<OrderStatusTemplate | null> {
+  try {
+    return await prisma.emailTemplate.findUnique({
+      where: { key_locale: { key: 'order_status_update', locale: 'es-CL' } },
+    });
+  } catch {
+    console.error('Order status email template unavailable; using built-in content.');
+    return null;
+  }
+}
+
+/** The configured RESEND_FROM_EMAIL stays authoritative unless the template sets its own sender address. */
+function templateSender(template: OrderStatusTemplate, configured: string | undefined): string {
+  const address = configured?.trim() || 'no-reply@jobys.cl';
+  if (!template.fromEmail && address.includes('<')) return address;
+  return `${template.fromName?.trim() || ORDER_EMAIL_SENDER_NAME} <${template.fromEmail || address}>`;
+}
+
 export async function sendOrderStatusNotification({
   orderId,
   customerName,
@@ -176,6 +205,7 @@ export async function sendOrderStatusNotification({
     `© ${new Date().getFullYear()} Jobys. Todos los derechos reservados.`,
   ];
 
+  const template = await loadOrderStatusTemplate();
   let tokenRecordId: string | undefined;
   try {
     const order = await prisma.order.findUnique({
@@ -202,9 +232,32 @@ export async function sendOrderStatusNotification({
       select: { id: true },
     });
     tokenRecordId = record.id;
+    let stored: ReturnType<typeof renderEmailTemplate> | null = null;
+    if (template) {
+      try {
+        stored = renderEmailTemplate(template, {
+          customerName: customerName?.trim() || 'cliente',
+          orderNumber: orderId.slice(0, 8),
+          previousStatusLabel,
+          statusLabel,
+          fulfillmentMethodLabel,
+          total: formatCurrency(total, currency),
+          year: new Date().getFullYear(),
+          orderUrl,
+          itemSummaries,
+          paymentLines,
+        });
+      } catch {
+        console.error('Order status email template failed; using built-in content.');
+      }
+    }
     const { error } = await resend.emails.send({
-      from: orderEmailSender(process.env.RESEND_FROM_EMAIL),
+      from: stored && template
+        ? templateSender(template, process.env.RESEND_FROM_EMAIL)
+        : orderEmailSender(process.env.RESEND_FROM_EMAIL),
       to: [order.customer.email],
+      ...(stored && template?.replyToEmail ? { replyTo: template.replyToEmail } : {}),
+      ...(stored ? stored : {
       subject,
       text: [
         `Hola ${customerName?.trim() || 'cliente'},`,
@@ -245,6 +298,7 @@ export async function sendOrderStatusNotification({
           </div>
         </div>
       `,
+      }),
       tags: [
         { name: 'type', value: 'order_status_update' },
         { name: 'order_status', value: status },

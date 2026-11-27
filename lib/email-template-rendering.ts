@@ -89,59 +89,84 @@ function validateSample(value: unknown, depth = 0, count = { nodes: 0 }): void {
   }
 }
 
-export function renderEmailTemplatePreview(input: unknown) {
-  const { template, sample } = previewSchema.parse(input);
-  validateEmailTemplateSyntax(template);
-  validateSample(sample);
-  const render = (source: string, plain = false) => {
-    try {
-      let iterations = 0;
-      let expandedLength = 0;
-      const each = function (
-        this: unknown,
-        context: unknown,
-        options: Handlebars.HelperOptions
-      ) {
-        const fn = options.fn;
-        return engine.helpers.each.call(this, context, {
-          ...options,
-          fn: (value: unknown, runtime?: Handlebars.RuntimeOptions) => {
-            if (++iterations > 10000)
-              throw new EmailTemplateError('preview_too_large');
-            const output = fn(value, runtime);
-            expandedLength += output.length;
-            if (expandedLength > 500000)
-              throw new EmailTemplateError('preview_too_large');
-            return output;
-          }
-        });
-      };
-      const output = engine.compile(source, {
-        ...compileOptions,
-        noEscape: plain
-      })(sample, {
-        helpers: { each },
-        allowProtoMethodsByDefault: false,
-        allowProtoPropertiesByDefault: false
+function renderSource(source: string, data: unknown, plain = false) {
+  try {
+    let iterations = 0;
+    let expandedLength = 0;
+    const each = function (
+      this: unknown,
+      context: unknown,
+      options: Handlebars.HelperOptions
+    ) {
+      const fn = options.fn;
+      return engine.helpers.each.call(this, context, {
+        ...options,
+        fn: (value: unknown, runtime?: Handlebars.RuntimeOptions) => {
+          if (++iterations > 10000)
+            throw new EmailTemplateError('preview_too_large');
+          const output = fn(value, runtime);
+          expandedLength += output.length;
+          if (expandedLength > 500000)
+            throw new EmailTemplateError('preview_too_large');
+          return output;
+        }
       });
-      if (output.length > 500000)
-        throw new EmailTemplateError('preview_too_large');
-      return output;
-    } catch (error) {
-      if (error instanceof EmailTemplateError) throw error;
-      throw new EmailTemplateError(
-        'invalid_sample',
-        error instanceof Error ? error.message : 'Rendering failed'
-      );
-    }
-  };
-  const subject = render(template.subjectTemplate, true);
+    };
+    const output = engine.compile(source, {
+      ...compileOptions,
+      noEscape: plain
+    })(data, {
+      helpers: { each },
+      allowProtoMethodsByDefault: false,
+      allowProtoPropertiesByDefault: false
+    });
+    if (output.length > 500000)
+      throw new EmailTemplateError('preview_too_large');
+    return output;
+  } catch (error) {
+    if (error instanceof EmailTemplateError) throw error;
+    throw new EmailTemplateError(
+      'invalid_sample',
+      error instanceof Error ? error.message : 'Rendering failed'
+    );
+  }
+}
+
+function renderSubject(source: string, data: unknown) {
+  const subject = renderSource(source, data, true);
   if (/[\r\n]/.test(subject))
     throw new EmailTemplateError(
       'invalid_sample',
       'Subject must not contain newlines.'
     );
-  const html = sanitizeHtml(render(template.htmlTemplate), {
+  return subject;
+}
+
+/** Renders a stored template for delivery. HTML is not sanitized: the template is admin-authored and variables are escaped. */
+export function renderEmailTemplate(
+  template: {
+    subjectTemplate: string;
+    htmlTemplate: string;
+    textTemplate: string | null;
+  },
+  data: unknown
+) {
+  validateEmailTemplateSyntax(template);
+  return {
+    subject: renderSubject(template.subjectTemplate, data),
+    html: renderSource(template.htmlTemplate, data),
+    text: template.textTemplate
+      ? renderSource(template.textTemplate, data, true)
+      : undefined
+  };
+}
+
+export function renderEmailTemplatePreview(input: unknown) {
+  const { template, sample } = previewSchema.parse(input);
+  validateEmailTemplateSyntax(template);
+  validateSample(sample);
+  const subject = renderSubject(template.subjectTemplate, sample);
+  const html = sanitizeHtml(renderSource(template.htmlTemplate, sample), {
     allowedTags: [
       ...sanitizeHtml.defaults.allowedTags,
       'img',
@@ -162,6 +187,8 @@ export function renderEmailTemplatePreview(input: unknown) {
   return {
     subject,
     html: `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; base-uri 'none'; form-action 'none'"></head><body>${html}</body></html>`,
-    text: template.textTemplate ? render(template.textTemplate, true) : null
+    text: template.textTemplate
+      ? renderSource(template.textTemplate, sample, true)
+      : null
   };
 }
