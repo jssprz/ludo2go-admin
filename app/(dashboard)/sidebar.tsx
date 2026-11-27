@@ -127,6 +127,7 @@ function useNavGroups(t: ReturnType<typeof useTranslations<'nav'>>): NavGroup[] 
       icon: <BookOpen className="h-4 w-4" />,
       items: [
         { href: '/guides', labelKey: 'guides', icon: <BookOpen className="h-4 w-4" /> },
+        { href: '/email-templates', labelKey: 'emailTemplates', icon: <Mail className="h-4 w-4" /> },
         { href: '/guide-categories', labelKey: 'guideCategories', icon: <FolderOpen className="h-4 w-4" /> },
         { href: '/carousels', labelKey: 'carousels', icon: <Images className="h-4 w-4" /> },
         { href: '/media', labelKey: 'mediaGallery', icon: <ImageIcon className="h-4 w-4" /> },

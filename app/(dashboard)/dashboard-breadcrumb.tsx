@@ -34,6 +34,7 @@ const NAV_LABEL_KEYS: Record<string, string> = {
   customers: 'customers',
   'early-access': 'earlyAccess',
   guides: 'guides',
+  'email-templates': 'emailTemplates',
   'guide-categories': 'guideCategories',
   carousels: 'carousels',
   media: 'mediaGallery',

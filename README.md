@@ -47,6 +47,20 @@ Required variables:
 
 ### 3. Generate Prisma client
 
+Order status emails include the current product lines, original and remaining quantities,
+cancellation quantities/reasons, complimentary gift labels, line totals, and stored order total
+in both HTML and plain text. Internal gift reasons, cancellation details, and admin identifiers
+are excluded. Emails are still triggered only by overall order status changes, not item-only edits.
+
+The “Ver mi pedido” link uses `https://jobys.cl/api/orders/{id}/access?token=…`.
+Each email creates an independent 90-day `EmailVerificationToken` bound to the order's stored
+customer ID and email. Only its SHA-256 hash is stored (with the `order_access_{id}_` prefix).
+Sending failures revoke only the newly created token; previous email links remain valid.
+Tokens and access URLs must not be logged.
+Deploy the storefront access endpoint **before** deploying this admin email change.
+That endpoint handles login-free order access and the access-request form for invalid/expired links.
+No database migration is required.
+
 ```bash
 pnpm prisma:generate
 ```
@@ -59,7 +73,66 @@ pnpm dev
 
 The app will be available at http://localhost:3000.
 
+## Supplier Media Downloads
+
+Run `npm run supplier:media -- https://devir.cl/clank-catacumbas` to download
+supplier media to a local manifest. The CLI and dashboard media importer honor
+`HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` (including lowercase equivalents).
+Transient connection failures are retried; terminal network errors include the
+resource URL and underlying error code. Configure trusted certificates with
+`NODE_EXTRA_CA_CERTS` when required by your network; do not disable TLS validation.
+An HTTP 403 means access was denied by the supplier or network proxy and must be
+resolved with that service/network administrator before importing.
+
 ## Dashboard Sections
+
+### Customer email templates
+
+Open **Content > Email templates** (`/email-templates`) to create, edit, search,
+delete and preview the 11 customer-facing email types shared with the storefront.
+Internal admin notifications and reports are excluded. The shared database must
+include the `EmailTemplate` migration and the generated Prisma client.
+
+Records are unique by email type and canonical locale (for example `es-CL`).
+Empty sender fields inherit each sending application's defaults; empty reply-to
+means no override. Sender domains must be verified with the email provider.
+Saves take effect in the shared record immediately; there is no draft/publish
+workflow. Updates and deletions reject stale revisions instead of overwriting
+another operator's changes. Reload explicitly to discard edits and fetch records.
+
+Use Handlebars escaped variables (`{{customerName}}`), `if`, `unless`, `each`
+and `with` blocks. For example:
+
+```handlebars
+<h1>Hola {{customerName}}</h1>
+{{#each items}}
+  <p>{{name}}: {{quantity}} — {{price}}</p>
+{{/each}}
+{{#if trackingUrl}}<a href="{{trackingUrl}}">Rastrear pedido</a>{{/if}}
+```
+
+Raw HTML variables, partials, decorators and custom helpers are not supported.
+The preview renders unsaved content with editable, synthetic sample JSON and
+reports missing required variables or invalid syntax. Sample JSON is never
+persisted. HTML previews are sanitized and sandboxed: external images, scripts
+and link navigation are disabled. Stored HTML is not rewritten by the preview.
+
+**This module does not seed existing email content, send test emails or connect
+either application's senders.** Existing hardcoded emails remain unchanged.
+The sample variables are illustrative, not an already-deployed sender contract.
+Both apps must subsequently adopt the same rendering contract, validate dynamic
+URLs and load shared templates by key/locale. Recipient selection, token
+generation/expiry, actual discounts, calculations and triggers remain in code.
+Do not put real customer data or access tokens in preview samples.
+
+Run focused tests with `npx vitest run --config tests/vitest.email-templates.config.ts`.
+
+In the product editor's Details tab, **Save changes** saves without leaving the
+editor. **Save and Exit** saves and returns to the product catalog. Failed saves
+keep you in the editor and display an error.
+
+The variant editor's Details tab has the same save actions: **Save changes** stays
+in the editor, while **Save and Exit** saves and returns to the previous page.
 
 | Route | Description |
 |---|---|
