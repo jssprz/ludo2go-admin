@@ -100,6 +100,12 @@ Saves take effect in the shared record immediately; there is no draft/publish
 workflow. Updates and deletions reject stale revisions instead of overwriting
 another operator's changes. Reload explicitly to discard edits and fetch records.
 
+Order status emails now render from the `order_status_update` / `es-CL` record.
+The sender still owns the access token, stored recipient, Resend tags and
+`RESEND_FROM_EMAIL` (a configured `Name <addr>` wins unless the template sets
+`fromEmail`; `replyToEmail` is applied when set). If the record is missing,
+unreadable or fails to render, the built-in email is sent instead.
+
 Use Handlebars escaped variables (`{{customerName}}`), `if`, `unless`, `each`
 and `with` blocks. For example:
 

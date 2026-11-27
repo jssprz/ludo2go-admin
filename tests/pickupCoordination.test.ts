@@ -2,9 +2,9 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), order: vi.fn(), send: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), order: vi.fn(), send: vi.fn(), template: vi.fn() }));
 vi.mock('@/lib/auth', () => ({ auth: mocks.auth }));
-vi.mock('@jssprz/ludo2go-database', () => ({ prisma: { order: { findUnique: mocks.order } } }));
+vi.mock('@jssprz/ludo2go-database', () => ({ prisma: { order: { findUnique: mocks.order }, emailTemplate: { findUnique: mocks.template } } }));
 vi.mock('resend', () => ({ Resend: class { emails = { send: mocks.send }; } }));
 
 import { POST } from '../app/api/orders/[id]/pickup-coordination/route';
@@ -28,6 +28,7 @@ beforeEach(() => {
   vi.stubEnv('RESEND_FROM_EMAIL', 'pedidos@jobys.cl');
   mocks.auth.mockResolvedValue({ user: { id: 'admin-1' } });
   mocks.order.mockResolvedValue(order);
+  mocks.template.mockResolvedValue(null);
   mocks.send.mockResolvedValue({ data: { id: 'email-1' }, error: null });
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -120,4 +121,25 @@ test('preview works without customer email', async () => {
 test('preview without admin email never falls back to the customer', async () => {
   expect((await POST(previewRequest(), context)).status).toBe(400);
   expect(mocks.send).not.toHaveBeenCalled();
+});
+
+test('renders the stored pickup_coordination template with escaped HTML and unescaped text', async () => {
+  mocks.template.mockResolvedValue({
+    subjectTemplate: 'Retiro #{{orderNumber}}',
+    htmlTemplate: '<p>{{customerName}}</p>{{#if pickupLocation}}<p>{{pickupLocation.name}} {{pickupLocation.address}}</p>{{/if}}<a href="{{whatsappUrl}}">w</a><a href="{{contactEmailUrl}}">m</a>',
+    textTemplate: '{{customerName}} {{pickupLocation.name}}',
+    replyToEmail: null,
+  });
+  mocks.send.mockResolvedValue({ data: { id: 'email-1' }, error: null });
+  expect((await POST(request(), context)).status).toBe(200);
+  const email = mocks.send.mock.calls[0][0];
+  expect(email.subject).toBe('Retiro #order-12');
+  expect(email.html).toContain('&lt;Ana&gt;');
+  expect(email.html).toContain('Local &lt;Centro&gt; Calle 123, Santiago, Chile');
+  expect(email.html).toContain('wa.me/56995425099');
+  expect(email.text).toBe('<Ana> Local <Centro>');
+  expect(email.from).toBe('Jobys - Juegos de Mesa <pedidos@jobys.cl>');
+  expect(email.to).toBe('customer@example.com');
+  expect(email.replyTo).toBe('jobyschile@gmail.com');
+  expect(email.tags).toEqual([{ name: 'type', value: 'pickup_coordination' }]);
 });
